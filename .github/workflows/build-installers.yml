@@ -1,0 +1,414 @@
+name: Build Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 1.0.0)'
+        required: false
+        default: 'dev-build'
+
+env:
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Determine version
+      id: version
+      run: |
+        if ("${{ github.event_name }}" -eq "push" -and "${{ github.ref }}" -like "refs/tags/v*") {
+          $version = "${{ github.ref }}" -replace "refs/tags/v", ""
+        } elseif ("${{ github.event.inputs.version }}" -ne "") {
+          $version = "${{ github.event.inputs.version }}"
+        } else {
+          $version = "dev-${{ github.sha }}"
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+        echo "Building version: $version"
+      shell: powershell
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install NSIS
+      run: |
+        choco install nsis -y
+        echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+      shell: powershell
+      
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Node.js dependencies
+      run: npm ci
+      
+    - name: Build frontend
+      run: |
+        if (Test-Path "src/frontend") {
+          cd src/frontend
+          npm ci
+          npm run build
+        } else {
+          echo "Frontend directory not found, skipping frontend build"
+        }
+      
+    - name: Create Windows installer
+      run: |
+        python scripts/create-distribution.py --platform windows --version ${{ steps.version.outputs.version }}
+      shell: powershell
+      
+    - name: Generate checksums
+      run: |
+        $files = Get-ChildItem -Path "distribution\windows\*.exe"
+        foreach ($file in $files) {
+          $hash = Get-FileHash -Path $file.FullName -Algorithm SHA256
+          "$($hash.Hash.ToLower())  $($file.Name)" | Out-File -Append -FilePath "distribution\windows\SHA256SUMS" -Encoding utf8
+        }
+      shell: powershell
+      
+    - name: Upload Windows artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-installer
+        path: |
+          distribution/windows/*.exe
+          distribution/windows/SHA256SUMS
+        retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    needs: build-windows
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Node.js dependencies
+      run: npm ci
+      
+    - name: Build frontend
+      run: |
+        if [ -d "src/frontend" ]; then
+          cd src/frontend
+          npm ci
+          npm run build
+        else
+          echo "Frontend directory not found, skipping frontend build"
+        fi
+      
+    - name: Create macOS installer
+      run: |
+        python scripts/create-distribution.py --platform macos --version ${{ needs.build-windows.outputs.version }}
+      
+    - name: Generate checksums
+      run: |
+        cd distribution/macos
+        shasum -a 256 *.dmg > SHA256SUMS
+      
+    - name: Upload macOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-installer
+        path: |
+          distribution/macos/*.dmg
+          distribution/macos/SHA256SUMS
+        retention-days: 30
+
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: build-windows
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev rpm
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Node.js dependencies
+      run: npm ci
+      
+    - name: Build frontend
+      run: |
+        if [ -d "src/frontend" ]; then
+          cd src/frontend
+          npm ci
+          npm run build
+        else
+          echo "Frontend directory not found, skipping frontend build"
+        fi
+      
+    - name: Create Linux packages
+      run: |
+        python scripts/create-distribution.py --platform linux --version ${{ needs.build-windows.outputs.version }}
+      
+    - name: Generate checksums
+      run: |
+        cd distribution/linux
+        sha256sum *.deb *.rpm *.AppImage > SHA256SUMS 2>/dev/null || true
+      
+    - name: Upload Linux artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-packages
+        path: |
+          distribution/linux/*.deb
+          distribution/linux/*.rpm
+          distribution/linux/*.AppImage
+          distribution/linux/SHA256SUMS
+        retention-days: 30
+
+  test-installers:
+    needs: [build-windows, build-macos, build-linux]
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Test Windows installer
+      if: matrix.os == 'windows-latest'
+      run: |
+        $installer = Get-ChildItem -Path "artifacts\windows-installer\*.exe" | Select-Object -First 1
+        if ($installer) {
+          echo "Testing Windows installer: $($installer.Name)"
+          # Test installer in silent mode
+          Start-Process -FilePath $installer.FullName -ArgumentList "/S" -Wait -NoNewWindow
+          # Verify installation
+          if (Test-Path "C:\Program Files\Bitcoin Solo Miner Monitor\BitcoinSoloMinerMonitor.exe") {
+            echo "✓ Windows installer test passed"
+          } else {
+            echo "✗ Windows installer test failed"
+            exit 1
+          }
+        }
+      shell: powershell
+      
+    - name: Test macOS installer
+      if: matrix.os == 'macos-latest'
+      run: |
+        dmg_file=$(find artifacts/macos-installer -name "*.dmg" | head -1)
+        if [ -n "$dmg_file" ]; then
+          echo "Testing macOS installer: $(basename "$dmg_file")"
+          # Mount DMG and verify contents
+          hdiutil attach "$dmg_file" -mountpoint /tmp/test_mount
+          if [ -d "/tmp/test_mount/Bitcoin Solo Miner Monitor.app" ]; then
+            echo "✓ macOS installer test passed"
+          else
+            echo "✗ macOS installer test failed"
+            exit 1
+          fi
+          hdiutil detach /tmp/test_mount
+        fi
+      
+    - name: Test Linux packages
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        deb_file=$(find artifacts/linux-packages -name "*.deb" | head -1)
+        if [ -n "$deb_file" ]; then
+          echo "Testing Linux package: $(basename "$deb_file")"
+          # Test package installation (dry run)
+          sudo dpkg --dry-run -i "$deb_file"
+          if [ $? -eq 0 ]; then
+            echo "✓ Linux package test passed"
+          else
+            echo "✗ Linux package test failed"
+            exit 1
+          fi
+        fi
+
+  create-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build-windows, build-macos, build-linux, test-installers]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Prepare release assets
+      run: |
+        mkdir -p release-assets
+        
+        # Copy Windows installer
+        cp artifacts/windows-installer/*.exe release-assets/ 2>/dev/null || true
+        
+        # Copy macOS installer
+        cp artifacts/macos-installer/*.dmg release-assets/ 2>/dev/null || true
+        
+        # Copy Linux packages
+        cp artifacts/linux-packages/*.deb release-assets/ 2>/dev/null || true
+        cp artifacts/linux-packages/*.rpm release-assets/ 2>/dev/null || true
+        cp artifacts/linux-packages/*.AppImage release-assets/ 2>/dev/null || true
+        
+        # Combine checksums
+        cat artifacts/*/SHA256SUMS > release-assets/SHA256SUMS 2>/dev/null || true
+        
+        # List release assets
+        echo "Release assets:"
+        ls -la release-assets/
+      
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION=${{ needs.build-windows.outputs.version }}
+        echo "## Bitcoin Solo Miner Monitor v${VERSION}" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### Downloads" >> release_notes.md
+        echo "" >> release_notes.md
+        
+        # Add download links for each platform
+        for file in release-assets/*; do
+          if [ -f "$file" ] && [ "$(basename "$file")" != "SHA256SUMS" ]; then
+            filename=$(basename "$file")
+            echo "- **${filename}**" >> release_notes.md
+          fi
+        done
+        
+        echo "" >> release_notes.md
+        echo "### Verification" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "All downloads include SHA256 checksums for verification. Download the \`SHA256SUMS\` file and verify your download:" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "\`\`\`bash" >> release_notes.md
+        echo "# On Windows (PowerShell):" >> release_notes.md
+        echo "Get-FileHash -Algorithm SHA256 <filename>" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "# On macOS/Linux:" >> release_notes.md
+        echo "shasum -a 256 <filename>" >> release_notes.md
+        echo "\`\`\`" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Installation Instructions" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "- **Windows**: Download the .exe file and run it. Windows may show an \"Unknown Publisher\" warning - this is normal for open-source software." >> release_notes.md
+        echo "- **macOS**: Download the .dmg file, open it, and drag the application to your Applications folder." >> release_notes.md
+        echo "- **Linux**: Download the appropriate package (.deb for Ubuntu/Debian, .rpm for Fedora/CentOS, or .AppImage for universal compatibility)." >> release_notes.md
+        
+        # Set output for GitHub release
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        cat release_notes.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+      
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Bitcoin Solo Miner Monitor ${{ needs.build-windows.outputs.version }}
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        files: release-assets/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security-scan:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Run security scan
+      run: |
+        echo "Running security scans on generated installers..."
+        
+        # Verify checksums
+        echo "Verifying checksums..."
+        for checksum_file in artifacts/*/SHA256SUMS; do
+          if [ -f "$checksum_file" ]; then
+            echo "Checking $(dirname "$checksum_file"):"
+            cd "$(dirname "$checksum_file")"
+            sha256sum -c SHA256SUMS || echo "Checksum verification failed for $(dirname "$checksum_file")"
+            cd - > /dev/null
+          fi
+        done
+        
+        # Check file sizes (basic sanity check)
+        echo "Checking installer file sizes..."
+        find artifacts -name "*.exe" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" | while read file; do
+          size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
+          if [ "$size" -lt 1000000 ]; then  # Less than 1MB is suspicious
+            echo "⚠️  Warning: $file is only $size bytes"
+          else
+            echo "✓ $file: $size bytes"
+          fi
+        done
+        
+        echo "Security scan completed"

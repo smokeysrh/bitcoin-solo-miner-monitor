@@ -1,0 +1,72 @@
+name: Test Installers
+
+on:
+  workflow_run:
+    workflows: ["Build Installers"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  test-installation:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Download latest release artifacts
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        echo "Testing with latest release artifacts..."
+        # This would download from the latest GitHub release
+        # For now, we'll just test the build process
+        
+    - name: Test build process
+      run: |
+        python scripts/create-distribution.py --version test-build
+        
+    - name: Validate installer creation
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          if [ -d "distribution/windows" ]; then
+            echo "✅ Windows distribution directory created"
+            ls -la distribution/windows/
+          else
+            echo "❌ Windows distribution directory not found"
+            exit 1
+          fi
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          if [ -d "distribution/macos" ]; then
+            echo "✅ macOS distribution directory created"
+            ls -la distribution/macos/
+          else
+            echo "❌ macOS distribution directory not found"
+            exit 1
+          fi
+        elif [ "$RUNNER_OS" == "Linux" ]; then
+          if [ -d "distribution/linux" ]; then
+            echo "✅ Linux distribution directory created"
+            ls -la distribution/linux/
+          else
+            echo "❌ Linux distribution directory not found"
+            exit 1
+          fi
+        fi
+        
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-build-${{ matrix.os }}
+        path: distribution/
+        retention-days: 7
