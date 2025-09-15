@@ -14,7 +14,8 @@
         "create_directory",
         "list_directory",
         "read_text_file",
-        "directory_tree"
+        "directory_tree",
+        "read_multiple_files"
       ]
     },
     "duckduckgo-search": {

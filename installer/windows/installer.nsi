@@ -5,7 +5,7 @@
 !define APP_NAME "Bitcoin Solo Miner Monitor"
 !define PUBLISHER "Bitcoin Solo Miner Monitor"
 !define VERSION "1.0.0"
-!define WEBSITE "https://github.com/bitcoin-solo-miner-monitor"
+!define WEBSITE "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
 !define REGKEY "Software\${APP_NAME}"
 !define UNINSTALL_REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
