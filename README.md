@@ -2,7 +2,7 @@
 
 A comprehensive monitoring application for Bitcoin solo miners, supporting multiple miner types including Bitaxe, Avalon Nano, and Magic Miner.
 
-Context:
+### Context:
 This application has been, and continues to be, entirely vibe-coded by a first time vibe-coder, using the Kiro IDE and Claude Sonnet (4.0 & 3.7). that said, I am sure its a mess (I am sure the AI has added more than it needs to or has errors ect), but I intend on taking it to a fully functioning, stand alone application, built for the solo mining community, by a solo miner. Not only do I need this myself, but I want to contribute to the Bitcoin ecosystem in my own little way. Please feel free to help me make this the best solo miner monitoring application on the open source market!
 
 ## Dependencies
