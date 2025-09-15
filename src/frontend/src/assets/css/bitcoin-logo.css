@@ -1,0 +1,351 @@
+/* Bitcoin Logo CSS Utilities and Styling System */
+
+/* Base logo styles */
+.bitcoin-logo {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              filter 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  object-fit: contain;
+  will-change: transform, filter, opacity;
+}
+
+/* Enhanced hover effects for interactive logos */
+.bitcoin-logo:hover {
+  transform: scale(1.02);
+  cursor: pointer;
+}
+
+/* Size variant classes */
+.bitcoin-logo--xs {
+  width: 16px;
+  height: 16px;
+}
+
+.bitcoin-logo--sm {
+  width: 24px;
+  height: 24px;
+}
+
+.bitcoin-logo--md {
+  width: 32px;
+  height: 32px;
+}
+
+.bitcoin-logo--lg {
+  width: 48px;
+  height: 48px;
+}
+
+.bitcoin-logo--xl {
+  width: 64px;
+  height: 64px;
+}
+
+.bitcoin-logo--hero {
+  width: 96px;
+  height: 96px;
+}
+
+/* Visual variant styles */
+.bitcoin-logo--glow {
+  filter: drop-shadow(0 0 8px rgba(247, 147, 26, 0.4)) 
+          drop-shadow(0 0 16px rgba(247, 147, 26, 0.2));
+  transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bitcoin-logo--glow:hover {
+  filter: drop-shadow(0 0 12px rgba(247, 147, 26, 0.6)) 
+          drop-shadow(0 0 24px rgba(247, 147, 26, 0.3))
+          drop-shadow(0 0 32px rgba(247, 147, 26, 0.1));
+  transform: scale(1.05);
+}
+
+.bitcoin-logo--subtle {
+  opacity: 0.8;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bitcoin-logo--subtle:hover {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+/* Enhanced animation keyframes and classes */
+@keyframes bitcoin-logo-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.95;
+    filter: brightness(1.1);
+  }
+}
+
+@keyframes bitcoin-logo-glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(247, 147, 26, 0.4)) 
+            drop-shadow(0 0 16px rgba(247, 147, 26, 0.2));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(247, 147, 26, 0.6)) 
+            drop-shadow(0 0 32px rgba(247, 147, 26, 0.4))
+            drop-shadow(0 0 48px rgba(247, 147, 26, 0.2));
+    transform: scale(1.05);
+  }
+}
+
+@keyframes bitcoin-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bitcoin-logo-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bitcoin-logo-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(-8px) scale(1.02);
+  }
+  60% {
+    transform: translateY(-4px) scale(1.01);
+  }
+}
+
+@keyframes bitcoin-logo-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Animation classes */
+.bitcoin-logo--animated {
+  animation: bitcoin-logo-pulse 2.5s ease-in-out infinite;
+}
+
+.bitcoin-logo--animated.bitcoin-logo--glow {
+  animation: bitcoin-logo-glow-pulse 2.5s ease-in-out infinite;
+}
+
+.bitcoin-logo--spinning {
+  animation: bitcoin-logo-spin 2s linear infinite;
+}
+
+.bitcoin-logo--fade-in {
+  animation: bitcoin-logo-fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bitcoin-logo--bounce {
+  animation: bitcoin-logo-bounce 1s ease-in-out;
+}
+
+.bitcoin-logo--float {
+  animation: bitcoin-logo-float 3s ease-in-out infinite;
+}
+
+/* Responsive design breakpoints for mobile optimization */
+@media (max-width: 768px) {
+  .bitcoin-logo--hero {
+    width: 64px;
+    height: 64px;
+  }
+  
+  .bitcoin-logo--xl {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .bitcoin-logo--lg {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bitcoin-logo--hero {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .bitcoin-logo--xl {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .bitcoin-logo--lg {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .bitcoin-logo--md {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Accessibility support - respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .bitcoin-logo--animated,
+  .bitcoin-logo--spinning,
+  .bitcoin-logo--bounce,
+  .bitcoin-logo--float {
+    animation: none;
+  }
+  
+  .bitcoin-logo {
+    transition: opacity 0.2s ease;
+    will-change: auto;
+  }
+  
+  .bitcoin-logo--glow,
+  .bitcoin-logo--subtle {
+    transition: opacity 0.2s ease;
+  }
+  
+  .bitcoin-logo:hover {
+    transform: none;
+  }
+  
+  .bitcoin-logo--glow:hover,
+  .bitcoin-logo--subtle:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .bitcoin-logo--glow {
+    filter: none;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+  }
+  
+  .bitcoin-logo--subtle {
+    opacity: 1;
+  }
+}
+
+/* Dark theme adjustments */
+@media (prefers-color-scheme: dark) {
+  .bitcoin-logo--glow {
+    filter: drop-shadow(0 0 10px rgba(247, 147, 26, 0.6)) 
+            drop-shadow(0 0 20px rgba(247, 147, 26, 0.3));
+  }
+  
+  .bitcoin-logo--glow:hover {
+    filter: drop-shadow(0 0 16px rgba(247, 147, 26, 0.8)) 
+            drop-shadow(0 0 32px rgba(247, 147, 26, 0.4))
+            drop-shadow(0 0 48px rgba(247, 147, 26, 0.2));
+  }
+}
+
+/* Utility classes for common layouts */
+.bitcoin-logo-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.bitcoin-logo-inline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* Loading state styles */
+.bitcoin-logo--loading {
+  opacity: 0.6;
+  animation: bitcoin-logo-pulse 1.8s ease-in-out infinite;
+  filter: brightness(0.9);
+}
+
+/* Error state styles */
+.bitcoin-logo--error {
+  opacity: 0.3;
+  filter: grayscale(100%);
+}
+
+/* Focus styles for accessibility */
+.bitcoin-logo:focus {
+  outline: 2px solid #007cba;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Print styles */
+@media print {
+  .bitcoin-logo--animated,
+  .bitcoin-logo--spinning,
+  .bitcoin-logo--bounce,
+  .bitcoin-logo--float {
+    animation: none;
+  }
+  
+  .bitcoin-logo--glow {
+    filter: none;
+  }
+  
+  .bitcoin-logo {
+    transition: none;
+    will-change: auto;
+  }
+}
+
+/* Performance optimizations */
+.bitcoin-logo--animated,
+.bitcoin-logo--spinning,
+.bitcoin-logo--bounce,
+.bitcoin-logo--float {
+  transform-origin: center center;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* GPU acceleration for smooth animations */
+.bitcoin-logo--glow {
+  transform: translateZ(0);
+}
+
+/* Interactive states for better UX */
+.bitcoin-logo--interactive {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bitcoin-logo--interactive:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Focus-visible for better keyboard navigation */
+.bitcoin-logo:focus-visible {
+  outline: 2px solid #007cba;
+  outline-offset: 3px;
+  border-radius: 6px;
+}

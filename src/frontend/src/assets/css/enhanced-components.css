@@ -1,0 +1,658 @@
+/* Enhanced Button and Form Component Styling */
+/* Comprehensive button system with primary, secondary, and icon variants */
+/* Form input styling with proper focus states and validation indicators */
+/* Checkbox, radio button, and select dropdown dark theme styling */
+/* Smooth transitions and accessibility-compliant focus indicators */
+
+/* ===== ENHANCED BUTTON SYSTEM ===== */
+
+/* Base button styles - enhanced from main.css */
+.btn-enhanced {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  min-height: var(--button-height);
+  gap: var(--spacing-xs);
+  position: relative;
+  overflow: hidden;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Enhanced focus states for accessibility */
+.btn-enhanced:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-focus);
+}
+
+.btn-enhanced:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none !important;
+}
+
+/* Primary Button - Bitcoin Orange */
+.btn-enhanced-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-1);
+  border: 1px solid transparent;
+}
+
+.btn-enhanced-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.btn-enhanced-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-1);
+  background-color: var(--color-primary-dark);
+}
+
+.btn-enhanced-primary:focus-visible {
+  box-shadow: var(--shadow-focus), var(--shadow-2);
+}
+
+/* Secondary Button - Outlined */
+.btn-enhanced-secondary {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.btn-enhanced-secondary:hover:not(:disabled) {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+}
+
+.btn-enhanced-secondary:active:not(:disabled) {
+  transform: translateY(0);
+  background-color: var(--color-surface-hover);
+}
+
+.btn-enhanced-secondary:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Ghost Button - Minimal styling */
+.btn-enhanced-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  box-shadow: none;
+}
+
+.btn-enhanced-ghost:hover:not(:disabled) {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.btn-enhanced-ghost:active:not(:disabled) {
+  transform: translateY(0);
+  background-color: var(--color-surface-hover);
+}
+
+/* Icon Button - Square with icon only */
+.btn-enhanced-icon {
+  min-width: var(--button-height);
+  width: var(--button-height);
+  height: var(--button-height);
+  padding: 0;
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.btn-enhanced-icon:hover:not(:disabled) {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.btn-enhanced-icon:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+/* Button Sizes */
+.btn-enhanced-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-small);
+  min-height: var(--button-height-small);
+  gap: var(--spacing-xs);
+}
+
+.btn-enhanced-small.btn-enhanced-icon {
+  min-width: var(--button-height-small);
+  width: var(--button-height-small);
+  height: var(--button-height-small);
+}
+
+.btn-enhanced-large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-h4);
+  min-height: var(--button-height-large);
+  gap: var(--spacing-sm);
+}
+
+.btn-enhanced-large.btn-enhanced-icon {
+  min-width: var(--button-height-large);
+  width: var(--button-height-large);
+  height: var(--button-height-large);
+}
+
+/* Button with loading state */
+.btn-enhanced-loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.btn-enhanced-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: btn-spin 1s linear infinite;
+  color: var(--color-text-on-primary);
+}
+
+.btn-enhanced-secondary.btn-enhanced-loading::after,
+.btn-enhanced-ghost.btn-enhanced-loading::after {
+  color: var(--color-primary);
+}
+
+@keyframes btn-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===== ENHANCED FORM INPUT SYSTEM ===== */
+
+/* Base input field styles */
+.input-enhanced {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+  transition: all var(--transition-normal);
+  min-height: var(--input-height);
+  outline: none;
+}
+
+.input-enhanced::placeholder {
+  color: var(--color-text-hint);
+  opacity: 1;
+}
+
+/* Focus states with accessibility compliance */
+.input-enhanced:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+  background-color: var(--color-surface-elevated);
+}
+
+.input-enhanced:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-border-focus);
+  background-color: var(--color-surface-elevated);
+}
+
+.input-enhanced:disabled {
+  background-color: var(--color-surface);
+  color: var(--color-text-disabled);
+  border-color: var(--color-border-subtle);
+  cursor: not-allowed;
+}
+
+/* Input validation states */
+.input-enhanced-success {
+  border-color: var(--color-success);
+  background-color: var(--color-surface-secondary);
+}
+
+.input-enhanced-success:focus {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.input-enhanced-warning {
+  border-color: var(--color-warning);
+  background-color: var(--color-surface-secondary);
+}
+
+.input-enhanced-warning:focus {
+  box-shadow: 0 0 0 2px rgba(251, 140, 0, 0.2);
+}
+
+.input-enhanced-error {
+  border-color: var(--color-error);
+  background-color: var(--color-surface-secondary);
+}
+
+.input-enhanced-error:focus {
+  box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2);
+}
+
+/* Input with icon */
+.input-enhanced-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-enhanced-with-icon .input-enhanced {
+  padding-left: calc(var(--spacing-md) + 24px + var(--spacing-sm));
+}
+
+.input-enhanced-with-icon .input-icon {
+  position: absolute;
+  left: var(--spacing-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-hint);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-enhanced-with-icon .input-enhanced:focus + .input-icon,
+.input-enhanced-with-icon .input-enhanced:not(:placeholder-shown) + .input-icon {
+  color: var(--color-primary);
+}
+
+/* Textarea enhanced */
+.textarea-enhanced {
+  min-height: calc(var(--input-height) * 2);
+  resize: vertical;
+  font-family: var(--font-family);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ===== ENHANCED CHECKBOX SYSTEM ===== */
+
+.checkbox-enhanced {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-enhanced input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-enhanced .checkbox-box {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-secondary);
+  transition: all var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.checkbox-enhanced .checkbox-box::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 6px;
+  height: 10px;
+  border: solid var(--color-text-on-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform var(--transition-normal);
+}
+
+/* Checked state */
+.checkbox-enhanced input[type="checkbox"]:checked + .checkbox-box {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.checkbox-enhanced input[type="checkbox"]:checked + .checkbox-box::after {
+  transform: rotate(45deg) scale(1);
+}
+
+/* Focus state */
+.checkbox-enhanced input[type="checkbox"]:focus-visible + .checkbox-box {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Hover state */
+.checkbox-enhanced:hover .checkbox-box {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-elevated);
+}
+
+.checkbox-enhanced:hover input[type="checkbox"]:checked + .checkbox-box {
+  background-color: var(--color-primary-hover);
+}
+
+/* Disabled state */
+.checkbox-enhanced input[type="checkbox"]:disabled + .checkbox-box {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-subtle);
+  cursor: not-allowed;
+}
+
+.checkbox-enhanced input[type="checkbox"]:disabled ~ .checkbox-label {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.checkbox-enhanced .checkbox-label {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  transition: color var(--transition-fast);
+}
+
+/* ===== ENHANCED RADIO BUTTON SYSTEM ===== */
+
+.radio-enhanced {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.radio-enhanced input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-enhanced .radio-circle {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  background-color: var(--color-surface-secondary);
+  transition: all var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.radio-enhanced .radio-circle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-text-on-primary);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform var(--transition-normal);
+}
+
+/* Checked state */
+.radio-enhanced input[type="radio"]:checked + .radio-circle {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.radio-enhanced input[type="radio"]:checked + .radio-circle::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Focus state */
+.radio-enhanced input[type="radio"]:focus-visible + .radio-circle {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  box-shadow: var(--shadow-focus);
+}
+
+/* Hover state */
+.radio-enhanced:hover .radio-circle {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-elevated);
+}
+
+.radio-enhanced:hover input[type="radio"]:checked + .radio-circle {
+  background-color: var(--color-primary-hover);
+}
+
+/* Disabled state */
+.radio-enhanced input[type="radio"]:disabled + .radio-circle {
+  background-color: var(--color-surface);
+  border-color: var(--color-border-subtle);
+  cursor: not-allowed;
+}
+
+.radio-enhanced input[type="radio"]:disabled ~ .radio-label {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.radio-enhanced .radio-label {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-normal);
+  transition: color var(--transition-fast);
+}
+
+/* ===== ENHANCED SELECT DROPDOWN SYSTEM ===== */
+
+.select-enhanced {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.select-enhanced select {
+  width: 100%;
+  padding: var(--spacing-sm) calc(var(--spacing-md) + 24px) var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  font-family: var(--font-family);
+  min-height: var(--input-height);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  transition: all var(--transition-normal);
+}
+
+.select-enhanced::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: var(--spacing-md);
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--color-text-hint);
+  pointer-events: none;
+  transition: all var(--transition-fast);
+}
+
+/* Focus and hover states */
+.select-enhanced select:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+  background-color: var(--color-surface-elevated);
+}
+
+.select-enhanced select:focus + .select-enhanced::after,
+.select-enhanced:hover::after {
+  border-top-color: var(--color-primary);
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.select-enhanced select:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-border-focus);
+  background-color: var(--color-surface-elevated);
+}
+
+/* Disabled state */
+.select-enhanced select:disabled {
+  background-color: var(--color-surface);
+  color: var(--color-text-disabled);
+  border-color: var(--color-border-subtle);
+  cursor: not-allowed;
+}
+
+.select-enhanced select:disabled + .select-enhanced::after {
+  border-top-color: var(--color-text-disabled);
+}
+
+/* Select options styling (limited browser support) */
+.select-enhanced select option {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  padding: var(--spacing-sm);
+}
+
+.select-enhanced select option:hover,
+.select-enhanced select option:focus {
+  background-color: var(--color-surface-hover);
+}
+
+.select-enhanced select option:checked {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+/* ===== FORM GROUP STYLING ===== */
+
+.form-group-enhanced {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-label-enhanced {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
+}
+
+.form-label-enhanced.required::after {
+  content: ' *';
+  color: var(--color-error);
+}
+
+.form-help-text {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  color: var(--color-text-hint);
+  line-height: var(--line-height-normal);
+}
+
+.form-error-text {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  color: var(--color-error);
+  line-height: var(--line-height-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.form-success-text {
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-small);
+  color: var(--color-success);
+  line-height: var(--line-height-normal);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+/* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn-enhanced-primary,
+  .btn-enhanced-secondary,
+  .input-enhanced,
+  .checkbox-enhanced .checkbox-box,
+  .radio-enhanced .radio-circle,
+  .select-enhanced select {
+    border-width: 2px;
+  }
+  
+  .btn-enhanced:focus-visible,
+  .input-enhanced:focus,
+  .checkbox-enhanced input[type="checkbox"]:focus-visible + .checkbox-box,
+  .radio-enhanced input[type="radio"]:focus-visible + .radio-circle,
+  .select-enhanced select:focus {
+    outline-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .btn-enhanced,
+  .input-enhanced,
+  .checkbox-enhanced .checkbox-box,
+  .checkbox-enhanced .checkbox-box::after,
+  .radio-enhanced .radio-circle,
+  .radio-enhanced .radio-circle::after,
+  .select-enhanced select,
+  .select-enhanced::after {
+    transition: none;
+  }
+  
+  .btn-enhanced:hover:not(:disabled),
+  .btn-enhanced:active:not(:disabled) {
+    transform: none;
+  }
+  
+  .btn-enhanced-loading::after {
+    animation: none;
+  }
+}
+
+/* Focus-visible polyfill support */
+.js-focus-visible .btn-enhanced:focus:not(.focus-visible),
+.js-focus-visible .input-enhanced:focus:not(.focus-visible),
+.js-focus-visible .checkbox-enhanced input[type="checkbox"]:focus:not(.focus-visible) + .checkbox-box,
+.js-focus-visible .radio-enhanced input[type="radio"]:focus:not(.focus-visible) + .radio-circle,
+.js-focus-visible .select-enhanced select:focus:not(.focus-visible) {
+  outline: none;
+  box-shadow: none;
+}

@@ -1,0 +1,80 @@
+{
+  "name": "bitcoin-solo-miner-monitor-installer",
+  "version": "1.0.0",
+  "description": "Installer wizard for Bitcoin Solo Miner Monitor",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "author": "Bitcoin Solo Miner Monitor",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.4.0"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "sudo-prompt": "^9.2.1",
+    "extract-zip": "^2.0.1"
+  },
+  "build": {
+    "appId": "com.bitcoinsolominormonitor.installer",
+    "productName": "Bitcoin Solo Miner Monitor Installer",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/electron-store/**/*",
+      "node_modules/sudo-prompt/**/*",
+      "node_modules/extract-zip/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets",
+        "to": "assets"
+      },
+      {
+        "from": "packages",
+        "to": "packages"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/installer_icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bitcoin Solo Miner Monitor Installer"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/installer_icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "icon": "assets/installer_icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bitcoin Solo Miner Monitor Installer"
+    }
+  }
+}

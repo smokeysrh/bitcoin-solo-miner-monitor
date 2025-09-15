@@ -1,0 +1,48 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "C:\\Users\\Smoke\\Downloads\\BTCsoloApp"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "read_file",
+        "write_file",
+        "create_directory",
+        "list_directory",
+        "read_text_file",
+        "directory_tree"
+      ]
+    },
+    "duckduckgo-search": {
+      "command": "uvx",
+      "args": [
+        "duckduckgo-mcp-server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "duckduckgo_search",
+        "fetch_content"
+      ]
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "puppeteer_screenshot",
+        "puppeteer_click",
+        "puppeteer_type",
+        "puppeteer_navigate",
+        "puppeteer_evaluate",
+        "puppeteer_fill"
+      ]
+    }
+  }
+}

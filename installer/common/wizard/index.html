@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Solo Miner Monitor - Installation Wizard</title>
+    <style>
+        :root {
+            --primary-color: #f7931a;
+            --secondary-color: #4a90e2;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --border-radius: 8px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #1e1e1e;
+            color: #ffffff;
+            line-height: 1.6;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        
+        .sidebar {
+            width: 100%;
+            height: auto;
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 0;
+            font-size: 13px;
+            display: flex;
+            overflow-x: auto;
+            order: 1;
+        }
+        
+        .sidebar-item {
+            padding: 8px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+            min-width: fit-content;
+        }
+        
+        .sidebar-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-item.active {
+            background-color: var(--primary-color);
+            font-weight: 500;
+        }
+        
+        .sidebar-item.completed {
+            color: #7f8c8d;
+        }
+        
+        .sidebar-item.completed::after {
+            content: "✓";
+            margin-left: 10px;
+            color: var(--success-color);
+        }
+        
+        .main {
+            flex: 1;
+            padding: 30px 40px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-width: 0;
+            width: 100%;
+            order: 2;
+        }
+        
+        .step {
+            display: none;
+        }
+        
+        .step.active {
+            display: block;
+        }
+        
+        .step-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        
+        .step-description {
+            margin-bottom: 30px;
+            color: #cccccc;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #555;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            background-color: #2a2a2a;
+            color: #ffffff;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+        }
+        
+        .checkbox-group input {
+            margin-right: 10px;
+        }
+        
+        .btn-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #e58e19;
+        }
+        
+        .btn-secondary {
+            background-color: #555;
+            color: #ffffff;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #666;
+        }
+        
+        .btn-disabled {
+            background-color: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        .card {
+            border: 1px solid #555;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            background-color: #2a2a2a;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .card-body {
+            font-size: 14px;
+        }
+        
+        .option-card {
+            border: 2px solid #555;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #2a2a2a;
+        }
+        
+        .option-card:hover {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+        
+        .option-card.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(247, 147, 26, 0.2);
+        }
+        
+        .option-card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .option-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+        
+        .option-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .option-description {
+            font-size: 14px;
+            color: #cccccc;
+        }
+        
+        .dependency-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #555;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            background-color: #2a2a2a;
+        }
+        
+        .dependency-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        
+        .dependency-info {
+            flex-grow: 1;
+        }
+        
+        .dependency-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        
+        .dependency-version {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .dependency-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-ok {
+            background-color: rgba(46, 204, 113, 0.2);
+            color: var(--success-color);
+        }
+        
+        .status-warning {
+            background-color: rgba(243, 156, 18, 0.2);
+            color: var(--warning-color);
+        }
+        
+        .status-error {
+            background-color: rgba(231, 76, 60, 0.2);
+            color: var(--danger-color);
+        }
+        
+        /* Component Selection Styles */
+        .component-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .component-item {
+            background-color: #f9f9f9;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .component-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .component-description {
+            margin-top: 5px;
+            margin-left: 25px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .miner-discovery {
+            margin-top: 20px;
+        }
+        
+        .miner-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .miner-item:hover {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
+        
+        .miner-item.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(247, 147, 26, 0.2);
+        }
+        
+        .miner-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            color: var(--primary-color);
+        }
+        
+        .miner-info {
+            flex-grow: 1;
+        }
+        
+        .miner-name {
+            font-weight: 500;
+        }
+        
+        .miner-details {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .miner-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-online {
+            background-color: rgba(46, 204, 113, 0.2);
+            color: var(--success-color);
+        }
+        
+        .progress-container {
+            margin-bottom: 30px;
+        }
+        
+        .progress-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .progress-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .progress-icon.pending {
+            background-color: #ddd;
+        }
+        
+        .progress-icon.in-progress {
+            background-color: var(--warning-color);
+        }
+        
+        .progress-icon.completed {
+            background-color: var(--success-color);
+        }
+        
+        .progress-icon.error {
+            background-color: var(--danger-color);
+        }
+        
+        .progress-text {
+            flex-grow: 1;
+        }
+        
+        .progress-title {
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+        
+        .progress-message {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .progress-status {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .success-icon {
+            font-size: 64px;
+            color: var(--success-color);
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .footer {
+            background-color: #f5f5f5;
+            border-top: 1px solid #ddd;
+            padding: 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .footer-text {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        
+        .tooltip-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-color: #ddd;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 16px;
+            font-size: 12px;
+        }
+        
+        .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: var(--dark-color);
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 14px;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .browse-button {
+            padding: 12px;
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            cursor: pointer;
+        }
+        
+        .input-with-button {
+            display: flex;
+        }
+        
+        .input-with-button input {
+            flex: 1;
+            border-radius: var(--border-radius) 0 0 var(--border-radius);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main {
+                padding: 15px 20px;
+            }
+        }
+        
+        @media (max-width: 992px) {
+            .main {
+                padding: 20px 25px;
+            }
+            
+            .header h1 {
+                font-size: 18px;
+            }
+            
+            .step-title {
+                font-size: 20px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main {
+                padding: 20px 15px;
+            }
+            
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .header h1 {
+                font-size: 16px;
+                margin-bottom: 3px;
+            }
+            
+            .header p {
+                font-size: 12px;
+            }
+            
+            .step-title {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .option-card {
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                min-height: 100vh;
+            }
+            
+            .main {
+                padding: 15px 10px;
+            }
+            
+            .header {
+                padding: 8px 10px;
+            }
+            
+            .step-title {
+                font-size: 16px;
+            }
+            
+            .sidebar {
+                padding: 8px 0;
+            }
+            
+            .sidebar-item {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+            
+            .card {
+                padding: 12px;
+                margin-bottom: 15px;
+            }
+            
+            .form-control {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Ensure content doesn't overflow */
+        .container {
+            min-width: 320px;
+            overflow-x: hidden;
+        }
+        
+        /* Hide any main application interface elements that might conflict */
+        body > *:not(.container) {
+            display: none !important;
+        }
+        
+        /* Ensure wizard takes full control */
+        body {
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: #f5f5f5 !important;
+        }
+        
+        .container {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 99999 !important;
+            background: #f5f5f5 !important;
+            display: flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Aggressively hide anything that's not the wizard */
+        body > *:not(.container) {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        /* Prevent any overlays or modals */
+        .modal, .overlay, .popup, [class*="sidebar"]:not(.sidebar) {
+            display: none !important;
+        }
+        
+        .main {
+            min-width: 0; /* Allows flex items to shrink below content size */
+        }
+        
+        /* Improve text wrapping */
+        .step-description,
+        .card-body,
+        .option-description {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bitcoin Solo Miner Monitor</h1>
+            <p>Installation Wizard</p>
+        </div>
+        
+        <div class="content">
+            <div class="sidebar">
+                <div class="sidebar-item active" data-step="welcome">Welcome</div>
+                <div class="sidebar-item" data-step="requirements">System Requirements</div>
+                <div class="sidebar-item" data-step="installation-type">Installation Type</div>
+                <div class="sidebar-item" data-step="installation-location">Installation Location</div>
+                <div class="sidebar-item" data-step="component-selection">Components</div>
+                <div class="sidebar-item" data-step="network-discovery">Network Discovery</div>
+                <div class="sidebar-item" data-step="installation">Installation</div>
+                <div class="sidebar-item" data-step="completion">Completion</div>
+            </div>
+            
+            <div class="main">
+                <!-- Step 1: Welcome -->
+                <div class="step active" id="welcome">
+                    <h2 class="step-title">Welcome to Bitcoin Solo Miner Monitor</h2>
+                    <p class="step-description">This wizard will guide you through the installation process. We'll help you set up everything you need to monitor your Bitcoin mining hardware.</p>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">About Bitcoin Solo Miner Monitor</div>
+                        </div>
+                        <div class="card-body">
+                            <p>Bitcoin Solo Miner Monitor is a unified monitoring and management solution for Bitcoin mining hardware, specifically targeting solo miners running Magic Miner, Avalon Nano, and Bitaxe devices on a local network.</p>
+                            <br>
+                            <p>Features include:</p>
+                            <ul>
+                                <li>Real-time monitoring of mining performance</li>
+                                <li>Historical data analysis with interactive charts</li>
+                                <li>Network topology visualization</li>
+                                <li>Automated alerts and notifications</li>
+                                <li>Device management capabilities</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="termsCheck">
+                            <label for="termsCheck">I accept the <a href="#" id="termsLink">Terms and Conditions</a></label>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <div></div>
+                        <button class="btn btn-primary" id="welcomeNext">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: System Requirements -->
+                <div class="step" id="requirements">
+                    <h2 class="step-title">System Requirements</h2>
+                    <p class="step-description">Let's check if your system meets the requirements for Bitcoin Solo Miner Monitor.</p>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Your System</div>
+                        </div>
+                        <div class="card-body" id="systemInfo">
+                            <p>Checking system information...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Required Dependencies</div>
+                        </div>
+                        <div class="card-body" id="dependenciesInfo">
+                            <p>Checking dependencies...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" data-nav="welcome">Back</button>
+                        <button class="btn btn-primary" data-nav="installation-type">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Installation Type -->
+                <div class="step" id="installation-type">
+                    <h2 class="step-title">Choose Installation Type</h2>
+                    <p class="step-description">Select the installation type that best suits your needs.</p>
+                    
+                    <div class="option-card selected" data-option="express">
+                        <div class="option-card-header">
+                            <div class="option-icon">⚡</div>
+                            <div class="option-title">Express Installation (Recommended)</div>
+                        </div>
+                        <div class="option-description">
+                            Automatically installs all required components with recommended settings. Best for most users.
+                        </div>
+                    </div>
+                    
+                    <div class="option-card" data-option="custom">
+                        <div class="option-card-header">
+                            <div class="option-icon">⚙️</div>
+                            <div class="option-title">Custom Installation</div>
+                        </div>
+                        <div class="option-description">
+                            Choose which components to install and configure advanced settings. For experienced users.
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" data-nav="requirements">Back</button>
+                        <button class="btn btn-primary" data-nav="installation-location">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Installation Location -->
+                <div class="step" id="installation-location">
+                    <h2 class="step-title">Installation Location</h2>
+                    <p class="step-description">Choose where you want to install Bitcoin Solo Miner Monitor.</p>
+                    
+                    <div class="form-group">
+                        <label for="installDir">Installation Folder</label>
+                        <div class="input-with-button">
+                            <input type="text" id="installDir" class="form-control" readonly>
+                            <button class="browse-button" id="browseInstallDir">Browse</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dataDir">Data Folder</label>
+                        <div class="input-with-button">
+                            <input type="text" id="dataDir" class="form-control" readonly>
+                            <button class="browse-button" id="browseDataDir">Browse</button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="desktopShortcut" checked>
+                            <label for="desktopShortcut">Create Desktop shortcut</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="startMenuShortcut" checked>
+                            <label for="startMenuShortcut">Create Start Menu shortcuts</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="startOnBoot" checked>
+                            <label for="startOnBoot">Start application when system starts</label>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" data-nav="installation-type">Back</button>
+                        <button class="btn btn-primary" id="installLocationNext">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 5: Component Selection -->
+                <div class="step" id="component-selection">
+                    <h2 class="step-title">Select Components</h2>
+                    <p class="step-description">Choose which components you want to install. The core components are required and cannot be deselected.</p>
+                    
+                    <div class="component-list">
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="coreComponent" checked disabled>
+                                <label for="coreComponent">Core Application</label>
+                            </div>
+                            <p class="component-description">The main application for monitoring and managing your Bitcoin miners. (Required)</p>
+                        </div>
+                        
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="databaseComponent" checked>
+                                <label for="databaseComponent">Database Engine</label>
+                            </div>
+                            <p class="component-description">SQLite database for storing mining configurations and historical data.</p>
+                        </div>
+                        
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="dashboardComponent" checked>
+                                <label for="dashboardComponent">Analytics Dashboard</label>
+                            </div>
+                            <p class="component-description">Advanced data visualization and analytics tools.</p>
+                        </div>
+                        
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="alertComponent" checked>
+                                <label for="alertComponent">Alert System</label>
+                            </div>
+                            <p class="component-description">Notification system for monitoring miner health and performance.</p>
+                        </div>
+                        
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="apiComponent">
+                                <label for="apiComponent">API Server</label>
+                            </div>
+                            <p class="component-description">REST API for integrating with external tools and services.</p>
+                        </div>
+                        
+                        <div class="component-item">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="docsComponent">
+                                <label for="docsComponent">Documentation</label>
+                            </div>
+                            <p class="component-description">Offline documentation and user guides.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" data-nav="installation-location">Back</button>
+                        <button class="btn btn-primary" data-nav="network-discovery">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 6: Network Discovery -->
+                <div class="step" id="network-discovery">
+                    <h2 class="step-title">Network Discovery</h2>
+                    <p class="step-description">Let's scan your network to find miners. This will help us automatically configure your monitoring system.</p>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="autoDiscovery" checked>
+                            <label for="autoDiscovery">Enable automatic miner discovery on startup</label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="networkRange">Network Range</label>
+                        <div style="display: flex; align-items: center;">
+                            <input type="text" id="networkRange" class="form-control" value="192.168.1.0/24" style="flex-grow: 1; margin-right: 10px;">
+                            <div class="tooltip">
+                                <span class="tooltip-icon">?</span>
+                                <span class="tooltip-text">This is your local network address range. The default value works for most home networks.</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 20px;" id="scanNetwork">Scan Network</button>
+                    
+                    <div class="miner-discovery" id="minerDiscovery" style="display: none;">
+                        <h3 style="margin-bottom: 15px;">Discovered Miners</h3>
+                        <p style="margin-bottom: 15px;">Select the miners you want to add to your monitoring system:</p>
+                        
+                        <div id="minersList">
+                            <!-- Miners will be added here dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" data-nav="installation-location">Back</button>
+                        <button class="btn btn-primary" data-nav="installation">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 6: Installation -->
+                <div class="step" id="installation">
+                    <h2 class="step-title">Installing Bitcoin Solo Miner Monitor</h2>
+                    <p class="step-description">Please wait while we install the application and configure your system.</p>
+                    
+                    <div class="progress-container" id="installationProgress">
+                        <!-- Progress items will be added here dynamically -->
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-disabled">Back</button>
+                        <button class="btn btn-primary btn-disabled" id="installationNext">Next</button>
+                    </div>
+                </div>
+                
+                <!-- Step 7: Completion -->
+                <div class="step" id="completion">
+                    <h2 class="step-title">Installation Complete</h2>
+                    
+                    <div class="success-icon">✓</div>
+                    
+                    <p class="text-center" style="margin-bottom: 20px;">Bitcoin Solo Miner Monitor has been successfully installed on your computer.</p>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Installation Summary</div>
+                        </div>
+                        <div class="card-body" id="installationSummary">
+                            <!-- Summary will be added here dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="launchApp" checked>
+                            <label for="launchApp">Launch Bitcoin Solo Miner Monitor Setup Wizard</label>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <div></div>
+                        <button class="btn btn-primary" id="finishButton">Finish</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-text">Bitcoin Solo Miner Monitor v1.0.0</div>
+            <div class="footer-text">© 2025 Bitcoin Solo Miner Monitor</div>
+        </div>
+    </div>
+    
+    <script>
+        // Aggressive wizard protection - run immediately
+        (function() {
+            console.log('Wizard protection script running...');
+            
+            // Prevent any other scripts from loading
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) { // Element node
+                            // Remove any non-wizard elements
+                            if (!node.closest('.container') && node !== document.querySelector('.container')) {
+                                console.log('Removing interfering element:', node);
+                                node.remove();
+                            }
+                        }
+                    });
+                });
+            });
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+            
+            // Force wizard visibility every 100ms
+            setInterval(function() {
+                const container = document.querySelector('.container');
+                if (container) {
+                    container.style.display = 'flex';
+                    container.style.visibility = 'visible';
+                    container.style.opacity = '1';
+                    container.style.zIndex = '99999';
+                }
+            }, 100);
+        })();
+        
+        // Import Electron modules
+        const { ipcRenderer } = require('electron');
+        
+        // Global state
+        let installerConfig = {};
+        let currentStep = 'welcome';
+        let installationType = 'express';
+        let discoveredMiners = [];
+        let selectedMiners = [];
+        let installationInProgress = false;
+        
+        // DOM elements
+        const steps = document.querySelectorAll('.step');
+        const sidebarItems = document.querySelectorAll('.sidebar-item');
+        
+        // Initialize the application
+        async function initialize() {
+            // Get installer configuration
+            installerConfig = await ipcRenderer.invoke('get-installer-config');
+            
+            // Set initial values
+            document.getElementById('installDir').value = installerConfig.installDir;
+            document.getElementById('dataDir').value = installerConfig.dataDir;
+            document.getElementById('desktopShortcut').checked = installerConfig.createDesktopShortcut;
+            document.getElementById('startMenuShortcut').checked = installerConfig.createStartMenuShortcut;
+            document.getElementById('startOnBoot').checked = installerConfig.startOnBoot;
+            document.getElementById('autoDiscovery').checked = installerConfig.autoDiscovery;
+            document.getElementById('networkRange').value = installerConfig.networkRange;
+            
+            // Load system information
+            loadSystemInfo();
+            
+            // Set up event listeners
+            setupEventListeners();
+        }
+        
+        // Load system information
+        async function loadSystemInfo() {
+            try {
+                const systemInfo = await ipcRenderer.invoke('get-system-info');
+                const dependencies = await ipcRenderer.invoke('check-dependencies');
+                
+                // Update system info card
+                const systemInfoElement = document.getElementById('systemInfo');
+                systemInfoElement.innerHTML = `
+                    <ul>
+                        <li><strong>Operating System:</strong> ${getPlatformName(systemInfo.platform)} (${systemInfo.arch})</li>
+                        <li><strong>CPU:</strong> ${systemInfo.cpuCores} cores</li>
+                        <li><strong>Memory:</strong> ${systemInfo.totalMemory} GB (${systemInfo.freeMemory} GB free)</li>
+                        <li><strong>Hostname:</strong> ${systemInfo.hostname}</li>
+                        <li><strong>Username:</strong> ${systemInfo.username}</li>
+                    </ul>
+                `;
+                
+                // Update dependencies info card
+                const dependenciesInfoElement = document.getElementById('dependenciesInfo');
+                dependenciesInfoElement.innerHTML = '';
+                
+                // Add Python dependency
+                const pythonItem = createDependencyItem(
+                    'Python',
+                    `Required: ${dependencies.python.required}`,
+                    dependencies.python.installed,
+                    dependencies.python.status
+                );
+                dependenciesInfoElement.appendChild(pythonItem);
+                
+                // Add Node.js dependency
+                const nodeItem = createDependencyItem(
+                    'Node.js',
+                    `Required: ${dependencies.nodejs.required}`,
+                    dependencies.nodejs.installed,
+                    dependencies.nodejs.status
+                );
+                dependenciesInfoElement.appendChild(nodeItem);
+                
+                // InfluxDB is no longer required - removed from dependencies display
+                
+                // Add note about bundled dependencies
+                const noteElement = document.createElement('p');
+                noteElement.style.marginTop = '15px';
+                noteElement.innerHTML = '<strong>Note:</strong> Missing or outdated dependencies will be automatically installed during the installation process.';
+                dependenciesInfoElement.appendChild(noteElement);
+            } catch (error) {
+                console.error('Error loading system information:', error);
+            }
+        }
+        
+        // Helper function to get platform name
+        function getPlatformName(platform) {
+            switch (platform) {
+                case 'win32':
+                    return 'Windows';
+                case 'darwin':
+                    return 'macOS';
+                case 'linux':
+                    return 'Linux';
+                default:
+                    return platform;
+            }
+        }
+        
+        // Helper function to create dependency item
+        function createDependencyItem(name, requiredVersion, installedVersion, status) {
+            const item = document.createElement('div');
+            item.className = 'dependency-item';
+            
+            let statusClass = 'status-error';
+            let statusText = 'Not Found';
+            let icon = '❌';
+            
+            if (status === 'ok') {
+                statusClass = 'status-ok';
+                statusText = 'OK';
+                icon = '✓';
+            } else if (status === 'outdated') {
+                statusClass = 'status-warning';
+                statusText = 'Outdated';
+                icon = '⚠️';
+            }
+            
+            item.innerHTML = `
+                <div class="dependency-icon">${icon}</div>
+                <div class="dependency-info">
+                    <div class="dependency-name">${name}</div>
+                    <div class="dependency-version">
+                        ${requiredVersion}
+                        ${installedVersion ? `<br>Installed: ${installedVersion}` : ''}
+                    </div>
+                </div>
+                <div class="dependency-status ${statusClass}">${statusText}</div>
+            `;
+            
+            return item;
+        }
+        
+        // Set up event listeners
+        function setupEventListeners() {
+            // Welcome page next button
+            document.getElementById('welcomeNext').addEventListener('click', () => {
+                const termsCheck = document.getElementById('termsCheck');
+                if (termsCheck.checked) {
+                    navigateTo('requirements');
+                } else {
+                    alert('Please accept the Terms and Conditions to continue.');
+                }
+            });
+            
+            // Navigation buttons
+            document.querySelectorAll('[data-nav]').forEach(button => {
+                button.addEventListener('click', () => {
+                    navigateTo(button.getAttribute('data-nav'));
+                });
+            });
+            
+            // Special handler for installation location next button
+            document.getElementById('installLocationNext').addEventListener('click', () => {
+                if (installationType === 'express') {
+                    navigateTo('network-discovery');
+                } else {
+                    navigateTo('component-selection');
+                }
+            });
+            
+            // Installation type selection
+            document.querySelectorAll('[data-option]').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('[data-option]').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    option.classList.add('selected');
+                    installationType = option.getAttribute('data-option');
+                });
+            });
+            
+            // Browse buttons
+            document.getElementById('browseInstallDir').addEventListener('click', async () => {
+                const dir = await ipcRenderer.invoke('select-install-dir');
+                document.getElementById('installDir').value = dir;
+            });
+            
+            document.getElementById('browseDataDir').addEventListener('click', async () => {
+                const dir = await ipcRenderer.invoke('select-data-dir');
+                document.getElementById('dataDir').value = dir;
+            });
+            
+            // Scan network button
+            document.getElementById('scanNetwork').addEventListener('click', async () => {
+                const networkRange = document.getElementById('networkRange').value;
+                await scanNetwork(networkRange);
+            });
+            
+            // Terms and Conditions link
+            document.getElementById('termsLink').addEventListener('click', (e) => {
+                e.preventDefault();
+                // Create a modal or new window with terms and conditions
+                const termsWindow = window.open('', 'Terms', 'width=600,height=400,scrollbars=yes');
+                termsWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Terms and Conditions</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 20px; background: #1e1e1e; color: #fff; }
+                            h1 { color: #f7931a; }
+                            h2 { color: #4a90e2; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Bitcoin Solo Miner Monitor - Terms and Conditions</h1>
+                        <h2>1. Acceptance of Terms</h2>
+                        <p>By installing and using Bitcoin Solo Miner Monitor, you agree to these terms and conditions.</p>
+                        
+                        <h2>2. License</h2>
+                        <p>This software is provided under the MIT License. You are free to use, modify, and distribute this software.</p>
+                        
+                        <h2>3. Disclaimer</h2>
+                        <p>This software is provided "as is" without warranty of any kind. Use at your own risk.</p>
+                        
+                        <h2>4. Privacy</h2>
+                        <p>This application monitors your local mining hardware. No data is transmitted to external servers without your explicit consent.</p>
+                        
+                        <h2>5. Support</h2>
+                        <p>Support is provided on a best-effort basis through community channels.</p>
+                        
+                        <button onclick="window.close()" style="margin-top: 20px; padding: 10px 20px; background: #f7931a; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+                    </body>
+                    </html>
+                `);
+            });
+
+            // Finish button
+            document.getElementById('finishButton').addEventListener('click', async () => {
+                // Save setup completion data for the main app to read
+                const setupData = {
+                    installationComplete: true,
+                    experienceLevel: wizardData.experienceLevel || 'intermediate',
+                    foundMiners: wizardData.foundMiners || [],
+                    settings: {
+                        simple_mode: wizardData.experienceLevel === 'beginner',
+                        polling_interval: 30,
+                        refresh_interval: 10,
+                        chart_retention_days: 30,
+                        theme: 'dark'
+                    },
+                    preferences: {
+                        autoDiscovery: wizardData.autoDiscovery !== false,
+                        notifications: true,
+                        soundAlerts: false
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                
+                // Save to a file that the main app can read
+                await ipcRenderer.invoke('save-setup-data', setupData);
+                
+                const launchApp = document.getElementById('launchApp').checked;
+                if (launchApp) {
+                    await ipcRenderer.invoke('launch-application');
+                }
+                window.close();
+            });
+        }
+        
+        // Navigate to a step
+        function navigateTo(stepId) {
+            // Don't allow navigation during installation
+            if (installationInProgress && currentStep === 'installation') {
+                return;
+            }
+            
+            // Handle Express Install logic - skip component selection
+            if (installationType === 'express' && stepId === 'component-selection') {
+                // For express install, skip component selection and go to network discovery
+                stepId = 'network-discovery';
+            }
+            
+            // Handle navigation from installation-location for express install
+            if (installationType === 'express' && currentStep === 'installation-location' && stepId === 'component-selection') {
+                stepId = 'network-discovery';
+            }
+            
+            // Special handling for installation step
+            if (stepId === 'installation') {
+                startInstallation();
+            }
+            
+            // Update current step
+            currentStep = stepId;
+            
+            // Update steps visibility
+            steps.forEach(step => {
+                step.classList.remove('active');
+            });
+            document.getElementById(stepId).classList.add('active');
+            
+            // Update sidebar
+            sidebarItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('data-step') === stepId) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Update installer config
+            updateInstallerConfig();
+        }
+        
+        // Update installer configuration
+        function updateInstallerConfig() {
+            // Get selected components
+            const selectedComponents = {
+                core: true, // Core is always required
+                database: document.getElementById('databaseComponent').checked,
+                dashboard: document.getElementById('dashboardComponent').checked,
+                alert: document.getElementById('alertComponent').checked,
+                api: document.getElementById('apiComponent').checked,
+                docs: document.getElementById('docsComponent').checked
+            };
+            
+            installerConfig = {
+                ...installerConfig,
+                installDir: document.getElementById('installDir').value,
+                dataDir: document.getElementById('dataDir').value,
+                createDesktopShortcut: document.getElementById('desktopShortcut').checked,
+                createStartMenuShortcut: document.getElementById('startMenuShortcut').checked,
+                startOnBoot: document.getElementById('startOnBoot').checked,
+                autoDiscovery: document.getElementById('autoDiscovery').checked,
+                networkRange: document.getElementById('networkRange').value,
+                installationType: installationType,
+                selectedMiners: selectedMiners,
+                components: selectedComponents
+            };
+            
+            ipcRenderer.invoke('update-installer-config', installerConfig);
+        }
+        
+        // Scan network for miners
+        async function scanNetwork(networkRange) {
+            try {
+                // Show loading state
+                document.getElementById('scanNetwork').textContent = 'Scanning...';
+                document.getElementById('scanNetwork').disabled = true;
+                
+                // Scan network
+                const hosts = await ipcRenderer.invoke('scan-network', networkRange);
+                
+                // Detect miners
+                discoveredMiners = await ipcRenderer.invoke('detect-miners', hosts);
+                
+                // Update UI
+                document.getElementById('scanNetwork').textContent = 'Scan Network';
+                document.getElementById('scanNetwork').disabled = false;
+                
+                if (discoveredMiners.length > 0) {
+                    // Show miners list
+                    document.getElementById('minerDiscovery').style.display = 'block';
+                    
+                    // Clear miners list
+                    const minersListElement = document.getElementById('minersList');
+                    minersListElement.innerHTML = '';
+                    
+                    // Add miners to list
+                    discoveredMiners.forEach(miner => {
+                        const minerElement = document.createElement('div');
+                        minerElement.className = 'miner-item selected';
+                        minerElement.setAttribute('data-ip', miner.ip);
+                        
+                        minerElement.innerHTML = `
+                            <div class="miner-icon">📱</div>
+                            <div class="miner-info">
+                                <div class="miner-name">${miner.name}</div>
+                                <div class="miner-details">${miner.ip} | ${miner.type}</div>
+                            </div>
+                            <div class="miner-status status-online">Online</div>
+                        `;
+                        
+                        minerElement.addEventListener('click', () => {
+                            minerElement.classList.toggle('selected');
+                            updateSelectedMiners();
+                        });
+                        
+                        minersListElement.appendChild(minerElement);
+                    });
+                    
+                    // Update selected miners
+                    updateSelectedMiners();
+                } else {
+                    // No miners found
+                    document.getElementById('minerDiscovery').style.display = 'block';
+                    document.getElementById('minersList').innerHTML = '<p>No miners found on your network. You can add them manually later.</p>';
+                }
+            } catch (error) {
+                console.error('Error scanning network:', error);
+                document.getElementById('scanNetwork').textContent = 'Scan Network';
+                document.getElementById('scanNetwork').disabled = false;
+                alert('Error scanning network: ' + error.message);
+            }
+        }
+        
+        // Update selected miners
+        function updateSelectedMiners() {
+            selectedMiners = [];
+            document.querySelectorAll('.miner-item.selected').forEach(minerElement => {
+                const ip = minerElement.getAttribute('data-ip');
+                const miner = discoveredMiners.find(m => m.ip === ip);
+                if (miner) {
+                    selectedMiners.push(miner);
+                }
+            });
+        }
+        
+        // Start installation process
+        async function startInstallation() {
+            // Update installer config
+            updateInstallerConfig();
+            
+            // Set installation in progress flag
+            installationInProgress = true;
+            
+            // Initialize progress container
+            const progressContainer = document.getElementById('installationProgress');
+            progressContainer.innerHTML = `
+                <div class="progress-item">
+                    <div class="progress-icon pending">1</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Preparing installation</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">2</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Installing dependencies</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">3</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Copying application files</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">4</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Setting up database</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">5</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Creating configuration</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">6</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Creating shortcuts</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-icon pending">7</div>
+                    <div class="progress-text">
+                        <div class="progress-title">Finalizing installation</div>
+                    </div>
+                    <div class="progress-status">Pending</div>
+                </div>
+            `;
+            
+            // Start installation
+            try {
+                const result = await ipcRenderer.invoke('install-application', installerConfig);
+                
+                if (result.success) {
+                    // Enable next button
+                    document.getElementById('installationNext').classList.remove('btn-disabled');
+                    document.getElementById('installationNext').addEventListener('click', () => {
+                        navigateTo('completion');
+                    });
+                    
+                    // Update installation summary
+                    const componentsList = Object.entries(installerConfig.components)
+                        .filter(([name, selected]) => selected)
+                        .map(([name, _]) => {
+                            const componentNames = {
+                                core: 'Core Application',
+                                database: 'Database Engine',
+                                dashboard: 'Analytics Dashboard',
+                                alert: 'Alert System',
+                                api: 'API Server',
+                                docs: 'Documentation'
+                            };
+                            return componentNames[name] || name;
+                        })
+                        .join(', ');
+                        
+                    document.getElementById('installationSummary').innerHTML = `
+                        <ul>
+                            <li><strong>Installation Location:</strong> ${installerConfig.installDir}</li>
+                            <li><strong>Data Location:</strong> ${installerConfig.dataDir}</li>
+                            <li><strong>Installed Components:</strong> ${componentsList}</li>
+                            <li><strong>Miners Configured:</strong> ${selectedMiners.length}</li>
+                            <li><strong>Auto-Discovery:</strong> ${installerConfig.autoDiscovery ? 'Enabled' : 'Disabled'}</li>
+                        </ul>
+                    `;
+                } else {
+                    alert('Installation failed: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Installation error:', error);
+                alert('Installation failed: ' + error.message);
+            } finally {
+                installationInProgress = false;
+            }
+        }
+        
+        // Listen for installation progress updates
+        ipcRenderer.on('installation-progress', (event, data) => {
+            const { steps, currentStep } = data;
+            
+            // Update progress items
+            steps.forEach((step, index) => {
+                const progressItem = document.querySelectorAll('.progress-item')[index];
+                const progressIcon = progressItem.querySelector('.progress-icon');
+                const progressStatus = progressItem.querySelector('.progress-status');
+                
+                // Update icon class
+                progressIcon.className = `progress-icon ${step.status}`;
+                
+                // Update status text
+                progressStatus.textContent = step.status.charAt(0).toUpperCase() + step.status.slice(1);
+                
+                // Update message if available
+                if (step.message) {
+                    const progressText = progressItem.querySelector('.progress-text');
+                    let messageElement = progressItem.querySelector('.progress-message');
+                    
+                    if (!messageElement) {
+                        messageElement = document.createElement('div');
+                        messageElement.className = 'progress-message';
+                        progressText.appendChild(messageElement);
+                    }
+                    
+                    messageElement.textContent = step.message;
+                }
+            });
+        });
+        
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>

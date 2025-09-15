@@ -1,0 +1,203 @@
+/**
+ * Bitcoin Easter Egg Animation Styles
+ * 
+ * Styles for the secret Bitcoin logo rain animation.
+ * Optimized for performance with hardware acceleration.
+ * Respects accessibility preferences.
+ */
+
+/* Bitcoin Easter Egg Logo Animation */
+.bitcoin-easter-egg-logo {
+  /* Base styles are set via JavaScript for dynamic positioning */
+  /* This class exists for potential CSS-based enhancements */
+  
+  /* Ensure smooth animations with hardware acceleration */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  
+  /* Add subtle glow effect */
+  filter: drop-shadow(0 2px 4px rgba(247, 147, 26, 0.3));
+  
+  /* Prevent interaction */
+  pointer-events: none;
+  user-select: none;
+  
+  /* Optimize for animations */
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Enhanced glow for better visibility */
+.bitcoin-easter-egg-logo::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: radial-gradient(circle, rgba(247, 147, 26, 0.2) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: -1;
+  opacity: 0.8;
+}
+
+/* Accessibility: Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .bitcoin-easter-egg-logo {
+    /* Disable all animations for users who prefer reduced motion */
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .bitcoin-easter-egg-logo {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8)) contrast(1.5);
+  }
+}
+
+/* Performance optimization for mobile devices */
+@media (max-width: 768px) {
+  .bitcoin-easter-egg-logo {
+    /* Slightly reduce effects on mobile for better performance */
+    filter: drop-shadow(0 1px 2px rgba(247, 147, 26, 0.2));
+  }
+  
+  .bitcoin-easter-egg-logo::before {
+    opacity: 0.4;
+  }
+}
+
+/* Easter egg hint styles for UI elements */
+.easter-egg-hint {
+  opacity: 0.7;
+  transition: opacity var(--transition-fast, 0.15s ease);
+  cursor: help;
+}
+
+.easter-egg-hint:hover {
+  opacity: 1;
+}
+
+/* Subtle gaming controller icon for footer hint */
+.gaming-hint {
+  font-size: 12px;
+  color: var(--color-text-hint, #999999);
+  margin-left: 8px;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast, 0.15s ease);
+}
+
+.gaming-hint:hover {
+  opacity: 1;
+  color: var(--color-primary, #F7931A);
+}
+
+/* Console message styling (for development) */
+.console-hint {
+  font-family: 'Courier New', monospace;
+  color: #F7931A;
+  font-weight: bold;
+}
+
+/* Animation performance optimizations */
+.bitcoin-easter-egg-container {
+  /* Container for managing easter egg animations */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+/* Fallback for browsers without hardware acceleration */
+@supports not (transform: translate3d(0, 0, 0)) {
+  .bitcoin-easter-egg-logo {
+    transform: translateY(0);
+  }
+}
+
+/* Print media - hide easter egg elements */
+@media print {
+  .bitcoin-easter-egg-logo,
+  .bitcoin-easter-egg-container,
+  .easter-egg-hint,
+  .gaming-hint {
+    display: none !important;
+  }
+}
+
+/* Focus management - ensure easter egg doesn't interfere with keyboard navigation */
+.bitcoin-easter-egg-logo:focus,
+.bitcoin-easter-egg-container:focus {
+  outline: none;
+}
+
+/* Ensure easter egg doesn't interfere with screen readers */
+.bitcoin-easter-egg-logo[aria-hidden="true"] {
+  speak: none;
+}
+
+/* Animation cleanup class for immediate removal */
+.bitcoin-easter-egg-cleanup {
+  opacity: 0 !important;
+  transform: scale(0) !important;
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+
+/* Performance monitoring class */
+.bitcoin-easter-egg-performance {
+  /* Used for performance monitoring in development */
+  contain: layout style paint;
+  isolation: isolate;
+}
+
+/* Dark theme specific adjustments */
+[data-theme="dark"] .bitcoin-easter-egg-logo {
+  filter: drop-shadow(0 2px 4px rgba(247, 147, 26, 0.4)) brightness(1.1);
+}
+
+[data-theme="dark"] .bitcoin-easter-egg-logo::before {
+  background: radial-gradient(circle, rgba(247, 147, 26, 0.3) 0%, transparent 70%);
+}
+
+/* Light theme specific adjustments */
+[data-theme="light"] .bitcoin-easter-egg-logo {
+  filter: drop-shadow(0 2px 4px rgba(247, 147, 26, 0.2)) brightness(0.9);
+}
+
+[data-theme="light"] .bitcoin-easter-egg-logo::before {
+  background: radial-gradient(circle, rgba(247, 147, 26, 0.15) 0%, transparent 70%);
+}
+
+/* GPU acceleration hints for better performance */
+.bitcoin-easter-egg-logo {
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000px;
+}
+
+/* Ensure proper layering with other UI elements */
+.bitcoin-easter-egg-logo {
+  /* High z-index but below modal overlays */
+  z-index: 9999;
+}
+
+/* Modal and dialog elements should be above easter egg */
+.v-overlay,
+.v-dialog,
+.v-menu,
+.v-tooltip {
+  z-index: 10000 !important;
+}
+
+/* Notification elements should be above easter egg */
+.v-snackbar {
+  z-index: 10001 !important;
+}

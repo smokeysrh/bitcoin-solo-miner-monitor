@@ -1,0 +1,68 @@
+{
+  "app_name": "Bitcoin Solo Miner Monitor",
+  "version": "1.0.0",
+  "publisher": "Bitcoin Solo Miner Monitor",
+  "website": "https://github.com/bitcoin-solo-miner-monitor",
+  "description": "A unified monitoring and management solution for Bitcoin mining hardware",
+  "license_file": "LICENSE.txt",
+  "min_system_requirements": {
+    "windows": {
+      "os": "Windows 10 or later",
+      "cpu": "Dual-core 2.0 GHz or higher",
+      "ram": "2 GB",
+      "disk": "5 GB free space"
+    },
+    "macos": {
+      "os": "macOS 11 (Big Sur) or later",
+      "cpu": "Dual-core 2.0 GHz or higher",
+      "ram": "2 GB",
+      "disk": "5 GB free space"
+    },
+    "linux": {
+      "os": "Ubuntu 20.04 LTS or newer / Debian 11 or newer / Fedora 34 or newer",
+      "cpu": "Dual-core 2.0 GHz or higher",
+      "ram": "2 GB",
+      "disk": "5 GB free space"
+    }
+  },
+  "dependencies": {
+    "python": ">=3.11.0",
+    "nodejs": ">=18.0.0"
+  },
+  "bundled_dependencies": true,
+  "auto_start": true,
+  "create_shortcuts": true,
+  "default_install_locations": {
+    "windows": "C:\\Program Files\\Bitcoin Solo Miner Monitor",
+    "macos": "/Applications/Bitcoin Solo Miner Monitor.app",
+    "linux": "/opt/bitcoin-solo-miner-monitor"
+  },
+  "default_data_locations": {
+    "windows": "%APPDATA%\\Bitcoin Solo Miner Monitor",
+    "macos": "~/Library/Application Support/Bitcoin Solo Miner Monitor",
+    "linux": "~/.bitcoin-solo-miner-monitor"
+  },
+  "installer_steps": [
+    "welcome",
+    "license",
+    "installation_type",
+    "installation_location",
+    "component_selection",
+    "network_discovery",
+    "installation_progress",
+    "completion"
+  ],
+  "default_settings": {
+    "polling_interval": 60,
+    "theme": "light",
+    "ui_mode": "simple",
+    "auto_discovery": true,
+    "auto_backup": true,
+    "backup_interval_days": 7,
+    "alert_notifications": true,
+    "email_notifications": false,
+    "temperature_alert_threshold": 70,
+    "hashrate_drop_alert_threshold": 20,
+    "offline_alert_threshold_minutes": 5
+  }
+}

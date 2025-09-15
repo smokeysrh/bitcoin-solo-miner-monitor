@@ -1,0 +1,39 @@
+# Bitcoin Solo Miner Monitoring App - Python Dependencies
+# Core web framework and server
+fastapi==0.104.*
+uvicorn[standard]==0.24.*
+
+# Async HTTP client for miner communication
+aiohttp==3.9.*
+
+# Database dependencies
+aiosqlite==0.19.*
+
+# Authentication and validation
+PyJWT==2.8.*
+pydantic[email]==2.5.*
+python-multipart==0.0.6
+
+# Password hashing
+bcrypt==4.1.*
+
+# System monitoring
+psutil==5.9.*
+
+# Web scraping (for Magic Miner)
+beautifulsoup4==4.12.*
+
+# Email service dependencies
+aiosmtplib==2.0.*
+jinja2==3.1.*
+email-validator==2.1.*
+
+# WebSocket support
+websockets==12.0
+
+# Development and testing
+pytest==7.4.*
+pytest-asyncio==0.21.*
+
+# Logging and utilities
+python-json-logger==2.0.*

@@ -1,0 +1,488 @@
+/* Accessibility-Focused Animations and Indicators */
+/* Comprehensive animation system that provides visual cues for colorblind users */
+/* and respects user motion preferences */
+
+/* ===== MOTION PREFERENCE DETECTION ===== */
+/* Base animations - full motion */
+:root {
+  --animation-duration-fast: 0.15s;
+  --animation-duration-normal: 0.3s;
+  --animation-duration-slow: 0.5s;
+  --animation-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --animation-easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Reduced motion preferences - disable or simplify animations */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --animation-duration-fast: 0.01s;
+    --animation-duration-normal: 0.01s;
+    --animation-duration-slow: 0.01s;
+  }
+  
+  * {
+    animation-duration: 0.01s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01s !important;
+  }
+}
+
+/* ===== STATUS INDICATOR ANIMATIONS ===== */
+
+/* Base status indicator component */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Status indicator with icon */
+.status-indicator::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+/* ===== SUCCESS STATUS ===== */
+.status-success {
+  background-color: var(--color-success, #4CAF50);
+  color: #FFFFFF;
+  animation: success-pulse var(--animation-duration-slow) var(--animation-easing) infinite alternate;
+}
+
+.status-success::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E");
+  animation: success-checkmark var(--animation-duration-normal) var(--animation-easing) 0.2s both;
+}
+
+@keyframes success-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+  100% { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
+}
+
+@keyframes success-checkmark {
+  0% { transform: scale(0) rotate(45deg); opacity: 0; }
+  50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* ===== ERROR STATUS ===== */
+.status-error {
+  background-color: var(--color-error, #FF5252);
+  color: #FFFFFF;
+  animation: error-shake var(--animation-duration-fast) ease-in-out 3;
+}
+
+.status-error::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E");
+  animation: error-icon-flash var(--animation-duration-normal) ease-in-out 2;
+}
+
+@keyframes error-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes error-icon-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ===== WARNING STATUS ===== */
+.status-warning {
+  background-color: var(--color-warning, #FB8C00);
+  color: #FFFFFF;
+  animation: warning-pulse var(--animation-duration-normal) ease-in-out infinite alternate;
+}
+
+.status-warning::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/%3E%3C/svg%3E");
+  animation: warning-bounce var(--animation-duration-slow) var(--animation-easing-bounce) infinite;
+}
+
+@keyframes warning-pulse {
+  0% { background-color: var(--color-warning, #FB8C00); }
+  100% { background-color: #FF9800; }
+}
+
+@keyframes warning-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+/* ===== INFO STATUS ===== */
+.status-info {
+  background-color: var(--color-info, #2196F3);
+  color: #FFFFFF;
+  animation: info-glow var(--animation-duration-slow) ease-in-out infinite alternate;
+}
+
+.status-info::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'/%3E%3C/svg%3E");
+}
+
+@keyframes info-glow {
+  0% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.3); }
+  100% { box-shadow: 0 0 15px rgba(33, 150, 243, 0.6); }
+}
+
+/* ===== LOADING STATUS ===== */
+.status-loading {
+  background-color: var(--color-surface-secondary, #2A2A2A);
+  color: var(--color-text-secondary, #CCCCCC);
+  border: 1px solid var(--color-border, #555555);
+}
+
+.status-loading::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23CCCCCC'%3E%3Cpath d='M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6z'/%3E%3C/svg%3E");
+  animation: loading-spin var(--animation-duration-normal) linear infinite;
+}
+
+@keyframes loading-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== ONLINE/OFFLINE STATUS ===== */
+.status-online {
+  background-color: var(--color-success, #4CAF50);
+  color: #FFFFFF;
+}
+
+.status-online::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'/%3E%3C/svg%3E");
+  animation: online-pulse var(--animation-duration-slow) ease-in-out infinite alternate;
+}
+
+@keyframes online-pulse {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.status-offline {
+  background-color: var(--color-error, #FF5252);
+  color: #FFFFFF;
+}
+
+.status-offline::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M22.54 16.88L20.41 19l-2.12-2.12L16.17 19l-2.12-2.12L12 19l-2.05-2.12L7.83 19l-2.12-2.12L3.59 19l-2.13-2.12 2.12-2.12L1.46 12.64l2.12-2.12L1.46 8.4l2.12-2.12L1.46 4.16 3.59 2.04l2.12 2.12L7.83 2.04l2.12 2.12L12 2.04l2.05 2.12L16.17 2.04l2.12 2.12L20.41 2.04l2.13 2.12-2.12 2.12L22.54 8.4l-2.12 2.12L22.54 12.64l-2.12 2.12z'/%3E%3C/svg%3E");
+  animation: offline-fade var(--animation-duration-normal) ease-in-out infinite alternate;
+}
+
+@keyframes offline-fade {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* ===== STATE TRANSITION ANIMATIONS ===== */
+
+/* Slide in from right for new content */
+.slide-in-right {
+  animation: slide-in-right var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide in from left for navigation */
+.slide-in-left {
+  animation: slide-in-left var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Fade in for subtle content changes */
+.fade-in {
+  animation: fade-in var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Fade out for removing content */
+.fade-out {
+  animation: fade-out var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Scale in for modal/popup appearances */
+.scale-in {
+  animation: scale-in var(--animation-duration-normal) var(--animation-easing-bounce) both;
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Scale out for modal/popup dismissals */
+.scale-out {
+  animation: scale-out var(--animation-duration-fast) var(--animation-easing) both;
+}
+
+@keyframes scale-out {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+}
+
+/* ===== FOCUS ANIMATIONS ===== */
+
+/* Enhanced focus indicator with animation */
+.focus-ring {
+  position: relative;
+}
+
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary, #F7931A);
+  animation: focus-pulse var(--animation-duration-fast) ease-out;
+}
+
+@keyframes focus-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-primary, #F7931A);
+  }
+  100% {
+    box-shadow: 0 0 0 2px var(--color-primary, #F7931A);
+  }
+}
+
+/* ===== PROGRESS INDICATORS ===== */
+
+/* Progress bar with animated fill */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: var(--color-surface-secondary, #2A2A2A);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--color-primary, #F7931A);
+  border-radius: 4px;
+  transition: width var(--animation-duration-normal) var(--animation-easing);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: progress-shine 2s ease-in-out infinite;
+}
+
+@keyframes progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ===== NOTIFICATION ANIMATIONS ===== */
+
+/* Toast notification slide in from top */
+.toast-enter {
+  animation: toast-slide-in var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+.toast-exit {
+  animation: toast-slide-out var(--animation-duration-normal) var(--animation-easing) both;
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+/* ===== BUTTON INTERACTION ANIMATIONS ===== */
+
+/* Button press animation */
+.btn-press {
+  transition: transform var(--animation-duration-fast) var(--animation-easing);
+}
+
+.btn-press:active {
+  transform: scale(0.98);
+}
+
+/* Button hover glow */
+.btn-glow:hover {
+  animation: btn-glow var(--animation-duration-normal) ease-in-out;
+}
+
+@keyframes btn-glow {
+  0% { box-shadow: 0 0 5px rgba(247, 147, 26, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(247, 147, 26, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(247, 147, 26, 0.3); }
+}
+
+/* ===== LOADING STATES ===== */
+
+/* Skeleton loading animation */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-secondary, #2A2A2A) 25%,
+    var(--color-surface, #1E1E1E) 50%,
+    var(--color-surface-secondary, #2A2A2A) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Spinner loading */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-surface-secondary, #2A2A2A);
+  border-top: 2px solid var(--color-primary, #F7931A);
+  border-radius: 50%;
+  animation: spinner-rotate var(--animation-duration-normal) linear infinite;
+}
+
+@keyframes spinner-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== ACCESSIBILITY UTILITIES ===== */
+
+/* Screen reader only content with animation announcements */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Announce status changes to screen readers */
+.status-announcement {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .status-indicator {
+    border: 2px solid;
+  }
+  
+  .status-success { border-color: #00FF00; }
+  .status-error { border-color: #FF0000; }
+  .status-warning { border-color: #FFFF00; }
+  .status-info { border-color: #0000FF; }
+}
+
+/* ===== REDUCED MOTION ALTERNATIVES ===== */
+@media (prefers-reduced-motion: reduce) {
+  /* Replace animations with instant state changes */
+  .status-success::after,
+  .status-error::after,
+  .status-warning::after,
+  .status-info::after {
+    content: ' ✓';
+    font-weight: bold;
+    margin-left: 4px;
+  }
+  
+  .status-error::after { content: ' ✗'; }
+  .status-warning::after { content: ' ⚠'; }
+  .status-info::after { content: ' ℹ'; }
+  
+  /* Enhanced borders for status without animation */
+  .status-indicator {
+    border-width: 2px;
+    border-style: solid;
+  }
+  
+  .status-success { border-color: #4CAF50; }
+  .status-error { border-color: #FF5252; }
+  .status-warning { border-color: #FB8C00; }
+  .status-info { border-color: #2196F3; }
+}
