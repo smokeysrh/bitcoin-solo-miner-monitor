@@ -1,0 +1,694 @@
+/* Bitcoin Solo Miner Monitor - Main CSS */
+/* Import foundational CSS systems */
+/* "↑↑↓↓ is just the beginning" - Some patterns are timeless */
+
+/* Import CSS custom properties and variables */
+@import './variables.css';
+
+/* Import utility classes */
+@import './utilities.css';
+
+/* Import Bitcoin logo CSS utilities and styling system */
+@import './bitcoin-logo.css';
+
+/* Import enhanced button and form components */
+@import './enhanced-components.css';
+
+/* Import card and layout components */
+@import './card-layout-components.css';
+
+/* Import accessibility-focused animations and indicators */
+@import './accessibility-animations.css';
+
+/* Import easter egg animation styles */
+@import './easter-egg.css';
+
+/* Import performance optimizations */
+@import './performance-optimized.css';
+
+/* Import accessibility compliance styles */
+@import './accessibility-compliance.css';
+
+/* Import keyboard navigation styles */
+@import './keyboard-navigation.css';
+
+/* Base styles and resets */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-relaxed);
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  min-height: 100vh;
+}
+
+/* Apply dark theme by default */
+html {
+  color-scheme: dark;
+}
+
+/* Focus management for accessibility */
+*:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Remove focus outline for mouse users */
+.js-focus-visible *:focus:not(.focus-visible) {
+  outline: none;
+}
+
+/* Ensure focus is visible for keyboard users */
+.js-focus-visible *:focus.focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  margin-bottom: var(--spacing-lg);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  margin-bottom: var(--spacing-lg);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+}
+
+h4 {
+  font-size: var(--font-size-h4);
+  font-weight: var(--font-weight-medium);
+}
+
+h5 {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+}
+
+h6 {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Paragraphs and text */
+p {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-text-primary);
+}
+
+/* Links */
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-light);
+  text-decoration: underline;
+}
+
+a:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Lists */
+ul, ol {
+  margin: 0 0 var(--spacing-md) 0;
+  padding-left: var(--spacing-lg);
+}
+
+li {
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-primary);
+}
+
+/* Code */
+code {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+  background-color: var(--color-surface-secondary);
+  color: var(--color-primary-light);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+}
+
+pre {
+  font-family: var(--font-family-mono);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  overflow-x: auto;
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--spacing-md) 0;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+th, td {
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+th {
+  background-color: var(--color-surface-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+tr:nth-child(even) td {
+  background-color: var(--color-surface-variant);
+}
+
+tr:hover td {
+  background-color: var(--color-surface-hover);
+}
+
+/* Form elements base styles */
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: var(--button-height);
+  gap: var(--spacing-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-1);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-1);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-primary);
+}
+
+/* Button sizes */
+.btn-small {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-small);
+  min-height: var(--button-height-small);
+}
+
+.btn-large {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-h4);
+  min-height: var(--button-height-large);
+}
+
+/* Input fields */
+.input {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body);
+  transition: all var(--transition-fast);
+  min-height: var(--input-height);
+}
+
+.input::placeholder {
+  color: var(--color-text-hint);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.input:disabled {
+  background-color: var(--color-surface);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Global Vue component styling overrides */
+/* These styles ensure Vuetify components use our theme system */
+
+/* Global card styling */
+.v-card {
+  background-color: var(--color-surface) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  box-shadow: var(--shadow-1) !important;
+  transition: all var(--transition-normal) !important;
+}
+
+.v-card:hover {
+  box-shadow: var(--shadow-2) !important;
+}
+
+.v-card-title {
+  color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.v-card-text {
+  color: var(--color-text-primary) !important;
+}
+
+/* Global button styling */
+.v-btn {
+  font-weight: var(--font-weight-medium) !important;
+  transition: all var(--transition-fast) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.v-btn:hover {
+  transform: translateY(-1px) !important;
+}
+
+.v-btn--variant-elevated {
+  box-shadow: var(--shadow-1) !important;
+}
+
+.v-btn--variant-elevated:hover {
+  box-shadow: var(--shadow-2) !important;
+}
+
+/* Global form field styling */
+.v-text-field .v-field {
+  background-color: var(--color-surface-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.v-text-field .v-field:hover {
+  border-color: var(--color-primary) !important;
+}
+
+.v-text-field .v-field--focused {
+  border-color: var(--color-primary) !important;
+  box-shadow: var(--shadow-focus) !important;
+}
+
+.v-text-field input {
+  color: var(--color-text-primary) !important;
+}
+
+.v-text-field .v-field__input::placeholder {
+  color: var(--color-text-hint) !important;
+}
+
+/* Global select styling */
+.v-select .v-field {
+  background-color: var(--color-surface-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Global chip styling */
+.v-chip {
+  font-weight: var(--font-weight-medium) !important;
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Global dialog styling */
+.v-dialog .v-card {
+  background-color: var(--color-surface-elevated) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-4) !important;
+}
+
+.v-dialog .v-card-title {
+  background-color: var(--color-surface-secondary) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.v-dialog .v-card-text {
+  color: var(--color-text-primary) !important;
+}
+
+/* Global navigation styling */
+.v-navigation-drawer {
+  background-color: var(--color-surface) !important;
+  border-right: 1px solid var(--color-border-subtle) !important;
+}
+
+.v-navigation-drawer .v-list-item {
+  color: var(--color-text-primary) !important;
+}
+
+.v-navigation-drawer .v-list-item-title {
+  color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.v-navigation-drawer .v-list-item-subtitle {
+  color: var(--color-text-secondary) !important;
+}
+
+.v-navigation-drawer .v-list-item--active {
+  background-color: var(--color-primary-alpha-10) !important;
+  color: var(--color-primary) !important;
+}
+
+.v-navigation-drawer .v-list-item--active .v-list-item-title {
+  color: var(--color-primary) !important;
+}
+
+.v-navigation-drawer .v-list-item:hover {
+  background-color: var(--color-surface-hover) !important;
+}
+
+.v-navigation-drawer .v-divider {
+  border-color: var(--color-border-subtle) !important;
+}
+
+/* Global app bar styling */
+.v-app-bar {
+  background-color: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  box-shadow: var(--shadow-1) !important;
+}
+
+.v-app-bar .v-toolbar-title {
+  color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+}
+
+.v-app-bar .v-btn {
+  color: var(--color-text-primary) !important;
+}
+
+/* Global data table styling */
+.v-data-table {
+  background-color: var(--color-surface) !important;
+  border: 1px solid var(--color-border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.v-data-table .v-data-table__wrapper {
+  background-color: var(--color-surface) !important;
+}
+
+.v-data-table-header {
+  background-color: var(--color-surface-secondary) !important;
+}
+
+.v-data-table-header th {
+  background-color: var(--color-surface-secondary) !important;
+  color: var(--color-text-primary) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+.v-data-table tbody tr {
+  background-color: var(--color-surface) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  transition: background-color var(--transition-fast) !important;
+}
+
+.v-data-table tbody tr:nth-child(even) {
+  background-color: var(--color-surface-variant) !important;
+}
+
+.v-data-table tbody tr:hover {
+  background-color: var(--color-surface-hover) !important;
+}
+
+.v-data-table tbody td {
+  color: var(--color-text-primary) !important;
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-1);
+  transition: all var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-2);
+}
+
+.card-elevated {
+  background-color: var(--color-surface-elevated);
+  box-shadow: var(--shadow-2);
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-3);
+}
+
+/* Status indicators */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+}
+
+.status-online {
+  background-color: var(--color-success);
+  color: var(--color-text-on-primary);
+}
+
+.status-offline {
+  background-color: var(--color-error);
+  color: var(--color-text-on-primary);
+}
+
+.status-warning {
+  background-color: var(--color-warning);
+  color: var(--color-text-on-primary);
+}
+
+.status-unknown {
+  background-color: var(--color-surface-secondary);
+  color: var(--color-text-disabled);
+}
+
+/* Loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border-subtle);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Bitcoin logo styles will be added after downloading official logos */
+
+/* Loading spinner with Bitcoin logo */
+.bitcoin-spinner {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  position: relative;
+}
+
+.bitcoin-spinner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-top: 2px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.bitcoin-spinner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  /* Bitcoin logo will be added after downloading official logos */
+}
+
+/* Responsive design helpers */
+@media (max-width: 768px) {
+  :root {
+    --font-size-h1: 28px;
+    --font-size-h2: 22px;
+    --font-size-h3: 18px;
+    --font-size-h4: 16px;
+    --spacing-lg: 20px;
+    --spacing-xl: 28px;
+    --spacing-xxl: 40px;
+  }
+  
+  .card {
+    padding: var(--spacing-md);
+  }
+  
+  .btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+  
+  .btn, .input {
+    border: 1px solid black !important;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .spinner,
+  .bitcoin-spinner::before {
+    animation: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .btn-primary {
+    border: 2px solid var(--color-text-primary);
+  }
+  
+  .btn-secondary {
+    border: 2px solid var(--color-text-primary);
+  }
+  
+  .card {
+    border: 2px solid var(--color-text-primary);
+  }
+  
+  .input {
+    border: 2px solid var(--color-text-primary);
+  }
+}

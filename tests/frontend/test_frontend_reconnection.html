@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Reconnection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .connecting { background-color: #fff3cd; color: #856404; }
+        button { padding: 10px 20px; margin: 5px; }
+        #log { background: #f8f9fa; padding: 10px; height: 300px; overflow-y: auto; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Reconnection Test</h1>
+    
+    <div id="status" class="status disconnected">Disconnected</div>
+    
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <button onclick="sendPing()">Send Ping</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <button onclick="location.reload()">Refresh Page</button>
+    
+    <h3>Log:</h3>
+    <div id="log"></div>
+
+    <script>
+        let socket = null;
+        let reconnectAttempts = 0;
+        let isManualDisconnect = false;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(status, className) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function connect() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                log('Already connected');
+                return;
+            }
+
+            log('Connecting to WebSocket...');
+            updateStatus('Connecting...', 'connecting');
+
+            socket = new WebSocket('ws://localhost:8000/ws');
+
+            socket.onopen = function() {
+                log('✓ WebSocket connected');
+                updateStatus('Connected', 'connected');
+                reconnectAttempts = 0;
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`📨 Received: ${data.type} - ${JSON.stringify(data).substring(0, 100)}...`);
+            };
+
+            socket.onclose = function(event) {
+                log(`🔌 WebSocket closed: ${event.code} - ${event.reason}`);
+                updateStatus('Disconnected', 'disconnected');
+                
+                if (!isManualDisconnect) {
+                    attemptReconnect();
+                } else {
+                    log('Manual disconnect - not reconnecting');
+                    isManualDisconnect = false;
+                }
+            };
+
+            socket.onerror = function(error) {
+                log(`❌ WebSocket error: ${error}`);
+                updateStatus('Error', 'disconnected');
+            };
+        }
+
+        function attemptReconnect() {
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                log(`❌ Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+                return;
+            }
+
+            const delay = reconnectAttempts === 0 ? 50 : Math.min(1000 * Math.pow(1.5, reconnectAttempts - 1), 5000);
+            reconnectAttempts++;
+
+            log(`🔄 Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+            updateStatus('Reconnecting...', 'connecting');
+
+            setTimeout(() => {
+                connect();
+            }, delay);
+        }
+
+        function disconnect() {
+            if (socket) {
+                isManualDisconnect = true;
+                socket.close(1000, 'Manual disconnect');
+                log('🔌 Manual disconnect initiated');
+            }
+        }
+
+        function sendPing() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: 'ping',
+                    timestamp: new Date().toISOString()
+                };
+                socket.send(JSON.stringify(message));
+                log('📤 Sent ping message');
+            } else {
+                log('❌ Cannot send ping - not connected');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Auto-connect on page load
+        window.addEventListener('load', () => {
+            log('🚀 Page loaded - auto-connecting...');
+            connect();
+        });
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && (!socket || socket.readyState !== WebSocket.OPEN)) {
+                log('👁️ Page became visible - checking connection...');
+                setTimeout(() => {
+                    if (!socket || socket.readyState !== WebSocket.OPEN) {
+                        connect();
+                    }
+                }, 100);
+            }
+        });
+
+        // Handle page focus
+        window.addEventListener('focus', () => {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                log('🎯 Window focused - checking connection...');
+                setTimeout(() => {
+                    if (!socket || socket.readyState !== WebSocket.OPEN) {
+                        connect();
+                    }
+                }, 100);
+            }
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (socket) {
+                socket.close();
+            }
+        });
+    </script>
+</body>
+</html>

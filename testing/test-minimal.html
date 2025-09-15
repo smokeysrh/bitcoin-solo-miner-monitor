@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Test</title>
+</head>
+<body>
+    <h1>Minimal JavaScript Test</h1>
+    <button onclick="testFunction()">Click Me</button>
+    <div id="output"></div>
+    
+    <script>
+        // Test basic JavaScript functionality
+        function testFunction() {
+            document.getElementById('output').innerHTML = 'JavaScript is working!';
+        }
+        
+        // Test console access
+        try {
+            console.log('Console test - this should appear in F12');
+        } catch (e) {
+            document.getElementById('output').innerHTML = 'Console error: ' + e.message;
+        }
+        
+        // Test localStorage
+        try {
+            localStorage.setItem('test', 'working');
+            const test = localStorage.getItem('test');
+            document.getElementById('output').innerHTML += '<br>localStorage: ' + test;
+        } catch (e) {
+            document.getElementById('output').innerHTML += '<br>localStorage error: ' + e.message;
+        }
+    </script>
+</body>
+</html>

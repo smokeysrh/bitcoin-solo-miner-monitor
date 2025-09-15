@@ -1,0 +1,72 @@
+/* Standardized Information Bubble Styling for Wizard Screens */
+/* Based on the styling from SettingsConfigScreen.vue step 3 "settings" info bubble */
+/* 
+ * This file provides consistent styling for all v-alert components used as 
+ * information bubbles across wizard screens. It ensures:
+ * - Consistent visual appearance (border-radius, colors, shadows)
+ * - Proper accessibility support (reduced motion, high contrast)
+ * - Standardized hover effects and transitions
+ * 
+ * Usage: Import this file in the <style> section of wizard components
+ * @import './shared-wizard-styles.css';
+ */
+
+/* CSS Variables for standardized info bubble appearance */
+:root {
+  --info-bubble-bg: rgba(var(--v-theme-info), 0.1);
+  --info-bubble-text: rgb(var(--v-theme-on-info-container));
+  --info-bubble-border: rgb(var(--v-theme-info));
+  --info-bubble-border-radius: 12px;
+  --info-bubble-border-width: 4px;
+  --info-bubble-shadow: 0 4px 12px rgba(var(--v-theme-info), 0.2);
+  --info-bubble-transition: all 0.3s ease;
+}
+
+/* Standardized info bubble styling */
+.info-bubble,
+:deep(.v-alert) {
+  border-radius: var(--info-bubble-border-radius) !important;
+  background: var(--info-bubble-bg) !important;
+  border-left: var(--info-bubble-border-width) solid var(--info-bubble-border) !important;
+  backdrop-filter: blur(10px);
+  transition: var(--info-bubble-transition);
+}
+
+.info-bubble:hover,
+:deep(.v-alert:hover) {
+  transform: translateY(-2px);
+  box-shadow: var(--info-bubble-shadow);
+}
+
+/* Ensure text color consistency */
+.info-bubble .text-h6,
+:deep(.v-alert .text-h6) {
+  color: var(--info-bubble-text) !important;
+}
+
+.info-bubble p,
+:deep(.v-alert p) {
+  color: var(--info-bubble-text) !important;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .info-bubble,
+  :deep(.v-alert) {
+    transition: none;
+  }
+
+  .info-bubble:hover,
+  :deep(.v-alert:hover) {
+    transform: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .info-bubble,
+  :deep(.v-alert) {
+    border: 2px solid var(--info-bubble-border) !important;
+    background: var(--info-bubble-bg) !important;
+  }
+}

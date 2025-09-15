@@ -1,0 +1,365 @@
+/* Performance Optimized CSS Bundle */
+/* This file contains optimized, minified-ready styles with performance considerations */
+
+/* Optimized CSS Custom Properties with fallbacks */
+:root {
+  /* Colors with fallbacks */
+  --color-primary: #F7931A;
+  --color-primary-hover: #E58E19;
+  --color-primary-light: #FF9F2E;
+  --color-primary-alpha-10: rgba(247, 147, 26, 0.1);
+  
+  --color-background: #121212;
+  --color-surface: #1E1E1E;
+  --color-surface-secondary: #2A2A2A;
+  --color-surface-elevated: #2C2C2C;
+  --color-surface-variant: #242424;
+  --color-surface-hover: #333333;
+  
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #CCCCCC;
+  --color-text-disabled: #666666;
+  --color-text-hint: #999999;
+  --color-text-on-primary: #FFFFFF;
+  
+  --color-border: #555555;
+  --color-border-subtle: #333333;
+  --color-border-focus: #F7931A;
+  
+  --color-success: #4CAF50;
+  --color-warning: #FB8C00;
+  --color-error: #FF5252;
+  --color-info: #2196F3;
+  
+  /* Optimized spacing scale */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  
+  /* Typography with system font stack for performance */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  
+  --font-size-h1: 32px;
+  --font-size-h2: 24px;
+  --font-size-h3: 20px;
+  --font-size-h4: 18px;
+  --font-size-body: 16px;
+  --font-size-small: 14px;
+  --font-size-caption: 12px;
+  
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.6;
+  
+  /* Optimized shadows using transform for performance */
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.4);
+  --shadow-4: 0 16px 32px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 2px rgba(247, 147, 26, 0.3);
+  
+  /* Border radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  
+  /* Optimized transitions */
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Component heights */
+  --button-height: 40px;
+  --button-height-small: 32px;
+  --button-height-large: 48px;
+  --input-height: 40px;
+}
+
+/* Performance optimizations */
+html {
+  /* Enable hardware acceleration */
+  transform: translateZ(0);
+  /* Optimize font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Optimize scrolling */
+  scroll-behavior: smooth;
+}
+
+@supports (scroll-behavior: smooth) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Optimize animations for performance */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Use will-change for elements that will animate */
+.will-animate {
+  will-change: transform, opacity;
+}
+
+.will-animate-transform {
+  will-change: transform;
+}
+
+.will-animate-opacity {
+  will-change: opacity;
+}
+
+/* Remove will-change after animation */
+.animation-complete {
+  will-change: auto;
+}
+
+/* Optimize button hover effects */
+.btn {
+  /* Use transform instead of changing properties for better performance */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.btn:hover {
+  transform: translateY(-1px) translateZ(0);
+}
+
+.btn:active {
+  transform: translateY(0) translateZ(0);
+}
+
+/* Optimize card hover effects */
+.card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.card:hover {
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Optimize table row hover */
+tr {
+  transform: translateZ(0);
+}
+
+/* Performance-optimized focus management */
+.focus-visible-polyfill *:focus:not(.focus-visible) {
+  outline: none;
+}
+
+.focus-visible-polyfill *:focus.focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Optimize images for performance */
+img {
+  max-width: 100%;
+  height: auto;
+  /* Optimize image rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Lazy loading optimization */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+img[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* Optimize SVG performance */
+svg {
+  /* Prevent layout thrashing */
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Container queries for better responsive performance */
+@supports (container-type: inline-size) {
+  .responsive-container {
+    container-type: inline-size;
+  }
+  
+  @container (max-width: 768px) {
+    .responsive-text {
+      font-size: var(--font-size-small);
+    }
+  }
+}
+
+/* Optimize print styles */
+@media print {
+  /* Remove unnecessary elements for print */
+  .no-print {
+    display: none !important;
+  }
+  
+  /* Optimize colors for print */
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  /* Optimize page breaks */
+  .page-break-before {
+    page-break-before: always;
+  }
+  
+  .page-break-after {
+    page-break-after: always;
+  }
+  
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+}
+
+/* Optimize for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Remove will-change for reduced motion */
+  .will-animate,
+  .will-animate-transform,
+  .will-animate-opacity {
+    will-change: auto;
+  }
+}
+
+/* Optimize for high contrast */
+@media (prefers-contrast: high) {
+  :root {
+    --color-border: #FFFFFF;
+    --color-border-subtle: #CCCCCC;
+  }
+  
+  .btn-primary {
+    border: 2px solid var(--color-text-primary);
+  }
+  
+  .btn-secondary {
+    border: 2px solid var(--color-text-primary);
+  }
+}
+
+/* Optimize for dark mode preference */
+@media (prefers-color-scheme: dark) {
+  /* Ensure dark theme is applied even without JavaScript */
+  :root {
+    color-scheme: dark;
+  }
+}
+
+/* Performance optimization utilities */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+@supports not (scroll-behavior: smooth) {
+  .smooth-scroll {
+    /* Fallback for browsers that don't support smooth scrolling */
+    scroll-behavior: auto;
+  }
+}
+
+/* Optimize font loading */
+@font-face {
+  font-family: 'Segoe UI';
+  font-display: swap; /* Improve font loading performance */
+}
+
+/* Critical resource hints for performance */
+.preload-hint::before {
+  content: '';
+  /* This will be replaced by actual preload hints in HTML */
+}
+
+/* Optimize CSS containment for better performance */
+.contain-layout {
+  contain: layout;
+}
+
+.contain-style {
+  contain: style;
+}
+
+.contain-paint {
+  contain: paint;
+}
+
+.contain-size {
+  contain: size;
+}
+
+.contain-strict {
+  contain: strict;
+}
+
+/* Optimize for different screen densities */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* High DPI optimizations */
+  .high-dpi-optimized {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+/* Memory optimization for large lists */
+.virtual-scroll-container {
+  overflow: auto;
+  height: 400px; /* Fixed height for virtualization */
+}
+
+.virtual-scroll-item {
+  /* Optimize for virtual scrolling */
+  contain: strict;
+  height: 50px; /* Fixed height for better performance */
+}

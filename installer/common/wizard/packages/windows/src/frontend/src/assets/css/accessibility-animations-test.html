@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessibility Animations Test - Bitcoin Solo Miner Monitor</title>
+    <link rel="stylesheet" href="main.css">
+    <link rel="stylesheet" href="accessibility-animations.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--color-background, #121212);
+            color: var(--color-text-primary, #FFFFFF);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.6;
+        }
+
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .test-header {
+            text-align: center;
+            margin-bottom: 48px;
+            padding: 32px;
+            background: var(--color-surface, #1E1E1E);
+            border-radius: 12px;
+            border: 1px solid var(--color-border-subtle, #333333);
+        }
+
+        .test-header h1 {
+            font-size: 32px;
+            margin-bottom: 16px;
+            color: var(--color-primary, #F7931A);
+        }
+
+        .test-section {
+            background: var(--color-surface, #1E1E1E);
+            padding: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border-subtle, #333333);
+            margin-bottom: 32px;
+        }
+
+        .test-section h2 {
+            color: var(--color-primary, #F7931A);
+            margin-bottom: 16px;
+        }
+
+        .test-section p {
+            color: var(--color-text-secondary, #CCCCCC);
+            margin-bottom: 24px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--animation-duration-fast, 0.15s) ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary, #F7931A);
+            color: #FFFFFF;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-hover, #E58E19);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--color-text-secondary, #CCCCCC);
+            border: 1px solid var(--color-border, #555555);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--color-surface-secondary, #2A2A2A);
+        }
+
+        .animation-demo {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-surface-secondary, #2A2A2A);
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #555555);
+            margin: 24px 0;
+        }
+
+        .demo-card {
+            background: var(--color-surface, #1E1E1E);
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #555555);
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .progress-demo {
+            margin: 24px 0;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 14px;
+            color: var(--color-text-secondary, #CCCCCC);
+        }
+
+        .loading-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin: 24px 0;
+        }
+
+        .loading-demo {
+            text-align: center;
+            padding: 24px;
+            background: var(--color-surface-secondary, #2A2A2A);
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #555555);
+        }
+
+        .skeleton-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+        }
+
+        .skeleton-text {
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .skeleton-text.short {
+            width: 60%;
+        }
+
+        .skeleton-button {
+            height: 40px;
+            width: 120px;
+            border-radius: 6px;
+            margin: 8px auto 0;
+        }
+
+        .motion-preference {
+            background: var(--color-surface-secondary, #2A2A2A);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #555555);
+            margin-bottom: 24px;
+        }
+
+        .motion-status {
+            font-weight: 500;
+            color: var(--color-primary, #F7931A);
+        }
+
+        .accessibility-info {
+            background: var(--color-surface-secondary, #2A2A2A);
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #555555);
+            margin-top: 32px;
+        }
+
+        .accessibility-info ul {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0 0 0;
+        }
+
+        .accessibility-info li {
+            padding: 8px 0;
+            color: var(--color-text-secondary, #CCCCCC);
+        }
+
+        .accessibility-info code {
+            background: var(--color-surface, #1E1E1E);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: var(--color-primary, #F7931A);
+        }
+
+        /* Toast container */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            min-width: 300px;
+            background: var(--color-surface, #1E1E1E);
+            border: 1px solid var(--color-border, #555555);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: var(--shadow-3, 0 8px 16px rgba(0, 0, 0, 0.4));
+        }
+
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🎨 Accessibility Animations Test</h1>
+            <p>Comprehensive testing for accessibility-focused animations and indicators with colorblind support and motion preferences.</p>
+        </div>
+
+        <!-- Motion Preference Detection -->
+        <div class="motion-preference">
+            <h3>Motion Preference Detection</h3>
+            <p>Current setting: <span class="motion-status" id="motionStatus">Detecting...</span></p>
+            <button class="btn btn-secondary" onclick="toggleMotionPreference()">Toggle Reduced Motion</button>
+        </div>
+
+        <!-- Status Indicators -->
+        <div class="test-section">
+            <h2>Status Indicators with Icons & Animations</h2>
+            <p>Each status uses both color and icons for colorblind accessibility, with animations that respect motion preferences.</p>
+            
+            <div class="status-grid">
+                <div class="status-indicator status-success">
+                    <span>Success</span>
+                </div>
+                
+                <div class="status-indicator status-error">
+                    <span>Error</span>
+                </div>
+                
+                <div class="status-indicator status-warning">
+                    <span>Warning</span>
+                </div>
+                
+                <div class="status-indicator status-info">
+                    <span>Information</span>
+                </div>
+                
+                <div class="status-indicator status-loading">
+                    <span>Loading</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="cycleStatuses()">Cycle Status Changes</button>
+                <button class="btn btn-secondary" onclick="stopCycling()">Stop Cycling</button>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="test-section">
+            <h2>Connection Status Indicators</h2>
+            <p>Online/offline status with distinct animations and icons.</p>
+            
+            <div class="status-grid">
+                <div class="status-indicator status-online">
+                    <span>Online</span>
+                </div>
+                
+                <div class="status-indicator status-offline">
+                    <span>Offline</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- State Transitions -->
+        <div class="test-section">
+            <h2>State Transition Animations</h2>
+            <p>Various transition effects for content changes and navigation.</p>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="triggerAnimation('slide-in-right')">Slide In Right</button>
+                <button class="btn btn-secondary" onclick="triggerAnimation('slide-in-left')">Slide In Left</button>
+                <button class="btn btn-secondary" onclick="triggerAnimation('fade-in')">Fade In</button>
+                <button class="btn btn-secondary" onclick="triggerAnimation('scale-in')">Scale In</button>
+            </div>
+            
+            <div class="animation-demo" id="animationDemo">
+                <div class="demo-card">
+                    <h3>Animated Content</h3>
+                    <p>This content will demonstrate the selected animation effect.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Indicators -->
+        <div class="test-section">
+            <h2>Progress Indicators</h2>
+            <p>Animated progress bars with accessibility announcements.</p>
+            
+            <div class="progress-demo">
+                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="startProgress()">Start Progress</button>
+                    <button class="btn btn-secondary" onclick="resetProgress()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading States -->
+        <div class="test-section">
+            <h2>Loading States</h2>
+            <p>Different loading animations for various contexts.</p>
+            
+            <div class="loading-grid">
+                <div class="loading-demo">
+                    <h3>Spinner Loading</h3>
+                    <div class="spinner" role="status" aria-label="Loading"></div>
+                </div>
+                
+                <div class="loading-demo">
+                    <h3>Skeleton Loading</h3>
+                    <div class="skeleton-container">
+                        <div class="skeleton skeleton-text"></div>
+                        <div class="skeleton skeleton-text short"></div>
+                        <div class="skeleton skeleton-button"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Elements -->
+        <div class="test-section">
+            <h2>Interactive Element Animations</h2>
+            <p>Button and form interactions with focus indicators.</p>
+            
+            <div class="controls">
+                <button class="btn btn-primary btn-press btn-glow focus-ring">Primary Button</button>
+                <button class="btn btn-secondary btn-press focus-ring">Secondary Button</button>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="test-section">
+            <h2>Toast Notifications</h2>
+            <p>Animated notifications with accessibility announcements.</p>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="showToast('success')">Success Toast</button>
+                <button class="btn btn-secondary" onclick="showToast('error')">Error Toast</button>
+                <button class="btn btn-secondary" onclick="showToast('warning')">Warning Toast</button>
+            </div>
+        </div>
+
+        <!-- Accessibility Information -->
+        <div class="accessibility-info">
+            <h2>Accessibility Features</h2>
+            <ul>
+                <li>✓ All animations respect <code>prefers-reduced-motion</code> settings</li>
+                <li>✓ Status indicators use both color and icons for colorblind accessibility</li>
+                <li>✓ Screen reader announcements for status changes</li>
+                <li>✓ High contrast mode support</li>
+                <li>✓ Keyboard navigation with focus indicators</li>
+                <li>✓ ARIA labels and roles for assistive technologies</li>
+                <li>✓ Motion cues for important state transitions</li>
+                <li>✓ WCAG 2.1 AA compliant color contrast ratios</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Screen Reader Announcements -->
+    <div class="sr-only" aria-live="polite" aria-atomic="true" id="announcements"></div>
+
+    <script>
+        let cycleInterval = null;
+        let progressInterval = null;
+        let toastId = 0;
+        let reducedMotion = false;
+
+        // Check motion preference on load
+        function checkMotionPreference() {
+            if (window.matchMedia) {
+                const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+                reducedMotion = mediaQuery.matches;
+                updateMotionStatus();
+                
+                // Listen for changes
+                mediaQuery.addEventListener('change', (e) => {
+                    reducedMotion = e.matches;
+                    updateMotionStatus();
+                });
+            }
+        }
+
+        function updateMotionStatus() {
+            const statusEl = document.getElementById('motionStatus');
+            statusEl.textContent = reducedMotion ? 'Reduced Motion' : 'Full Animations';
+            
+            if (reducedMotion) {
+                document.body.classList.add('reduced-motion');
+            } else {
+                document.body.classList.remove('reduced-motion');
+            }
+        }
+
+        function toggleMotionPreference() {
+            reducedMotion = !reducedMotion;
+            updateMotionStatus();
+            announce(`Motion ${reducedMotion ? 'reduced' : 'enabled'}`);
+        }
+
+        function cycleStatuses() {
+            if (cycleInterval) return;
+            
+            const statuses = ['success', 'error', 'warning', 'info', 'loading'];
+            const indicators = document.querySelectorAll('.status-grid .status-indicator');
+            let index = 0;
+            
+            cycleInterval = setInterval(() => {
+                indicators.forEach(indicator => {
+                    // Remove all status classes
+                    statuses.forEach(status => {
+                        indicator.classList.remove(`status-${status}`);
+                    });
+                    // Add current status
+                    indicator.classList.add(`status-${statuses[index]}`);
+                });
+                
+                announce(`Status changed to ${statuses[index]}`);
+                index = (index + 1) % statuses.length;
+            }, 1500);
+            
+            announce('Status cycling started');
+        }
+
+        function stopCycling() {
+            if (cycleInterval) {
+                clearInterval(cycleInterval);
+                cycleInterval = null;
+                announce('Status cycling stopped');
+            }
+        }
+
+        function triggerAnimation(animationType) {
+            const demo = document.getElementById('animationDemo');
+            const card = demo.querySelector('.demo-card');
+            
+            // Remove existing animation classes
+            card.classList.remove('slide-in-right', 'slide-in-left', 'fade-in', 'scale-in');
+            
+            // Trigger reflow
+            card.offsetHeight;
+            
+            // Add new animation class
+            card.classList.add(animationType);
+            
+            announce(`${animationType} animation triggered`);
+            
+            // Remove class after animation
+            setTimeout(() => {
+                card.classList.remove(animationType);
+            }, 500);
+        }
+
+        function startProgress() {
+            if (progressInterval) return;
+            
+            let progress = 0;
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progressBar = progressFill.parentElement;
+            
+            progressInterval = setInterval(() => {
+                progress += 2;
+                progressFill.style.width = progress + '%';
+                progressText.textContent = progress + '%';
+                progressBar.setAttribute('aria-valuenow', progress);
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                    announce('Progress completed');
+                }
+            }, 50);
+            
+            announce('Progress started');
+        }
+
+        function resetProgress() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const progressBar = progressFill.parentElement;
+            
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+            progressBar.setAttribute('aria-valuenow', '0');
+            
+            announce('Progress reset');
+        }
+
+        function showToast(type) {
+            const messages = {
+                success: 'Operation completed successfully!',
+                error: 'An error occurred. Please try again.',
+                warning: 'Warning: Please review your input.'
+            };
+            
+            const toast = document.createElement('div');
+            toast.className = `toast toast-enter`;
+            toast.innerHTML = `
+                <div class="status-indicator status-${type}">
+                    <span>${messages[type]}</span>
+                </div>
+            `;
+            
+            const container = document.getElementById('toastContainer');
+            container.appendChild(toast);
+            
+            announce(messages[type]);
+            
+            // Remove toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('toast-enter');
+                toast.classList.add('toast-exit');
+                
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function announce(message) {
+            const announcements = document.getElementById('announcements');
+            announcements.textContent = message;
+            
+            // Clear after announcement
+            setTimeout(() => {
+                announcements.textContent = '';
+            }, 1000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            checkMotionPreference();
+            announce('Accessibility animations test page loaded');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCycling();
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+        });
+    </script>
+</body>
+</html>

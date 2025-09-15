@@ -1,0 +1,132 @@
+/* Critical CSS - Above-the-fold styles for fast initial render */
+/* This file contains only the essential styles needed for initial page load */
+
+/* CSS Custom Properties - Critical variables only */
+:root {
+  /* Core colors for initial render */
+  --color-primary: #F7931A;
+  --color-background: #121212;
+  --color-surface: #1E1E1E;
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #CCCCCC;
+  
+  /* Essential spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  
+  /* Core typography */
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-size-body: 16px;
+  --font-size-h1: 32px;
+  --font-size-h2: 24px;
+  
+  /* Essential transitions */
+  --transition-fast: 0.15s ease;
+  
+  /* Core border radius */
+  --radius-md: 8px;
+}
+
+/* Critical base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.6;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  min-height: 100vh;
+}
+
+/* Critical focus styles for accessibility */
+*:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Critical heading styles */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-text-primary);
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+}
+
+/* Critical button styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+
+/* Critical loading spinner */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #333333;
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Critical layout styles */
+.v-application {
+  background-color: var(--color-background) !important;
+}
+
+.v-main {
+  background-color: var(--color-background) !important;
+}
+
+/* Critical responsive styles */
+@media (max-width: 768px) {
+  :root {
+    --font-size-h1: 28px;
+    --font-size-h2: 22px;
+  }
+}
+
+/* Critical reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

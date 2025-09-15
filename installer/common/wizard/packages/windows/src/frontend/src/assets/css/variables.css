@@ -1,0 +1,182 @@
+/* Bitcoin Solo Miner Monitor - CSS Custom Properties */
+/* Dark Theme Color System */
+
+:root {
+  /* Primary Colors - Bitcoin Orange */
+  --color-primary: #F7931A;
+  --color-primary-hover: #E58E19;
+  --color-primary-light: #FF9F2E;
+  --color-primary-dark: #D67E16;
+  --color-primary-alpha-10: rgba(247, 147, 26, 0.1);
+  --color-primary-alpha-20: rgba(247, 147, 26, 0.2);
+  --color-primary-alpha-30: rgba(247, 147, 26, 0.3);
+  
+  /* Background Colors */
+  --color-background: #121212;
+  --color-surface: #1E1E1E;
+  --color-surface-secondary: #2A2A2A;
+  --color-surface-elevated: #2C2C2C;
+  --color-surface-variant: #242424;
+  --color-surface-hover: #333333;
+  
+  /* Text Colors */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #CCCCCC;
+  --color-text-disabled: #666666;
+  --color-text-hint: #999999;
+  --color-text-on-primary: #FFFFFF;
+  --color-text-on-surface: #FFFFFF;
+  
+  /* Border and Divider Colors */
+  --color-border: #555555;
+  --color-border-subtle: #333333;
+  --color-border-focus: #F7931A;
+  --color-divider: #333333;
+  
+  /* Status Colors */
+  --color-success: #4CAF50;
+  --color-success-light: #66BB6A;
+  --color-success-dark: #388E3C;
+  --color-warning: #FB8C00;
+  --color-warning-light: #FFB74D;
+  --color-warning-dark: #F57C00;
+  --color-error: #FF5252;
+  --color-error-light: #FF7961;
+  --color-error-dark: #D32F2F;
+  --color-info: #2196F3;
+  --color-info-light: #64B5F6;
+  --color-info-dark: #1976D2;
+  
+  /* Spacing System - Base unit: 8px */
+  --spacing-xs: 4px;   /* 0.5 units */
+  --spacing-sm: 8px;   /* 1 unit */
+  --spacing-md: 16px;  /* 2 units */
+  --spacing-lg: 24px;  /* 3 units */
+  --spacing-xl: 32px;  /* 4 units */
+  --spacing-xxl: 48px; /* 6 units */
+  --spacing-xxxl: 64px; /* 8 units */
+  
+  /* Typography System */
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  --font-family-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  
+  /* Font Sizes */
+  --font-size-h1: 32px;
+  --font-size-h2: 24px;
+  --font-size-h3: 20px;
+  --font-size-h4: 18px;
+  --font-size-body: 16px;
+  --font-size-small: 14px;
+  --font-size-caption: 12px;
+  --font-size-overline: 10px;
+  
+  /* Font Weights */
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* Line Heights */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.4;
+  --line-height-relaxed: 1.6;
+  
+  /* Elevation System - Box Shadows */
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.4);
+  --shadow-4: 0 16px 32px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 2px var(--color-primary-alpha-30);
+  
+  /* Border Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+  --radius-round: 50%;
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  --transition-bounce: 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* Z-Index Scale */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-toast: 1080;
+  --z-easter-egg: 9999;
+  
+  /* Component Specific Variables */
+  --button-height: 40px;
+  --button-height-small: 32px;
+  --button-height-large: 48px;
+  --input-height: 40px;
+  --navbar-height: 64px;
+  --sidebar-width: 280px;
+  --sidebar-width-collapsed: 64px;
+  
+  /* Animation Durations */
+  --animation-duration-short: 200ms;
+  --animation-duration-medium: 300ms;
+  --animation-duration-long: 500ms;
+  --animation-duration-extra-long: 1000ms;
+}
+
+/* Accessibility - Respect user preferences for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0s;
+    --transition-normal: 0s;
+    --transition-slow: 0s;
+    --transition-bounce: 0s;
+    --animation-duration-short: 0s;
+    --animation-duration-medium: 0s;
+    --animation-duration-long: 0s;
+    --animation-duration-extra-long: 0s;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-border: #FFFFFF;
+    --color-border-subtle: #CCCCCC;
+    --color-text-secondary: #FFFFFF;
+    --color-text-hint: #CCCCCC;
+  }
+}
+
+/* Dark theme class for explicit theming */
+.theme-dark {
+  color-scheme: dark;
+}
+
+/* Light theme fallback (for future use) */
+.theme-light {
+  color-scheme: light;
+  --color-background: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F5F5F5;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-variant: #F0F0F0;
+  --color-surface-hover: #EEEEEE;
+  --color-text-primary: #212121;
+  --color-text-secondary: #757575;
+  --color-text-disabled: #BDBDBD;
+  --color-text-hint: #9E9E9E;
+  --color-border: #E0E0E0;
+  --color-border-subtle: #F0F0F0;
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.2);
+  --shadow-4: 0 16px 32px rgba(0, 0, 0, 0.25);
+}
