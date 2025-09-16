@@ -1,0 +1,87 @@
+{
+  "scan_metadata": {
+    "timestamp": "2025-09-16T15:20:28.928093",
+    "scanner_version": "1.0.0",
+    "total_files_scanned": 1
+  },
+  "scan_results": [
+    {
+      "file_path": "C:\\Users\\Smoke\\AppData\\Local\\Temp\\tmp0l4xk85k.exe",
+      "file_name": "tmp0l4xk85k.exe",
+      "scan_timestamp": "2025-09-16T15:20:28.906071",
+      "file_info": {
+        "size_bytes": 1002,
+        "size_mb": 0.0,
+        "modified_time": "2025-09-16T15:20:28.715899",
+        "sha256": "c1d26517c7e1dafed339843ba4dfe94c407a71734e6f214592eed8e0caf7a8b9",
+        "md5": "380f243d39728ac68f38983c31759dff",
+        "permissions": "777"
+      },
+      "security_checks": {
+        "file_integrity": {
+          "status": "warning",
+          "issues": [
+            "File size unusually small (< 1MB)"
+          ],
+          "details": {
+            "readable": true
+          }
+        },
+        "file_size": {
+          "status": "warning",
+          "issues": [
+            "File size (0.0MB) below expected minimum (5MB)"
+          ],
+          "details": {
+            "size_bytes": 1002,
+            "size_mb": 0.0
+          }
+        },
+        "file_type": {
+          "status": "pass",
+          "issues": [],
+          "details": {}
+        },
+        "malware_scan": {
+          "status": "info",
+          "issues": [
+            "ClamAV not available - malware scan skipped"
+          ],
+          "details": {}
+        },
+        "dependency_scan": {
+          "status": "info",
+          "issues": [
+            "Dependency vulnerability scanning requires integration with CVE databases"
+          ],
+          "details": {
+            "scan_method": "basic_heuristics"
+          }
+        },
+        "windows_specific": {
+          "status": "pass",
+          "issues": [],
+          "details": {
+            "valid_pe": true
+          }
+        }
+      },
+      "vulnerabilities": [],
+      "recommendations": [],
+      "overall_status": "warning"
+    }
+  ],
+  "summary": {
+    "total_files": 1,
+    "status_counts": {
+      "pass": 0,
+      "warning": 1,
+      "fail": 0,
+      "info": 0
+    },
+    "critical_issues": [],
+    "recommendations": [
+      "Review and resolve security warnings"
+    ]
+  }
+}

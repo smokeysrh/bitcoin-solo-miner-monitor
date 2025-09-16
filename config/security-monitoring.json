@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "check_interval_minutes": 60,
+  "alert_thresholds": {
+    "critical_vulnerabilities": 1,
+    "high_vulnerabilities": 5,
+    "failed_installers": 1
+  },
+  "notification_channels": [
+    {
+      "type": "log",
+      "enabled": true,
+      "level": "warning"
+    }
+  ]
+}
