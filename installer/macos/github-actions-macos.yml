@@ -1,0 +1,183 @@
+# GitHub Actions workflow for building macOS DMG installer
+# This file should be placed in .github/workflows/ directory
+
+name: Build macOS DMG Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  build-macos-dmg:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Build frontend
+      run: |
+        npm install
+        npm run build
+        
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="dev-$(date +%Y%m%d-%H%M%S)"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+        
+    - name: Make scripts executable
+      run: |
+        chmod +x installer/macos/*.sh
+        
+    - name: Build macOS DMG
+      run: |
+        cd installer/macos
+        ./build_macos_dmg.sh ${{ steps.version.outputs.version }}
+        
+    - name: Verify DMG creation
+      run: |
+        DMG_FILE="dist/BitcoinSoloMinerMonitor-${{ steps.version.outputs.version }}.dmg"
+        if [ -f "$DMG_FILE" ]; then
+          echo "✅ DMG created successfully: $DMG_FILE"
+          ls -la "$DMG_FILE"*
+          
+          # Verify DMG can be mounted
+          hdiutil attach "$DMG_FILE" -readonly -nobrowse
+          VOLUME_PATH="/Volumes/Bitcoin Solo Miner Monitor ${{ steps.version.outputs.version }}"
+          if [ -d "$VOLUME_PATH" ]; then
+            echo "✅ DMG mounts successfully"
+            ls -la "$VOLUME_PATH"
+            hdiutil detach "$VOLUME_PATH"
+          else
+            echo "❌ DMG mount failed"
+            exit 1
+          fi
+        else
+          echo "❌ DMG file not found"
+          exit 1
+        fi
+        
+    - name: Upload DMG artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-dmg-${{ steps.version.outputs.version }}
+        path: |
+          dist/*.dmg
+          dist/*.sha256
+        retention-days: 30
+        
+    - name: Create GitHub Release (if tag)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.dmg
+          dist/*.sha256
+        body: |
+          ## macOS DMG Installer
+          
+          ### Installation Instructions
+          1. Download the `.dmg` file
+          2. Double-click to mount the disk image
+          3. Drag "Bitcoin Solo Miner Monitor.app" to the Applications folder
+          4. Launch from Applications or Launchpad
+          
+          ### Security Notes
+          - This is open-source software without expensive code signing certificates
+          - If you see "unidentified developer" warnings, right-click the app and select "Open"
+          - Verify integrity using the provided SHA256 checksum
+          
+          ### System Requirements
+          - macOS 10.15 (Catalina) or later
+          - Python 3.11+ (installed automatically if needed)
+          - 2 GB RAM minimum
+          - 5 GB free disk space
+          
+          ### Verification
+          ```bash
+          # Verify checksum
+          shasum -a 256 -c BitcoinSoloMinerMonitor-${{ steps.version.outputs.version }}.dmg.sha256
+          ```
+          
+          For support and documentation, visit the [project repository](https://github.com/${{ github.repository }}).
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Test installation (basic)
+      run: |
+        # Mount DMG and test basic functionality
+        DMG_FILE="dist/BitcoinSoloMinerMonitor-${{ steps.version.outputs.version }}.dmg"
+        hdiutil attach "$DMG_FILE" -readonly -nobrowse
+        
+        VOLUME_PATH="/Volumes/Bitcoin Solo Miner Monitor ${{ steps.version.outputs.version }}"
+        APP_BUNDLE="$VOLUME_PATH/Bitcoin Solo Miner Monitor.app"
+        
+        # Test launcher script
+        if [ -x "$APP_BUNDLE/Contents/MacOS/BitcoinSoloMinerMonitor" ]; then
+          echo "✅ Launcher script is executable"
+        else
+          echo "❌ Launcher script is not executable"
+          exit 1
+        fi
+        
+        # Test Python detection (without actually running the app)
+        cd "$APP_BUNDLE/Contents/Resources"
+        if python3 -c "import sys; print(f'Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} available')"; then
+          echo "✅ Python runtime available"
+        else
+          echo "❌ Python runtime not available"
+          exit 1
+        fi
+        
+        # Cleanup
+        hdiutil detach "$VOLUME_PATH"
+        
+    - name: Security scan (optional)
+      run: |
+        # Basic security checks
+        DMG_FILE="dist/BitcoinSoloMinerMonitor-${{ steps.version.outputs.version }}.dmg"
+        
+        # Check for common security issues
+        echo "🔍 Running basic security checks..."
+        
+        # Verify no suspicious files
+        hdiutil attach "$DMG_FILE" -readonly -nobrowse
+        VOLUME_PATH="/Volumes/Bitcoin Solo Miner Monitor ${{ steps.version.outputs.version }}"
+        
+        # Check for executable files outside expected locations
+        find "$VOLUME_PATH" -type f -perm +111 | while read -r file; do
+          echo "Executable found: $file"
+        done
+        
+        hdiutil detach "$VOLUME_PATH"
+        echo "✅ Security scan completed"
