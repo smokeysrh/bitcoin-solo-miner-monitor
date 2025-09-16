@@ -1,113 +1,77 @@
 #!/bin/bash
-# Build AppImage for Bitcoin Solo Miner Monitor
+# Enhanced AppImage builder for Bitcoin Solo Miner Monitor
+# This script uses the comprehensive build system
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Check arguments
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 <app_dir> <dist_dir> <version> [options]"
+    echo "Options:"
+    echo "  -v, --verbose    Enable verbose output"
+    echo "  -c, --clean      Clean build before packaging"
+    exit 1
+fi
 
 APP_DIR="$1"
 DIST_DIR="$2"
 VERSION="$3"
+shift 3
 
-if [ -z "$APP_DIR" ] || [ -z "$DIST_DIR" ] || [ -z "$VERSION" ]; then
-    echo "Usage: $0 <app_dir> <dist_dir> <version>"
+# Parse additional options
+OPTIONS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -v|--verbose)
+            OPTIONS+=("--verbose")
+            shift
+            ;;
+        -c|--clean)
+            OPTIONS+=("--clean")
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+echo "📦 Building AppImage using comprehensive build system..."
+
+# Prepare build directory structure
+BUILD_DIR="$(dirname "$DIST_DIR")/build"
+mkdir -p "$BUILD_DIR/linux"
+
+# Copy application files to build directory
+if [ -d "$APP_DIR" ]; then
+    cp -r "$APP_DIR"/* "$BUILD_DIR/linux/"
+else
+    echo "Error: Application directory not found: $APP_DIR"
     exit 1
 fi
 
-echo "📦 Building AppImage..."
+# Set version in build system
+export VERSION="$VERSION"
 
-# Configuration
-APP_NAME="bitcoin-solo-miner-monitor"
-DISPLAY_NAME="Bitcoin Solo Miner Monitor"
-DESCRIPTION="A unified monitoring and management solution for Bitcoin mining hardware"
+# Run the comprehensive build system for AppImage only
+"$SCRIPT_DIR/build_packages.sh" --type appimage "${OPTIONS[@]}"
 
-# Create temporary directory for AppImage packaging
-TEMP_DIR=$(mktemp -d)
-APPDIR="${TEMP_DIR}/BitcoinSoloMinerMonitor.AppDir"
+# Check if AppImage was created successfully
+APPIMAGE_FILE=$(find "$DIST_DIR" -name "*.AppImage" -type f | head -1)
+PORTABLE_FILE=$(find "$DIST_DIR" -name "*portable*.tar.gz" -type f | head -1)
 
-# Create AppDir structure
-mkdir -p "${APPDIR}/usr/bin"
-mkdir -p "${APPDIR}/usr/share/applications"
-mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
-mkdir -p "${APPDIR}/opt/${APP_NAME}"
-
-# Copy application files
-cp -r "${APP_DIR}"/* "${APPDIR}/opt/${APP_NAME}/"
-
-# Create AppRun script
-cat > "${APPDIR}/AppRun" << 'EOF'
-#!/bin/bash
-HERE="$(dirname "$(readlink -f "${0}")")"
-export APPDIR="${HERE}"
-export PATH="${HERE}/usr/bin:${PATH}"
-export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-
-# Change to the application directory
-cd "${HERE}/opt/bitcoin-solo-miner-monitor"
-
-# Run the application
-exec python3 run.py "$@"
-EOF
-chmod +x "${APPDIR}/AppRun"
-
-# Create desktop entry
-cat > "${APPDIR}/${APP_NAME}.desktop" << EOF
-[Desktop Entry]
-Name=${DISPLAY_NAME}
-Comment=${DESCRIPTION}
-Exec=AppRun
-Icon=${APP_NAME}
-Terminal=false
-Type=Application
-Categories=Utility;Network;
-StartupNotify=true
-EOF
-
-# Copy desktop entry to the standard location
-cp "${APPDIR}/${APP_NAME}.desktop" "${APPDIR}/usr/share/applications/"
-
-# Copy icon (use a placeholder if not available)
-if [ -f "${APP_DIR}/assets/bitcoin-symbol.png" ]; then
-    cp "${APP_DIR}/assets/bitcoin-symbol.png" "${APPDIR}/${APP_NAME}.png"
-    cp "${APP_DIR}/assets/bitcoin-symbol.png" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
+if [ -n "$APPIMAGE_FILE" ]; then
+    echo "✅ AppImage created successfully: $(basename "$APPIMAGE_FILE")"
+    echo "📦 AppImage details:"
+    ls -lh "$APPIMAGE_FILE"
+    echo "🔧 AppImage is executable and portable"
+elif [ -n "$PORTABLE_FILE" ]; then
+    echo "✅ Portable archive created: $(basename "$PORTABLE_FILE")"
+    echo "📦 Portable archive details:"
+    ls -lh "$PORTABLE_FILE"
+    echo "ℹ️  Extract and run AppRun to start the application"
 else
-    # Create a simple placeholder icon
-    echo "Creating placeholder icon..."
-    if command -v convert >/dev/null 2>&1; then
-        convert -size 256x256 xc:orange -fill black -gravity center -pointsize 24 -annotate +0+0 "BTC" "${APPDIR}/${APP_NAME}.png"
-        cp "${APPDIR}/${APP_NAME}.png" "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
-    else
-        # Create empty placeholder files
-        touch "${APPDIR}/${APP_NAME}.png"
-        touch "${APPDIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
-    fi
+    echo "❌ AppImage/Portable package creation failed"
+    exit 1
 fi
-
-# Download appimagetool if not available
-APPIMAGETOOL="appimagetool-x86_64.AppImage"
-if [ ! -f "${TEMP_DIR}/${APPIMAGETOOL}" ]; then
-    echo "Downloading appimagetool..."
-    wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/${APPIMAGETOOL}" -O "${TEMP_DIR}/${APPIMAGETOOL}"
-    chmod +x "${TEMP_DIR}/${APPIMAGETOOL}"
-fi
-
-# Build AppImage
-APPIMAGE_FILE="${DIST_DIR}/BitcoinSoloMinerMonitor-${VERSION}-x86_64.AppImage"
-
-if [ -f "${TEMP_DIR}/${APPIMAGETOOL}" ]; then
-    echo "Building AppImage with appimagetool..."
-    "${TEMP_DIR}/${APPIMAGETOOL}" "${APPDIR}" "${APPIMAGE_FILE}"
-    
-    if [ -f "${APPIMAGE_FILE}" ]; then
-        chmod +x "${APPIMAGE_FILE}"
-        echo "✅ AppImage created: $(basename "${APPIMAGE_FILE}")"
-    else
-        echo "❌ AppImage creation failed"
-        exit 1
-    fi
-else
-    echo "⚠️  appimagetool not available, creating portable archive instead..."
-    # Fallback: create a portable tar.gz
-    PORTABLE_FILE="${DIST_DIR}/BitcoinSoloMinerMonitor-${VERSION}-portable.tar.gz"
-    tar -czf "${PORTABLE_FILE}" -C "${TEMP_DIR}" "BitcoinSoloMinerMonitor.AppDir"
-    echo "✅ Portable archive created: $(basename "${PORTABLE_FILE}")"
-fi
-
-# Clean up
-rm -rf "${TEMP_DIR}"

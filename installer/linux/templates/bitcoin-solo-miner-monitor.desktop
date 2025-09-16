@@ -1,0 +1,95 @@
+[Desktop Entry]
+# Basic application information
+Name=Bitcoin Solo Miner Monitor
+GenericName=Mining Monitor
+Comment=Monitor and manage Bitcoin mining hardware on your local network
+Keywords=bitcoin;mining;monitor;cryptocurrency;solo;miner;hardware;network;blockchain;asic;bitaxe;avalon;
+
+# Execution information
+Exec=bitcoin-solo-miner-monitor %F
+Icon=bitcoin-solo-miner-monitor
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=bitcoin-solo-miner-monitor
+
+# Categories and classification
+Categories=Utility;Network;System;Monitor;HardwareSettings;
+MimeType=application/x-bitcoin-miner-config;application/x-mining-pool-config;application/x-bitcoin-monitor-project;
+
+# Localization support
+Name[es]=Monitor de Minería Bitcoin Solo
+GenericName[es]=Monitor de Minería
+Comment[es]=Monitorear y gestionar hardware de minería Bitcoin en su red local
+Name[fr]=Moniteur de Minage Bitcoin Solo
+GenericName[fr]=Moniteur de Minage
+Comment[fr]=Surveiller et gérer le matériel de minage Bitcoin sur votre réseau local
+Name[de]=Bitcoin Solo Mining Monitor
+GenericName[de]=Mining Monitor
+Comment[de]=Bitcoin-Mining-Hardware in Ihrem lokalen Netzwerk überwachen und verwalten
+Name[zh_CN]=比特币独立挖矿监控器
+GenericName[zh_CN]=挖矿监控器
+Comment[zh_CN]=监控和管理本地网络上的比特币挖矿硬件
+
+# Desktop environment specific settings
+X-GNOME-UsesNotifications=true
+X-GNOME-SingleWindow=true
+X-GNOME-Bugzilla-Bugzilla=GNOME
+X-GNOME-Bugzilla-Product=bitcoin-solo-miner-monitor
+X-KDE-StartupNotify=true
+X-KDE-SubstituteUID=false
+X-Unity-IconBackgroundColor=#f47421
+
+# Additional metadata
+X-Desktop-File-Install-Version=0.26
+X-AppStream-Ignore=false
+
+# Desktop actions for right-click context menu
+Actions=StartService;StopService;ViewLogs;OpenConfig;CheckStatus;
+
+[Desktop Action StartService]
+Name=Start Mining Monitor Service
+Name[es]=Iniciar Servicio de Monitor de Minería
+Name[fr]=Démarrer le Service de Moniteur de Minage
+Name[de]=Mining Monitor Service starten
+Name[zh_CN]=启动挖矿监控服务
+Exec=systemctl --user start bitcoin-solo-miner-monitor@%u.service
+Icon=media-playback-start
+
+[Desktop Action StopService]
+Name=Stop Mining Monitor Service
+Name[es]=Detener Servicio de Monitor de Minería
+Name[fr]=Arrêter le Service de Moniteur de Minage
+Name[de]=Mining Monitor Service stoppen
+Name[zh_CN]=停止挖矿监控服务
+Exec=systemctl --user stop bitcoin-solo-miner-monitor@%u.service
+Icon=media-playback-stop
+
+[Desktop Action ViewLogs]
+Name=View Application Logs
+Name[es]=Ver Registros de Aplicación
+Name[fr]=Voir les Journaux d'Application
+Name[de]=Anwendungsprotokolle anzeigen
+Name[zh_CN]=查看应用程序日志
+Exec=journalctl --user -u bitcoin-solo-miner-monitor@%u.service -f
+Icon=utilities-log-viewer
+Terminal=true
+
+[Desktop Action OpenConfig]
+Name=Open Configuration
+Name[es]=Abrir Configuración
+Name[fr]=Ouvrir la Configuration
+Name[de]=Konfiguration öffnen
+Name[zh_CN]=打开配置
+Exec=bitcoin-solo-miner-monitor --config
+Icon=preferences-system
+
+[Desktop Action CheckStatus]
+Name=Check Service Status
+Name[es]=Verificar Estado del Servicio
+Name[fr]=Vérifier l'État du Service
+Name[de]=Service-Status prüfen
+Name[zh_CN]=检查服务状态
+Exec=systemctl --user status bitcoin-solo-miner-monitor@%u.service
+Icon=dialog-information
+Terminal=true

@@ -1,0 +1,49 @@
+[Unit]
+Description=Bitcoin Solo Miner Monitor
+Documentation=https://github.com/smokeysrh/bitcoin-solo-miner-monitor
+After=network.target network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/bitcoin-solo-miner-monitor/run.py
+
+[Service]
+Type=simple
+User=%i
+Group=%i
+WorkingDirectory=/opt/bitcoin-solo-miner-monitor
+ExecStart=/usr/bin/python3 /opt/bitcoin-solo-miner-monitor/run.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=30
+
+# Output to journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bitcoin-solo-miner-monitor
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bitcoin-solo-miner-monitor /etc/bitcoin-solo-miner-monitor
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Environment
+Environment=PYTHONPATH=/opt/bitcoin-solo-miner-monitor
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
