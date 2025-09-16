@@ -20,6 +20,7 @@ from src.backend.services.data_storage import DataStorage
 from src.backend.services.websocket_manager import WebSocketManager
 from src.backend.services.system_monitor import SystemMonitor
 from src.backend.services.email_service import EmailService
+from src.backend.services.update_service import UpdateService
 from src.backend.utils.app_paths import get_app_paths
 from src.backend.models.validation_models import (
     MinerAddRequest,
@@ -73,6 +74,9 @@ class APIService:
         
         # Initialize Email Service
         self.email_service = EmailService()
+        
+        # Initialize Update Service
+        self.update_service = UpdateService()
         
         # Configure CORS for production security
         # Allow specific origins for production deployment using configurable host/port
@@ -288,6 +292,22 @@ class APIService:
             dependencies=[Depends(api_key_auth)]
         )(self.send_notification_email)
         
+        # Update endpoints
+        self.app.get(
+            "/api/updates/check",
+            response_model=Dict[str, Any]
+        )(self.check_for_updates)
+        
+        self.app.get(
+            "/api/updates/status",
+            response_model=Dict[str, Any]
+        )(self.get_update_status)
+        
+        self.app.get(
+            "/api/updates/instructions",
+            response_model=Dict[str, Any]
+        )(self.get_update_instructions)
+        
         # WebSocket for real-time updates - authentication handled in the endpoint
         self.app.websocket("/ws")(self.websocket_endpoint)
         
@@ -413,6 +433,7 @@ class APIService:
         await self.data_storage.close()
         await self.websocket_manager.stop()
         await self.system_monitor.stop()
+        await self.update_service.close()
         
         logger.info("API service stopped")
     
@@ -1372,3 +1393,81 @@ class APIService:
         except Exception as e:
             logger.error(f"Error sending notification email: {str(e)}")
             raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def check_for_updates(self, force_refresh: bool = Query(False, description="Force refresh ignoring cache")) -> Dict[str, Any]:
+        """
+        Check for available updates from GitHub releases.
+        
+        Args:
+            force_refresh (bool): Force refresh ignoring cache
+            
+        Returns:
+            Dict[str, Any]: Update information
+        """
+        try:
+            update_info = await self.update_service.check_for_updates(force_refresh)
+            
+            return {
+                "status": "success",
+                "data": update_info,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking for updates: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to check for updates: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_update_status(self) -> Dict[str, Any]:
+        """
+        Get current update status (uses cache if available).
+        
+        Returns:
+            Dict[str, Any]: Update status information
+        """
+        try:
+            update_status = await self.update_service.get_update_status()
+            
+            return {
+                "status": "success",
+                "data": update_status,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting update status: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get update status: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_update_instructions(self, platform: Optional[str] = Query(None, description="Target platform (windows, macos, linux)")) -> Dict[str, Any]:
+        """
+        Get download and installation instructions for updates.
+        
+        Args:
+            platform (Optional[str]): Target platform
+            
+        Returns:
+            Dict[str, Any]: Download instructions
+        """
+        try:
+            instructions = self.update_service.get_download_instructions(platform)
+            
+            return {
+                "status": "success",
+                "data": instructions,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting update instructions: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get update instructions: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }

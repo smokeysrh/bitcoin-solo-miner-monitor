@@ -89,6 +89,15 @@
       >
         <v-icon :class="{ 'refresh-spinning': refreshing }">mdi-refresh</v-icon>
       </v-btn>
+      <v-btn 
+        icon 
+        @click="checkForUpdates"
+        :loading="checkingUpdates"
+        :disabled="checkingUpdates"
+        :title="checkingUpdates ? 'Checking for updates...' : 'Check for updates'"
+      >
+        <v-icon>mdi-download</v-icon>
+      </v-btn>
       <v-btn icon @click="openSettingsDialog">
         <v-icon>mdi-cog</v-icon>
       </v-btn>
@@ -255,6 +264,9 @@
       </template>
     </v-snackbar>
 
+    <!-- Update Notification -->
+    <UpdateNotification />
+
     <!-- Footer with donation address -->
     <v-footer v-if="!isSetupRoute" class="pa-2 footer-fixed">
       <v-container fluid>
@@ -297,13 +309,16 @@ import { useAlertsStore } from './stores/alerts'
 import { isFirstRun, getDiscoveredMiners, getInitialRoute } from './services/firstRunService'
 import { connectionStatus, forceReconnect } from './services/websocket'
 import { useEasterEgg } from './composables/useEasterEgg'
+import { useUpdateChecker } from './composables/useUpdateChecker'
 import BitcoinLogo from './components/BitcoinLogo.vue'
+import UpdateNotification from './components/UpdateNotification.vue'
 
 export default {
   name: 'App',
   
   components: {
-    BitcoinLogo
+    BitcoinLogo,
+    UpdateNotification
   },
   
   setup() {
@@ -315,6 +330,19 @@ export default {
     
     // Initialize easter egg
     const easterEgg = useEasterEgg()
+    
+    // Initialize update checker
+    let checkUpdates, checkingUpdates
+    try {
+      const updateChecker = useUpdateChecker()
+      checkUpdates = updateChecker.checkForUpdates
+      checkingUpdates = updateChecker.isChecking
+    } catch (error) {
+      console.error('Failed to initialize update checker:', error)
+      // Provide fallback values
+      checkUpdates = async () => { console.warn('Update checker not available') }
+      checkingUpdates = ref(false)
+    }
     
     // Navigation drawer state
     const drawer = ref(true)
@@ -628,6 +656,15 @@ export default {
       }
     }
     
+    const checkForUpdates = async () => {
+      try {
+        await checkUpdates(true) // Force refresh
+        showSnackbar('Update check completed', 'info')
+      } catch (error) {
+        showSnackbar(`Update check failed: ${error.message}`, 'error')
+      }
+    }
+    
     const addDiscoveredMiners = async () => {
       // Temporarily disabled to prevent connection timeouts during testing phase
       console.log('addDiscoveredMiners disabled during testing phase to prevent unresponsiveness')
@@ -837,9 +874,11 @@ export default {
       saveSettings,
       refreshData,
       copyDonationAddress,
+      checkForUpdates,
       connectionStatusColor,
       connectionStatusIcon,
       connectionStatusText,
+      checkingUpdates,
       
       // Easter egg (for development debugging)
       easterEgg

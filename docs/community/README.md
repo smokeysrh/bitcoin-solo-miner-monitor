@@ -50,6 +50,17 @@ This documentation covers our complete community support system, designed to pro
 
 **Use this when**: You want to understand how we measure community success or contribute to metrics collection.
 
+### 4. [Distribution Documentation](../distribution/)
+**Comprehensive guides for community distribution channels and partnerships**
+
+- Package submission guides for community repositories
+- Package maintainer relationship and support systems
+- Distribution partnership documentation and guidelines
+- Quality standards and compliance requirements
+- Community distribution channel coordination
+
+**Use this when**: You want to distribute Bitcoin Solo Miner Monitor through package managers, establish distribution partnerships, or become a package maintainer.
+
 ## 🚀 Quick Start Guides
 
 ### For New Community Members
@@ -62,7 +73,7 @@ This documentation covers our complete community support system, designed to pro
 ### For Contributors
 
 1. **Choose Your Area**: Review contribution opportunities in the [Contributing Guide](../../CONTRIBUTING.md)
-2. **Packaging**: Follow the [Packaging Contribution Guide](packaging-contribution-guide.md)
+2. **Packaging**: Follow the [Distribution Documentation](../distribution/) for comprehensive packaging guides
 3. **Development**: Check the [Development Documentation](../BUILD.md)
 4. **Community Support**: Help others using our support templates
 
@@ -238,7 +249,7 @@ We follow Bitcoin community principles:
 → Read the [Contributing Guide](../../CONTRIBUTING.md) and check open issues
 
 #### **Help with Packaging**
-→ Read the [Packaging Contribution Guide](packaging-contribution-guide.md)
+→ Read the [Distribution Documentation](../distribution/) for comprehensive packaging guides
 
 #### **Improve Documentation**
 → Check documentation issues and submit pull requests
