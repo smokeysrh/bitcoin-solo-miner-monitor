@@ -1149,10 +1149,47 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Setup Python for security scanning
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install security scanning dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests packaging
+        
     - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts/
+        
+    - name: Run installer security scanning
+      run: |
+        echo "🔒 Running automated security scanning on generated installers..."
+        
+        # Find all installer files
+        installer_files=""
+        for file in artifacts/*/*.exe artifacts/*/*.dmg artifacts/*/*.deb artifacts/*/*.rpm artifacts/*/*.AppImage; do
+          if [ -f "$file" ]; then
+            installer_files="$installer_files $file"
+          fi
+        done
+        
+        if [ -n "$installer_files" ]; then
+          echo "📦 Found installer files: $installer_files"
+          
+          # Run our security scanner
+          python scripts/security/installer-security-scanner.py \
+            $installer_files \
+            --output-dir security-reports \
+            --format markdown \
+            --verbose
+            
+          echo "✅ Security scanning completed"
+        else
+          echo "⚠️ No installer files found to scan"
+        fi
         
     - name: Run comprehensive security scan
       run: |

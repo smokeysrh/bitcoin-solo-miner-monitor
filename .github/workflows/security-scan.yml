@@ -31,7 +31,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install safety bandit
+        pip install safety bandit pip-audit requests packaging
         # Install project dependencies if requirements.txt exists
         if [ -f requirements.txt ]; then
           pip install -r requirements.txt
@@ -43,6 +43,15 @@ jobs:
       run: |
         npm ci
         cd src/frontend && npm ci
+        
+    - name: Run comprehensive vulnerability detection
+      run: |
+        echo "🔍 Running comprehensive vulnerability detection..."
+        python scripts/security/vulnerability-detector.py --all \
+          --requirements requirements.txt \
+          --package-json-dir src/frontend \
+          --output-dir security-reports \
+          --verbose
         
     - name: Run Python security scan with Safety
       run: |
