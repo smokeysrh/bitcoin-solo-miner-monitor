@@ -1,0 +1,60 @@
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Welcome to Bitcoin Solo Miner Monitor Discussions!
+        
+        This is a place for our community to connect, share experiences, ask questions, and discuss all things related to Bitcoin Solo Miner Monitor.
+        
+        ### Discussion Guidelines
+        
+        - **Be respectful**: Treat all community members with respect and kindness
+        - **Stay on topic**: Keep discussions relevant to Bitcoin mining and this project
+        - **Search first**: Check if your question has been asked before
+        - **Share knowledge**: Help others when you can
+        - **No sensitive data**: Never share private keys, wallet addresses, or personal information
+        
+        ### Discussion Categories
+        
+        - **General**: General discussions about the project
+        - **Q&A**: Questions and answers about usage, setup, and troubleshooting
+        - **Ideas**: Feature requests and improvement suggestions
+        - **Show and Tell**: Share your mining setup and experiences
+        - **Packaging**: Discussions about distribution and packaging
+        - **Development**: Technical discussions for contributors
+        
+        Choose the most appropriate category for your discussion!
+
+  - type: textarea
+    id: discussion-content
+    attributes:
+      label: Discussion Content
+      description: What would you like to discuss?
+      placeholder: Share your thoughts, questions, or experiences...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: discussion-type
+    attributes:
+      label: Discussion Type
+      description: What type of discussion is this?
+      options:
+        - label: Question about usage or setup
+        - label: Feature suggestion or idea
+        - label: Sharing experience or setup
+        - label: Technical discussion
+        - label: Packaging or distribution topic
+        - label: General project discussion
+
+  - type: checkboxes
+    id: community-guidelines
+    attributes:
+      label: Community Guidelines
+      description: Please confirm you've read and agree to follow our community guidelines
+      options:
+        - label: I have read and will follow the community guidelines
+          required: true
+        - label: I understand this is a public discussion visible to all community members
+          required: true

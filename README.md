@@ -118,3 +118,9 @@ This application has been developed entirely through "vibe-coding" by a first-ti
 As a solo miner building for solo miners, this project aims to contribute meaningfully to the Bitcoin ecosystem. The application is designed to be the best open-source solo miner monitoring solution available, built with passion and dedication to the community.
 
 **Community Contributions Welcome!** Whether you're helping to test on different platforms, reporting bugs, suggesting features, or contributing code, your involvement helps make this application better for everyone in the solo mining community.
+
+## Community Support
+
+- **[Discord Server](https://discord.gg/GzNsNnh4yT)** - Real-time community support and discussions
+- **[GitHub Issues](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/issues)** - Bug reports and feature requests
+- **[GitHub Discussions](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/discussions)** - Community support and general discussions

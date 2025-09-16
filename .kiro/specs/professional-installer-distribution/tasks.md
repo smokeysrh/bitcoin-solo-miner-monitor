@@ -135,27 +135,29 @@
   - Create Linux package checksum generation and publishing
   - _Requirements: 6.1, 6.2, 6.4_
 
-- [ ] 6. Create comprehensive documentation and community support
+- [-] 6. Create comprehensive documentation and community support
   - Write platform-specific installation guides with security warning handling
   - Create community contribution and verification documentation
   - Implement user troubleshooting resources
-  - Audit the code created/changed during tasks 6.1-6.3 to verify that your code is correct and error free, then stage all code for commit
+  - I have created a discord server for this project & its community, i want you to add this invite link into the appropriate documents - https://discord.gg/GzNsNnh4yT
+  - Audit the code created/changed during tasks 6.1-6.3 to verify that your code is correct and error free, then stage all pending changes for commit
   - Provide message for commit summarizing the commit
   - _Requirements: 10.1, 10.2, 10.3, 10.7_
 
-- [ ] 6.1 Create installation documentation
+- [x] 6.1 Create installation documentation
+  - Review existing guides, consolidate and organize information within guides
   - Write step-by-step installation guides for Windows, macOS, and Linux
   - Create security warning explanation and safe installation procedures
   - Implement troubleshooting guides for common installation issues
   - _Requirements: 10.1, 10.2, 10.5_
 
-- [ ] 6.2 Implement community support infrastructure
+- [x] 6.2 Implement community support infrastructure
   - Create GitHub issue templates for installation support and bug reports
   - Write community contribution guidelines for packaging and distribution
   - Implement feedback collection and incorporation mechanisms
   - _Requirements: 9.3, 10.3, 10.7_
 
-- [ ] 6.3 Create build-from-source documentation
+- [x] 6.3 Create build-from-source documentation
   - Write comprehensive developer documentation for building installers
   - Create community packaging guidelines for distribution maintainers
   - Implement reproducible build verification instructions for community members
