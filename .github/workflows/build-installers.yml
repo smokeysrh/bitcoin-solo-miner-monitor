@@ -142,8 +142,33 @@ jobs:
       
     - name: Generate checksums
       run: |
+        echo "🔐 Generating comprehensive checksums for macOS artifacts..."
         cd distribution/macos
-        shasum -a 256 *.dmg > SHA256SUMS
+        
+        # Generate SHA256 checksums
+        if ls *.dmg 1> /dev/null 2>&1; then
+          shasum -a 256 *.dmg > SHA256SUMS
+          echo "✅ SHA256 checksums generated"
+          
+          # Also generate MD5 for additional verification
+          md5 *.dmg > MD5SUMS 2>/dev/null || true
+          
+          # Display checksums for verification
+          echo "📋 Generated checksums:"
+          cat SHA256SUMS
+          
+          # Verify the checksums immediately
+          echo "🔍 Verifying generated checksums..."
+          if shasum -a 256 -c SHA256SUMS; then
+            echo "✅ Checksum verification passed"
+          else
+            echo "❌ Checksum verification failed"
+            exit 1
+          fi
+        else
+          echo "❌ No DMG files found to checksum"
+          exit 1
+        fi
       
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
@@ -152,6 +177,7 @@ jobs:
         path: |
           distribution/macos/*.dmg
           distribution/macos/SHA256SUMS
+          distribution/macos/MD5SUMS
         retention-days: 30
 
   build-linux:
@@ -216,8 +242,224 @@ jobs:
           distribution/linux/SHA256SUMS
         retention-days: 30
 
+  validate-macos:
+    needs: [build-macos]
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download macOS artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: macos-installer
+        path: artifacts/
+        
+    - name: Validate macOS DMG structure
+      run: |
+        echo "🔍 Running comprehensive macOS DMG validation..."
+        
+        dmg_file=$(find artifacts -name "*.dmg" | head -1)
+        if [ -z "$dmg_file" ]; then
+          echo "❌ No DMG file found"
+          exit 1
+        fi
+        
+        echo "📁 Validating DMG: $(basename "$dmg_file")"
+        
+        # Check DMG file size (should be reasonable)
+        dmg_size=$(stat -f%z "$dmg_file" 2>/dev/null || echo "0")
+        echo "📏 DMG size: $dmg_size bytes"
+        
+        if [ "$dmg_size" -lt 10000000 ]; then  # Less than 10MB might be too small
+          echo "⚠️  Warning: DMG seems small ($dmg_size bytes)"
+        fi
+        
+        if [ "$dmg_size" -gt 500000000 ]; then  # More than 500MB might be too large
+          echo "⚠️  Warning: DMG seems large ($dmg_size bytes)"
+        fi
+        
+        # Verify checksum file exists and is valid
+        checksum_file=$(find artifacts -name "SHA256SUMS" | head -1)
+        if [ -n "$checksum_file" ]; then
+          echo "🔐 Verifying checksum..."
+          cd "$(dirname "$checksum_file")"
+          if shasum -a 256 -c SHA256SUMS; then
+            echo "✅ Checksum verification passed"
+          else
+            echo "❌ Checksum verification failed"
+            exit 1
+          fi
+          cd - > /dev/null
+        else
+          echo "❌ No checksum file found"
+          exit 1
+        fi
+        
+        # Mount and perform detailed validation
+        mount_point="/tmp/validate_mount_$(date +%s)"
+        echo "💾 Mounting DMG at $mount_point..."
+        
+        if ! hdiutil attach "$dmg_file" -mountpoint "$mount_point" -readonly -nobrowse; then
+          echo "❌ Failed to mount DMG"
+          exit 1
+        fi
+        
+        # Validate DMG contents
+        app_bundle="$mount_point/Bitcoin Solo Miner Monitor.app"
+        
+        echo "🔍 Performing detailed app bundle validation..."
+        
+        # Check bundle identifier
+        bundle_id=$(plutil -extract CFBundleIdentifier raw "$app_bundle/Contents/Info.plist" 2>/dev/null || echo "unknown")
+        echo "🆔 Bundle ID: $bundle_id"
+        
+        # Check minimum system version
+        min_version=$(plutil -extract LSMinimumSystemVersion raw "$app_bundle/Contents/Info.plist" 2>/dev/null || echo "unknown")
+        echo "🖥️  Minimum macOS version: $min_version"
+        
+        # Validate executable architecture
+        executable="$app_bundle/Contents/MacOS/BitcoinSoloMinerMonitor"
+        if [ -f "$executable" ]; then
+          echo "🏗️  Checking executable architecture..."
+          file "$executable"
+          
+          # Check if it's a script or binary
+          if file "$executable" | grep -q "shell script"; then
+            echo "✅ Executable is a shell script (expected for Python app)"
+            
+            # Validate shell script syntax
+            if bash -n "$executable"; then
+              echo "✅ Shell script syntax is valid"
+            else
+              echo "❌ Shell script has syntax errors"
+              hdiutil detach "$mount_point" || true
+              exit 1
+            fi
+          else
+            echo "ℹ️  Executable is not a shell script"
+          fi
+        fi
+        
+        # Check for Python dependencies structure
+        echo "🐍 Checking Python environment setup..."
+        if [ -d "$app_bundle/Contents/Resources/site-packages" ]; then
+          echo "✅ Site-packages directory found"
+          package_count=$(find "$app_bundle/Contents/Resources/site-packages" -maxdepth 1 -type d | wc -l)
+          echo "📦 Found $package_count package directories"
+        else
+          echo "⚠️  Site-packages directory not found (dependencies may be handled differently)"
+        fi
+        
+        # Check for Python framework
+        if [ -d "$app_bundle/Contents/Frameworks/Python.framework" ]; then
+          echo "✅ Python framework found in bundle"
+        else
+          echo "ℹ️  No bundled Python framework (may use system Python)"
+        fi
+        
+        # Validate application resources
+        echo "📚 Checking application resources..."
+        resources_dir="$app_bundle/Contents/Resources"
+        
+        essential_files=("run.py" "src" "config")
+        for file in "${essential_files[@]}"; do
+          if [ -e "$resources_dir/$file" ]; then
+            echo "✅ Found: $file"
+          else
+            echo "⚠️  Missing: $file"
+          fi
+        done
+        
+        # Check for icon file
+        if [ -f "$app_bundle/Contents/Resources/app_icon.icns" ]; then
+          echo "✅ App icon found (ICNS format)"
+        elif [ -f "$app_bundle/Contents/Resources/app_icon.png" ]; then
+          echo "✅ App icon found (PNG format)"
+        else
+          echo "⚠️  No app icon found"
+        fi
+        
+        # Test DMG user experience elements
+        echo "👤 Checking user experience elements..."
+        
+        if [ -L "$mount_point/Applications" ]; then
+          echo "✅ Applications symlink present"
+          if [ "$(readlink "$mount_point/Applications")" = "/Applications" ]; then
+            echo "✅ Applications symlink points to correct location"
+          else
+            echo "❌ Applications symlink points to wrong location"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+        else
+          echo "❌ Applications symlink missing"
+          hdiutil detach "$mount_point" || true
+          exit 1
+        fi
+        
+        if [ -f "$mount_point/Installation Instructions.txt" ]; then
+          echo "✅ Installation instructions present"
+          # Check if instructions are not empty
+          if [ -s "$mount_point/Installation Instructions.txt" ]; then
+            echo "✅ Installation instructions are not empty"
+          else
+            echo "⚠️  Installation instructions file is empty"
+          fi
+        else
+          echo "⚠️  Installation instructions missing"
+        fi
+        
+        # Check for background image
+        if [ -f "$mount_point/.background/background.png" ]; then
+          echo "✅ DMG background image found"
+        else
+          echo "ℹ️  No custom DMG background image"
+        fi
+        
+        # Unmount DMG
+        echo "📤 Unmounting DMG..."
+        if ! hdiutil detach "$mount_point"; then
+          echo "⚠️  Warning: Could not unmount cleanly, forcing..."
+          hdiutil detach "$mount_point" -force || true
+        fi
+        
+        echo "✅ macOS DMG validation completed successfully"
+        
+    - name: Test macOS system integration
+      run: |
+        echo "🔧 Testing macOS system integration capabilities..."
+        
+        # Test Spotlight indexing compatibility
+        echo "🔍 Checking Spotlight compatibility..."
+        dmg_file=$(find artifacts -name "*.dmg" | head -1)
+        mount_point="/tmp/spotlight_test_$(date +%s)"
+        
+        hdiutil attach "$dmg_file" -mountpoint "$mount_point" -readonly -nobrowse
+        app_bundle="$mount_point/Bitcoin Solo Miner Monitor.app"
+        
+        # Check if mdls can read the bundle metadata
+        if mdls "$app_bundle" >/dev/null 2>&1; then
+          echo "✅ App bundle is Spotlight compatible"
+        else
+          echo "⚠️  App bundle may have Spotlight indexing issues"
+        fi
+        
+        # Test Launch Services compatibility
+        echo "🚀 Checking Launch Services compatibility..."
+        if /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -dump | grep -q "Bitcoin Solo Miner Monitor" 2>/dev/null; then
+          echo "ℹ️  App may already be registered with Launch Services"
+        else
+          echo "ℹ️  App not currently registered with Launch Services (normal for testing)"
+        fi
+        
+        hdiutil detach "$mount_point" || true
+        
+        echo "✅ macOS system integration tests completed"
+
   test-installers:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-macos, build-linux, validate-macos]
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
@@ -255,16 +497,137 @@ jobs:
       run: |
         dmg_file=$(find artifacts/macos-installer -name "*.dmg" | head -1)
         if [ -n "$dmg_file" ]; then
-          echo "Testing macOS installer: $(basename "$dmg_file")"
-          # Mount DMG and verify contents
-          hdiutil attach "$dmg_file" -mountpoint /tmp/test_mount
-          if [ -d "/tmp/test_mount/Bitcoin Solo Miner Monitor.app" ]; then
-            echo "✓ macOS installer test passed"
-          else
-            echo "✗ macOS installer test failed"
+          echo "🍎 Testing macOS installer: $(basename "$dmg_file")"
+          
+          # Verify DMG file integrity
+          echo "📋 Verifying DMG integrity..."
+          if ! hdiutil verify "$dmg_file"; then
+            echo "❌ DMG integrity check failed"
             exit 1
           fi
-          hdiutil detach /tmp/test_mount
+          echo "✅ DMG integrity verified"
+          
+          # Mount DMG and verify contents
+          echo "💾 Mounting DMG for content verification..."
+          mount_point="/tmp/test_mount_$(date +%s)"
+          if ! hdiutil attach "$dmg_file" -mountpoint "$mount_point" -readonly; then
+            echo "❌ Failed to mount DMG"
+            exit 1
+          fi
+          
+          # Verify app bundle structure
+          app_bundle="$mount_point/Bitcoin Solo Miner Monitor.app"
+          if [ ! -d "$app_bundle" ]; then
+            echo "❌ App bundle not found in DMG"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ App bundle found: $app_bundle"
+          
+          # Verify essential app bundle components
+          echo "🔍 Verifying app bundle structure..."
+          
+          # Check Info.plist
+          if [ ! -f "$app_bundle/Contents/Info.plist" ]; then
+            echo "❌ Info.plist missing"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Info.plist found"
+          
+          # Check executable
+          if [ ! -f "$app_bundle/Contents/MacOS/BitcoinSoloMinerMonitor" ]; then
+            echo "❌ Main executable missing"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          
+          # Verify executable permissions
+          if [ ! -x "$app_bundle/Contents/MacOS/BitcoinSoloMinerMonitor" ]; then
+            echo "❌ Main executable not executable"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Main executable found and executable"
+          
+          # Check Resources directory
+          if [ ! -d "$app_bundle/Contents/Resources" ]; then
+            echo "❌ Resources directory missing"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Resources directory found"
+          
+          # Verify essential application files
+          if [ ! -f "$app_bundle/Contents/Resources/run.py" ]; then
+            echo "❌ Main Python script (run.py) missing"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Main Python script found"
+          
+          # Check for requirements.txt
+          if [ ! -f "$app_bundle/Contents/Resources/requirements.txt" ]; then
+            echo "⚠️  requirements.txt missing (may be bundled differently)"
+          else
+            echo "✅ requirements.txt found"
+          fi
+          
+          # Verify Applications symlink
+          if [ ! -L "$mount_point/Applications" ]; then
+            echo "❌ Applications symlink missing"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Applications symlink found"
+          
+          # Check for installation instructions
+          if [ -f "$mount_point/Installation Instructions.txt" ]; then
+            echo "✅ Installation instructions found"
+          else
+            echo "⚠️  Installation instructions missing"
+          fi
+          
+          # Test app bundle validation (basic)
+          echo "🔍 Running basic app bundle validation..."
+          if ! codesign --verify --deep --strict "$app_bundle" 2>/dev/null; then
+            echo "⚠️  App bundle not code signed (expected for open source)"
+          else
+            echo "✅ App bundle code signature valid"
+          fi
+          
+          # Test Info.plist parsing
+          echo "📋 Validating Info.plist..."
+          if ! plutil -lint "$app_bundle/Contents/Info.plist" >/dev/null 2>&1; then
+            echo "❌ Info.plist is malformed"
+            hdiutil detach "$mount_point" || true
+            exit 1
+          fi
+          echo "✅ Info.plist is valid"
+          
+          # Extract and verify version info
+          bundle_version=$(plutil -extract CFBundleShortVersionString raw "$app_bundle/Contents/Info.plist" 2>/dev/null || echo "unknown")
+          echo "📦 Bundle version: $bundle_version"
+          
+          # Test executable basic functionality (dry run)
+          echo "🧪 Testing executable basic functionality..."
+          if timeout 10s "$app_bundle/Contents/MacOS/BitcoinSoloMinerMonitor" --help >/dev/null 2>&1; then
+            echo "✅ Executable responds to --help"
+          else
+            echo "⚠️  Executable doesn't respond to --help (may be normal)"
+          fi
+          
+          # Unmount DMG
+          echo "📤 Unmounting DMG..."
+          if ! hdiutil detach "$mount_point"; then
+            echo "⚠️  Warning: Could not unmount cleanly"
+            hdiutil detach "$mount_point" -force || true
+          fi
+          
+          echo "✅ macOS installer test completed successfully"
+        else
+          echo "❌ No macOS DMG file found in artifacts"
+          exit 1
         fi
       
     - name: Test Linux packages
@@ -285,7 +648,7 @@ jobs:
 
   create-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [build-windows, build-macos, build-linux, test-installers]
+    needs: [build-windows, build-macos, build-linux, validate-macos, test-installers]
     runs-on: ubuntu-latest
     
     steps:
@@ -373,7 +736,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   security-scan:
-    needs: [build-windows, build-macos, build-linux]
+    needs: [build-windows, build-macos, build-linux, validate-macos]
     runs-on: ubuntu-latest
     
     steps:

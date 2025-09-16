@@ -100,3 +100,21 @@ The application follows a modern async architecture:
 - **Bitaxe**: HTTP API-based communication
 - **Avalon Nano**: Socket-based CGMiner API
 - **Magic Miner**: Web scraping-based data extraction
+
+## Installation Packages
+
+Professional installer packages are available for all major platforms:
+
+- **Windows**: `.exe` installer with automatic dependency management
+- **macOS**: `.dmg` disk image with drag-to-install interface
+- **Linux**: `.deb`, `.rpm`, and `.AppImage` packages
+
+**Note**: macOS and Linux installers are built and tested in CI/CD environments but have not been extensively tested on physical hardware due to platform availability limitations. Community testing and feedback on these platforms is greatly appreciated!
+
+## Project Philosophy
+
+This application has been developed entirely through "vibe-coding" by a first-time developer using the Kiro IDE and Claude AI assistants. While this unconventional approach may have resulted in some over-engineering or redundancies, the goal is to create a fully functional, standalone application that serves the solo mining community.
+
+As a solo miner building for solo miners, this project aims to contribute meaningfully to the Bitcoin ecosystem. The application is designed to be the best open-source solo miner monitoring solution available, built with passion and dedication to the community.
+
+**Community Contributions Welcome!** Whether you're helping to test on different platforms, reporting bugs, suggesting features, or contributing code, your involvement helps make this application better for everyone in the solo mining community.
