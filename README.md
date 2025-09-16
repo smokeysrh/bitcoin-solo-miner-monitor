@@ -2,6 +2,8 @@
 
 A comprehensive monitoring application for Bitcoin solo miners, supporting multiple miner types including Bitaxe, Avalon Nano, and Magic Miner.
 
+
+
 ## Dependencies
 
 ### Python Backend Dependencies
