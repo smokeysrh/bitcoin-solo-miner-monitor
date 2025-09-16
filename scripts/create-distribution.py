@@ -24,7 +24,22 @@ class DistributionBuilder:
         """Clean the distribution directory for the specified platform"""
         platform_dist = self.dist_dir / platform
         if platform_dist.exists():
-            shutil.rmtree(platform_dist)
+            try:
+                shutil.rmtree(platform_dist)
+            except PermissionError:
+                # Try to remove individual files if directory removal fails
+                import time
+                time.sleep(1)  # Wait a moment
+                for file_path in platform_dist.rglob("*"):
+                    if file_path.is_file():
+                        try:
+                            file_path.unlink()
+                        except PermissionError:
+                            pass  # Skip locked files
+                try:
+                    shutil.rmtree(platform_dist)
+                except PermissionError:
+                    pass  # Continue if some files are still locked
         platform_dist.mkdir(parents=True, exist_ok=True)
         return platform_dist
         
@@ -105,8 +120,29 @@ class DistributionBuilder:
             
             try:
                 # Run NSIS compiler
+                # Try to find makensis in common locations
+                makensis_paths = [
+                    "makensis",  # If in PATH
+                    r"C:\Program Files (x86)\NSIS\makensis.exe",
+                    r"C:\Program Files\NSIS\makensis.exe"
+                ]
+                
+                makensis_exe = None
+                for path in makensis_paths:
+                    try:
+                        # Just check if the file exists and is executable
+                        result = subprocess.run([path, "/?"], capture_output=True)
+                        if result.returncode in [0, 1]:  # Help command returns 1, which is normal
+                            makensis_exe = path
+                            break
+                    except FileNotFoundError:
+                        continue
+                
+                if not makensis_exe:
+                    raise FileNotFoundError("NSIS makensis.exe not found")
+                
                 nsis_cmd = [
-                    "makensis",
+                    makensis_exe,
                     f"/DVERSION={version}",
                     f"/DAPP_DIR={app_dir}",
                     f"/DOUTPUT_FILE={installer_path}",

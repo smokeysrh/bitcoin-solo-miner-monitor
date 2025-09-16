@@ -21,6 +21,7 @@ from src.backend.services.websocket_manager import WebSocketManager
 from src.backend.services.system_monitor import SystemMonitor
 from src.backend.services.email_service import EmailService
 from src.backend.services.update_service import UpdateService
+from src.backend.services.feedback_service import FeedbackService
 from src.backend.utils.app_paths import get_app_paths
 from src.backend.models.validation_models import (
     MinerAddRequest,
@@ -32,7 +33,10 @@ from src.backend.models.validation_models import (
     SystemMetricsRequest,
     EmailConfigRequest,
     EmailTestRequest,
-    EmailNotificationRequest
+    EmailNotificationRequest,
+    FeedbackSubmissionRequest,
+    FeedbackStatusUpdateRequest,
+    FeedbackQueryRequest
 )
 from src.backend.exceptions import ValidationError as AppValidationError
 from src.backend.middleware.validation_middleware import (
@@ -77,6 +81,9 @@ class APIService:
         
         # Initialize Update Service
         self.update_service = UpdateService()
+        
+        # Initialize Feedback Service
+        self.feedback_service = FeedbackService()
         
         # Configure CORS for production security
         # Allow specific origins for production deployment using configurable host/port
@@ -307,6 +314,34 @@ class APIService:
             "/api/updates/instructions",
             response_model=Dict[str, Any]
         )(self.get_update_instructions)
+        
+        # Feedback endpoints
+        self.app.post(
+            "/api/feedback/submit",
+            response_model=Dict[str, Any]
+        )(self.submit_feedback)
+        
+        self.app.get(
+            "/api/feedback/summary",
+            response_model=Dict[str, Any]
+        )(self.get_feedback_summary)
+        
+        self.app.get(
+            "/api/feedback/category/{category}",
+            response_model=List[Dict[str, Any]]
+        )(self.get_feedback_by_category)
+        
+        self.app.put(
+            "/api/feedback/{feedback_id}/status",
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_feedback_status)
+        
+        self.app.get(
+            "/api/feedback/export",
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.export_feedback_report)
         
         # WebSocket for real-time updates - authentication handled in the endpoint
         self.app.websocket("/ws")(self.websocket_endpoint)
@@ -1471,3 +1506,142 @@ class APIService:
                 "message": f"Failed to get update instructions: {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
+    
+    async def submit_feedback(self, request: FeedbackSubmissionRequest) -> Dict[str, Any]:
+        """
+        Submit community feedback.
+        
+        Args:
+            request (FeedbackSubmissionRequest): Feedback submission data
+            
+        Returns:
+            Dict[str, Any]: Submission result
+        """
+        try:
+            feedback_data = {
+                'category': request.category,
+                'message': request.message,
+                'user_id': request.user_id,
+                'installer_version': request.installer_version,
+                'system_info': request.system_info,
+                'severity': request.severity
+            }
+            
+            result = self.feedback_service.submit_feedback(feedback_data)
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=400, detail=result.get('error', 'Failed to submit feedback'))
+            
+        except Exception as e:
+            logger.error(f"Error submitting feedback: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def get_feedback_summary(self) -> Dict[str, Any]:
+        """
+        Get community feedback summary.
+        
+        Returns:
+            Dict[str, Any]: Feedback summary data
+        """
+        try:
+            summary = self.feedback_service.get_feedback_summary()
+            
+            return {
+                "status": "success",
+                "data": summary,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting feedback summary: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get feedback summary: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_feedback_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """
+        Get feedback by category.
+        
+        Args:
+            category (str): Feedback category
+            
+        Returns:
+            List[Dict[str, Any]]: Feedback items for the category
+        """
+        try:
+            feedback_items = self.feedback_service.get_feedback_by_category(category)
+            
+            return feedback_items
+            
+        except Exception as e:
+            logger.error(f"Error getting feedback by category: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def update_feedback_status(self, feedback_id: str, request: FeedbackStatusUpdateRequest) -> Dict[str, Any]:
+        """
+        Update feedback status.
+        
+        Args:
+            feedback_id (str): Feedback ID
+            request (FeedbackStatusUpdateRequest): Status update data
+            
+        Returns:
+            Dict[str, Any]: Update result
+        """
+        try:
+            result = self.feedback_service.update_feedback_status(
+                feedback_id, 
+                request.status, 
+                request.notes or ""
+            )
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=404, detail=result.get('error', 'Feedback not found'))
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating feedback status: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def export_feedback_report(self, output_file: Optional[str] = Query(None, description="Output file path")) -> Dict[str, Any]:
+        """
+        Export feedback report.
+        
+        Args:
+            output_file (Optional[str]): Output file path
+            
+        Returns:
+            Dict[str, Any]: Export result
+        """
+        try:
+            result = self.feedback_service.export_feedback_report(output_file)
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=500, detail=result.get('error', 'Failed to export report'))
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error exporting feedback report: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")

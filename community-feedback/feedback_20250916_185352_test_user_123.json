@@ -1,0 +1,14 @@
+{
+  "id": "feedback_20250916_185352_test_user_123",
+  "timestamp": "2025-09-16T18:53:52.098173",
+  "category": "installation",
+  "message": "Test feedback message for installation issues",
+  "user_id": "test_user_123",
+  "installer_version": "1.0.0",
+  "system_info": {
+    "os": "Windows 10",
+    "arch": "x64"
+  },
+  "severity": "medium",
+  "status": "submitted"
+}
