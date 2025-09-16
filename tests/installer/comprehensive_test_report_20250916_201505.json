@@ -1,0 +1,52 @@
+{
+  "session_id": "20250916_201505",
+  "start_time": "2025-09-16T20:15:05.908241+00:00",
+  "platform": "windows",
+  "test_results": {
+    "cross_platform": null,
+    "user_experience": null,
+    "monitoring": {
+      "timestamp": "2025-09-16T20:15:11.469301+00:00",
+      "time_window_days": 30,
+      "health_status": "critical",
+      "success_rates": {
+        "time_window_days": 30,
+        "overall": {
+          "total": 0,
+          "successful": 0,
+          "rate": 0
+        },
+        "by_platform": {},
+        "by_installer_type": {},
+        "by_user_persona": {}
+      },
+      "failure_analysis": {
+        "common_errors": [],
+        "platform_failures": {},
+        "duration_analysis": {}
+      },
+      "trends": {
+        "daily_rates": [],
+        "trend": "insufficient_data",
+        "slope": 0,
+        "data_points": 0
+      },
+      "alerts": [],
+      "recommendations": [
+        "URGENT: Overall success rate is below acceptable threshold. Investigate and fix critical issues immediately."
+      ]
+    }
+  },
+  "summary": {
+    "total_tests": 0,
+    "passed_tests": 0,
+    "failed_tests": 0,
+    "overall_success_rate": 0.0,
+    "recommendations": [
+      "URGENT: Installation success monitoring shows critical issues - immediate action required",
+      "URGENT: Overall success rate is below acceptable threshold. Investigate and fix critical issues immediately.",
+      "CRITICAL: Overall test success rate is below 70% - do not release until major issues are resolved"
+    ]
+  },
+  "end_time": "2025-09-16T20:15:11.472304+00:00"
+}

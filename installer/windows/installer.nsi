@@ -4,7 +4,10 @@
 ; Define constants
 !define APP_NAME "Bitcoin Solo Miner Monitor"
 !define PUBLISHER "Bitcoin Solo Miner Monitor"
-!define VERSION "1.0.0"
+; VERSION is passed as a command line parameter via /DVERSION=x.x.x
+!ifndef VERSION
+  !define VERSION "1.0.0"
+!endif
 !define WEBSITE "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
 !define REGKEY "Software\${APP_NAME}"
 !define UNINSTALL_REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
@@ -15,6 +18,7 @@
 !include "FileFunc.nsh"
 !include "nsDialogs.nsh"
 !include "WinVer.nsh"
+; !include "StrFunc.nsh"
 
 ; Set basic information
 Name "${APP_NAME}"
@@ -26,11 +30,12 @@ SetCompressor /SOLID lzma
 
 ; Define UI settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "..\common\assets\installer_icon.ico"
-!define MUI_UNICON "..\common\assets\uninstaller_icon.ico"
-!define MUI_WELCOMEFINISHPAGE_BITMAP "..\common\assets\welcome_image.bmp"
-!define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "..\common\assets\header_image.bmp"
+!define MUI_ICON "..\common\assets\bitcoin-symbol.ico"
+!define MUI_UNICON "..\common\assets\bitcoin-symbol.ico"
+; Temporarily commented out due to BMP format issues
+; !define MUI_WELCOMEFINISHPAGE_BITMAP "..\common\assets\welcome_image.bmp"
+; !define MUI_HEADERIMAGE
+; !define MUI_HEADERIMAGE_BITMAP "..\common\assets\header_image.bmp"
 !define MUI_HEADERIMAGE_RIGHT
 
 ; Define welcome page
@@ -74,8 +79,12 @@ Section "!Core Files (required)" SecCore
   ; Set output directory
   SetOutPath "$INSTDIR"
   
-  ; Add files
-  File /r "..\build\windows\*.*"
+  ; Add files from the app directory passed as parameter
+  !ifdef APP_DIR
+    File /r "${APP_DIR}\*.*"
+  !else
+    File /r "..\build\windows\*.*"
+  !endif
   
   ; Create data directory
   CreateDirectory "$APPDATA\${APP_NAME}"
@@ -143,6 +152,7 @@ SectionEnd
 Var Dialog
 Var NetworkDiscoveryCheck
 Var NetworkRangeText
+Var CONFIG_FILE
 
 Function NetworkDiscoveryPage
   !insertmacro MUI_HEADER_TEXT "Network Discovery" "Configure automatic miner discovery on your network."
@@ -238,12 +248,15 @@ FunctionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SecStartup} "Start the application automatically when Windows starts."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
-; Initialize string functions
-${StrLoc}
-${StrTok}
+; Initialize string functions (commented out for now)
+; ${StrLoc}
+; ${StrTok}
 
 ; Check system requirements
 Function .onInit
+  ; Initialize CONFIG_FILE variable
+  StrCpy $CONFIG_FILE ""
+  
   ; Get command line parameters
   ${GetParameters} $R0
   

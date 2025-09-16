@@ -1,0 +1,493 @@
+name: Comprehensive Installer Testing
+
+on:
+  workflow_run:
+    workflows: ["Build Installers"]
+    types:
+      - completed
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'installer/**'
+      - 'tests/installer/**'
+      - '.github/workflows/build-installers.yml'
+  workflow_dispatch:
+    inputs:
+      installer_source:
+        description: 'Source of installers to test'
+        required: false
+        default: 'artifacts'
+        type: choice
+        options:
+          - 'artifacts'
+          - 'latest_release'
+          - 'distribution_dir'
+      test_types:
+        description: 'Types of tests to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'cross_platform_only'
+          - 'user_experience_only'
+          - 'monitoring_only'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Matrix testing across different platforms and scenarios
+  cross-platform-testing:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        test_scenario: [
+          'integrity_and_structure',
+          'installation_simulation',
+          'user_experience'
+        ]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests packaging sqlite3
+        
+    - name: Download installer artifacts
+      if: github.event_name == 'workflow_run' || github.event.inputs.installer_source == 'artifacts'
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+        
+    - name: Download latest release installers
+      if: github.event.inputs.installer_source == 'latest_release'
+      run: |
+        echo "📥 Downloading installers from latest release..."
+        python -c "
+        import requests
+        import json
+        import os
+        from pathlib import Path
+        
+        # Get latest release
+        response = requests.get('https://api.github.com/repos/${{ github.repository }}/releases/latest')
+        if response.status_code == 200:
+            release = response.json()
+            
+            # Create artifacts directory
+            artifacts_dir = Path('artifacts')
+            artifacts_dir.mkdir(exist_ok=True)
+            
+            # Download each asset
+            for asset in release['assets']:
+                if any(ext in asset['name'].lower() for ext in ['.exe', '.dmg', '.deb', '.rpm', '.appimage']):
+                    print(f'Downloading {asset[\"name\"]}...')
+                    asset_response = requests.get(asset['browser_download_url'])
+                    if asset_response.status_code == 200:
+                        with open(artifacts_dir / asset['name'], 'wb') as f:
+                            f.write(asset_response.content)
+                        print(f'✅ Downloaded {asset[\"name\"]}')
+                    else:
+                        print(f'❌ Failed to download {asset[\"name\"]}')
+        else:
+            print('❌ No latest release found')
+        "
+        
+    - name: Setup test environment
+      run: |
+        echo "🔧 Setting up test environment for ${{ matrix.os }} - ${{ matrix.test_scenario }}"
+        
+        # Create test directories
+        mkdir -p tests/installer/results
+        mkdir -p tests/installer/ux_results
+        mkdir -p tests/installer/monitoring
+        
+        # Make test scripts executable
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          chmod +x tests/installer/*.py
+        fi
+        
+        # Install platform-specific dependencies
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo apt-get update
+          sudo apt-get install -y file dpkg-dev rpm alien
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          # macOS dependencies are usually pre-installed
+          echo "macOS environment ready"
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          # Windows dependencies
+          echo "Windows environment ready"
+        fi
+      shell: bash
+      
+    - name: Run integrity and structure tests
+      if: matrix.test_scenario == 'integrity_and_structure'
+      run: |
+        echo "🔍 Running integrity and structure tests..."
+        
+        python tests/installer/test_cross_platform_automation.py \
+          --installer-dir artifacts \
+          --verbose
+      shell: bash
+      
+    - name: Run installation simulation tests
+      if: matrix.test_scenario == 'installation_simulation'
+      run: |
+        echo "⚙️ Running installation simulation tests..."
+        
+        # Run cross-platform tests with focus on installation
+        python tests/installer/test_cross_platform_automation.py \
+          --installer-dir artifacts \
+          --verbose
+      shell: bash
+      
+    - name: Run user experience tests
+      if: matrix.test_scenario == 'user_experience'
+      run: |
+        echo "🎭 Running user experience simulation tests..."
+        
+        python tests/installer/user_experience_simulator.py \
+          --installer-dir artifacts \
+          --verbose
+      shell: bash
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.test_scenario }}
+        path: |
+          tests/installer/results/
+          tests/installer/ux_results/
+          tests/installer/*.log
+        retention-days: 30
+        
+    - name: Upload test artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: failed-test-artifacts-${{ matrix.os }}-${{ matrix.test_scenario }}
+        path: |
+          tests/installer/
+          artifacts/
+        retention-days: 7
+
+  # Comprehensive analysis and reporting
+  comprehensive-analysis:
+    needs: cross-platform-testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests packaging sqlite3
+        
+    - name: Download all test results
+      uses: actions/download-artifact@v4
+      with:
+        path: collected-results/
+        
+    - name: Consolidate test results
+      run: |
+        echo "📊 Consolidating test results from all platforms..."
+        
+        # Create consolidated results directory
+        mkdir -p tests/installer/results
+        mkdir -p tests/installer/ux_results
+        mkdir -p tests/installer/monitoring
+        
+        # Copy all test results to consolidated location
+        find collected-results -name "*.json" -path "*/results/*" -exec cp {} tests/installer/results/ \;
+        find collected-results -name "*.json" -path "*/ux_results/*" -exec cp {} tests/installer/ux_results/ \;
+        find collected-results -name "*.log" -exec cp {} tests/installer/ \;
+        
+        echo "📋 Consolidated results:"
+        ls -la tests/installer/results/
+        ls -la tests/installer/ux_results/
+        
+    - name: Run comprehensive analysis
+      run: |
+        echo "🔬 Running comprehensive cross-platform analysis..."
+        
+        python tests/installer/run_cross_platform_tests.py \
+          --skip-cross-platform \
+          --skip-user-experience \
+          --verbose
+        
+    - name: Generate monitoring report
+      run: |
+        echo "📈 Generating installation success monitoring report..."
+        
+        python tests/installer/installation_success_monitor.py \
+          --generate-report \
+          --days 30 \
+          --verbose
+        
+    - name: Check for critical alerts
+      run: |
+        echo "🚨 Checking for critical alerts..."
+        
+        python tests/installer/installation_success_monitor.py \
+          --check-alerts \
+          --verbose
+      continue-on-error: true
+      
+    - name: Upload comprehensive reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: comprehensive-test-reports
+        path: |
+          tests/installer/comprehensive_test_report_*.json
+          tests/installer/comprehensive_test_report_*.md
+          tests/installer/monitoring/monitoring_report_*.json
+          tests/installer/monitoring/monitoring_report_*.md
+        retention-days: 90
+        
+    - name: Create test summary comment
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Find the latest comprehensive test report
+          const testDir = 'tests/installer';
+          const files = fs.readdirSync(testDir);
+          const reportFiles = files.filter(f => f.startsWith('comprehensive_test_report_') && f.endsWith('.json'));
+          
+          if (reportFiles.length === 0) {
+            console.log('No comprehensive test report found');
+            return;
+          }
+          
+          // Get the latest report
+          const latestReport = reportFiles.sort().pop();
+          const reportPath = path.join(testDir, latestReport);
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          
+          // Create comment body
+          const summary = report.summary;
+          const overallRate = summary.overall_success_rate.toFixed(1);
+          
+          let statusIcon = '✅';
+          let statusText = 'PASSED';
+          if (overallRate < 70) {
+            statusIcon = '❌';
+            statusText = 'FAILED';
+          } else if (overallRate < 85) {
+            statusIcon = '⚠️';
+            statusText = 'NEEDS IMPROVEMENT';
+          }
+          
+          const commentBody = `## ${statusIcon} Comprehensive Installer Testing Results
+          
+          **Overall Status**: ${statusText}
+          **Success Rate**: ${overallRate}%
+          **Total Tests**: ${summary.total_tests}
+          **Passed**: ${summary.passed_tests} ✅
+          **Failed**: ${summary.failed_tests} ❌
+          
+          ### Test Categories
+          
+          ${report.test_results.cross_platform ? `**Cross-Platform Tests**: ${report.test_results.cross_platform.summary?.success_rate?.toFixed(1) || 'N/A'}% success rate` : '**Cross-Platform Tests**: Not run'}
+          
+          ${report.test_results.user_experience ? `**User Experience**: ${report.test_results.user_experience.summary?.user_satisfaction_score?.toFixed(1) || 'N/A'}/10 satisfaction score` : '**User Experience**: Not run'}
+          
+          ${report.test_results.monitoring ? `**Success Monitoring**: ${report.test_results.monitoring.health_status?.toUpperCase() || 'UNKNOWN'} health status` : '**Success Monitoring**: Not run'}
+          
+          ### Top Recommendations
+          
+          ${summary.recommendations.slice(0, 3).map(rec => `- ${rec}`).join('\n')}
+          
+          ### Release Readiness
+          
+          ${overallRate >= 90 ? '✅ **READY FOR RELEASE**: All quality gates passed.' : 
+            overallRate >= 80 ? '⚠️ **CONDITIONAL RELEASE**: Address high-priority issues first.' : 
+            '❌ **NOT READY FOR RELEASE**: Critical issues must be resolved.'}
+          
+          <details>
+          <summary>View detailed test artifacts</summary>
+          
+          - [Comprehensive Test Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - Test Results: Check the "comprehensive-test-reports" artifact
+          - Platform-specific results available in individual test artifacts
+          
+          </details>`;
+          
+          // Post comment
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
+
+  # Quality gate check
+  quality-gate:
+    needs: comprehensive-analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download comprehensive reports
+      uses: actions/download-artifact@v4
+      with:
+        name: comprehensive-test-reports
+        path: reports/
+        
+    - name: Evaluate quality gate
+      run: |
+        echo "🚪 Evaluating quality gate criteria..."
+        
+        # Find the latest comprehensive test report
+        REPORT_FILE=$(find reports -name "comprehensive_test_report_*.json" | sort | tail -1)
+        
+        if [ -z "$REPORT_FILE" ]; then
+          echo "❌ No comprehensive test report found"
+          exit 1
+        fi
+        
+        echo "📊 Analyzing report: $REPORT_FILE"
+        
+        # Extract key metrics using Python
+        python -c "
+        import json
+        import sys
+        
+        with open('$REPORT_FILE', 'r') as f:
+            report = json.load(f)
+        
+        summary = report['summary']
+        overall_rate = summary['overall_success_rate']
+        
+        print(f'Overall Success Rate: {overall_rate:.1f}%')
+        
+        # Quality gate criteria
+        quality_gates = {
+            'minimum_success_rate': 80.0,
+            'critical_failure_threshold': 20.0,
+            'user_satisfaction_minimum': 6.0
+        }
+        
+        passed_gates = 0
+        total_gates = 0
+        
+        # Check overall success rate
+        total_gates += 1
+        if overall_rate >= quality_gates['minimum_success_rate']:
+            print('✅ Overall success rate gate: PASSED')
+            passed_gates += 1
+        else:
+            print(f'❌ Overall success rate gate: FAILED ({overall_rate:.1f}% < {quality_gates[\"minimum_success_rate\"]}%)')
+        
+        # Check critical failure rate
+        total_gates += 1
+        failure_rate = 100 - overall_rate
+        if failure_rate <= quality_gates['critical_failure_threshold']:
+            print('✅ Critical failure rate gate: PASSED')
+            passed_gates += 1
+        else:
+            print(f'❌ Critical failure rate gate: FAILED ({failure_rate:.1f}% > {quality_gates[\"critical_failure_threshold\"]}%)')
+        
+        # Check user satisfaction if available
+        ux_results = report.get('test_results', {}).get('user_experience')
+        if ux_results:
+            total_gates += 1
+            satisfaction_score = ux_results.get('summary', {}).get('user_satisfaction_score', 0)
+            if satisfaction_score >= quality_gates['user_satisfaction_minimum']:
+                print('✅ User satisfaction gate: PASSED')
+                passed_gates += 1
+            else:
+                print(f'❌ User satisfaction gate: FAILED ({satisfaction_score:.1f} < {quality_gates[\"user_satisfaction_minimum\"]})')
+        
+        print(f'\\nQuality Gates: {passed_gates}/{total_gates} passed')
+        
+        if passed_gates == total_gates:
+            print('🎉 All quality gates passed!')
+            sys.exit(0)
+        else:
+            print('❌ Quality gate check failed')
+            sys.exit(1)
+        "
+        
+    - name: Quality gate summary
+      if: always()
+      run: |
+        if [ $? -eq 0 ]; then
+          echo "✅ Quality gate check passed - installers meet release criteria"
+        else
+          echo "❌ Quality gate check failed - installers do not meet release criteria"
+        fi
+
+  # Notification and reporting
+  notify-results:
+    needs: [cross-platform-testing, comprehensive-analysis, quality-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Determine overall status
+      run: |
+        echo "📊 Determining overall test status..."
+        
+        # Check job statuses
+        CROSS_PLATFORM_STATUS="${{ needs.cross-platform-testing.result }}"
+        ANALYSIS_STATUS="${{ needs.comprehensive-analysis.result }}"
+        QUALITY_GATE_STATUS="${{ needs.quality-gate.result }}"
+        
+        echo "Cross-platform testing: $CROSS_PLATFORM_STATUS"
+        echo "Comprehensive analysis: $ANALYSIS_STATUS"
+        echo "Quality gate: $QUALITY_GATE_STATUS"
+        
+        # Determine overall status
+        if [ "$QUALITY_GATE_STATUS" = "success" ]; then
+          echo "OVERALL_STATUS=success" >> $GITHUB_ENV
+          echo "STATUS_ICON=✅" >> $GITHUB_ENV
+          echo "STATUS_MESSAGE=All installer tests passed successfully" >> $GITHUB_ENV
+        elif [ "$CROSS_PLATFORM_STATUS" = "failure" ] || [ "$ANALYSIS_STATUS" = "failure" ]; then
+          echo "OVERALL_STATUS=failure" >> $GITHUB_ENV
+          echo "STATUS_ICON=❌" >> $GITHUB_ENV
+          echo "STATUS_MESSAGE=Critical installer test failures detected" >> $GITHUB_ENV
+        else
+          echo "OVERALL_STATUS=warning" >> $GITHUB_ENV
+          echo "STATUS_ICON=⚠️" >> $GITHUB_ENV
+          echo "STATUS_MESSAGE=Installer tests completed with warnings" >> $GITHUB_ENV
+        fi
+        
+    - name: Create status summary
+      run: |
+        echo "${{ env.STATUS_ICON }} **Comprehensive Installer Testing Complete**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status**: ${{ env.STATUS_MESSAGE }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Test Results**:" >> $GITHUB_STEP_SUMMARY
+        echo "- Cross-platform testing: ${{ needs.cross-platform-testing.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Comprehensive analysis: ${{ needs.comprehensive-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Quality gate check: ${{ needs.quality-gate.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Artifacts**:" >> $GITHUB_STEP_SUMMARY
+        echo "- [Comprehensive Test Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "- Platform-specific test results available in individual artifacts" >> $GITHUB_STEP_SUMMARY

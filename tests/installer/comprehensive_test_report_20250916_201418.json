@@ -1,0 +1,28 @@
+{
+  "session_id": "20250916_201418",
+  "start_time": "2025-09-16T20:14:18.983120+00:00",
+  "platform": "windows",
+  "test_results": {
+    "cross_platform": null,
+    "user_experience": null,
+    "monitoring": {
+      "error": "'charmap' codec can't encode character '\\u2705' in position 708: character maps to <undefined>",
+      "health_status": "unknown",
+      "success_rates": {
+        "overall": {
+          "rate": 0.0
+        }
+      }
+    }
+  },
+  "summary": {
+    "total_tests": 0,
+    "passed_tests": 0,
+    "failed_tests": 0,
+    "overall_success_rate": 0.0,
+    "recommendations": [
+      "CRITICAL: Overall test success rate is below 70% - do not release until major issues are resolved"
+    ]
+  },
+  "end_time": "2025-09-16T20:14:24.711092+00:00"
+}

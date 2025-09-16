@@ -1,0 +1,11 @@
+{
+  "id": "feedback_20250916_185332_test_user_summary",
+  "timestamp": "2025-09-16T18:53:32.786942",
+  "category": "bugs",
+  "message": "Test bug report for summary test",
+  "user_id": "test_user_summary",
+  "installer_version": null,
+  "system_info": null,
+  "severity": "high",
+  "status": "submitted"
+}

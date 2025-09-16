@@ -652,3 +652,158 @@ class EmailNotificationRequest(BaseModel):
     def validate_data(cls, v):
         """Validate notification data."""
         return DataSanitizer.sanitize_json_data(v)
+
+
+class FeedbackSubmissionRequest(BaseModel):
+    """Validation model for community feedback submissions."""
+    
+    category: str = Field(..., description="Feedback category")
+    message: str = Field(..., description="Feedback message")
+    user_id: str = Field(..., description="User identifier")
+    installer_version: Optional[str] = Field(None, description="Installer version")
+    system_info: Optional[Dict[str, Any]] = Field(None, description="System information")
+    severity: Optional[str] = Field("medium", description="Feedback severity level")
+    
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v):
+        """Validate feedback category."""
+        valid_categories = [
+            'installation', 'verification', 'security', 'usability', 'bugs', 'suggestions'
+        ]
+        v = DataSanitizer.sanitize_string(v, max_length=50)
+        if v not in valid_categories:
+            raise AppValidationError(f"Invalid feedback category: {v}")
+        return v
+    
+    @field_validator('message')
+    @classmethod
+    def validate_message(cls, v):
+        """Validate feedback message."""
+        v = DataSanitizer.sanitize_string(v, max_length=5000)
+        if not v or len(v.strip()) < 10:
+            raise AppValidationError("Feedback message must be at least 10 characters long")
+        return v
+    
+    @field_validator('user_id')
+    @classmethod
+    def validate_user_id(cls, v):
+        """Validate user identifier."""
+        v = DataSanitizer.sanitize_string(v, max_length=100)
+        if not v:
+            raise AppValidationError("User ID is required")
+        return v
+    
+    @field_validator('installer_version')
+    @classmethod
+    def validate_installer_version(cls, v):
+        """Validate installer version."""
+        if v is not None:
+            v = DataSanitizer.sanitize_string(v, max_length=50)
+        return v
+    
+    @field_validator('severity')
+    @classmethod
+    def validate_severity(cls, v):
+        """Validate feedback severity."""
+        valid_severities = ['low', 'medium', 'high', 'critical']
+        v = DataSanitizer.sanitize_string(v, max_length=20)
+        if v not in valid_severities:
+            raise AppValidationError(f"Invalid severity level: {v}")
+        return v
+    
+    @field_validator('system_info')
+    @classmethod
+    def validate_system_info(cls, v):
+        """Validate system information."""
+        if v is not None:
+            return DataSanitizer.sanitize_json_data(v)
+        return v
+
+
+class FeedbackStatusUpdateRequest(BaseModel):
+    """Validation model for updating feedback status."""
+    
+    status: str = Field(..., description="New feedback status")
+    notes: Optional[str] = Field(None, description="Status update notes")
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        """Validate feedback status."""
+        valid_statuses = ['submitted', 'reviewed', 'in_progress', 'resolved', 'closed']
+        v = DataSanitizer.sanitize_string(v, max_length=50)
+        if v not in valid_statuses:
+            raise AppValidationError(f"Invalid feedback status: {v}")
+        return v
+    
+    @field_validator('notes')
+    @classmethod
+    def validate_notes(cls, v):
+        """Validate status update notes."""
+        if v is not None:
+            v = DataSanitizer.sanitize_string(v, max_length=1000)
+        return v
+
+
+class FeedbackQueryRequest(BaseModel):
+    """Validation model for feedback query requests."""
+    
+    category: Optional[str] = Field(None, description="Filter by category")
+    status: Optional[str] = Field(None, description="Filter by status")
+    severity: Optional[str] = Field(None, description="Filter by severity")
+    limit: Optional[int] = Field(50, description="Maximum number of results")
+    offset: Optional[int] = Field(0, description="Results offset for pagination")
+    
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v):
+        """Validate feedback category filter."""
+        if v is not None:
+            valid_categories = [
+                'installation', 'verification', 'security', 'usability', 'bugs', 'suggestions'
+            ]
+            v = DataSanitizer.sanitize_string(v, max_length=50)
+            if v not in valid_categories:
+                raise AppValidationError(f"Invalid feedback category: {v}")
+        return v
+    
+    @field_validator('status')
+    @classmethod
+    def validate_status(cls, v):
+        """Validate feedback status filter."""
+        if v is not None:
+            valid_statuses = ['submitted', 'reviewed', 'in_progress', 'resolved', 'closed']
+            v = DataSanitizer.sanitize_string(v, max_length=50)
+            if v not in valid_statuses:
+                raise AppValidationError(f"Invalid feedback status: {v}")
+        return v
+    
+    @field_validator('severity')
+    @classmethod
+    def validate_severity(cls, v):
+        """Validate feedback severity filter."""
+        if v is not None:
+            valid_severities = ['low', 'medium', 'high', 'critical']
+            v = DataSanitizer.sanitize_string(v, max_length=20)
+            if v not in valid_severities:
+                raise AppValidationError(f"Invalid severity level: {v}")
+        return v
+    
+    @field_validator('limit')
+    @classmethod
+    def validate_limit(cls, v):
+        """Validate query limit."""
+        if v is not None:
+            if v < 1 or v > 1000:
+                raise AppValidationError("Limit must be between 1 and 1000")
+        return v
+    
+    @field_validator('offset')
+    @classmethod
+    def validate_offset(cls, v):
+        """Validate query offset."""
+        if v is not None:
+            if v < 0:
+                raise AppValidationError("Offset must be non-negative")
+        return v
