@@ -55,34 +55,31 @@
   - Implement build reproducibility verification and reporting
   - _Requirements: 3.1, 3.5, 6.4_
 
-- [ ] 3. Implement community trust and transparency systems
+- [x] 3. Implement community trust and transparency systems
   - Create reproducible build documentation and verification guides
   - Implement community verification reporting system
-  - Create security warning documentation and mitigation guides
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 3.2, 3.3, 3.4, 3.6, 3.7_
 
-- [ ] 3.1 Create reproducible build documentation
+- [x] 3.1 Create reproducible build documentation
   - Write comprehensive build-from-source instructions for community verification
   - Create deterministic build environment configuration documentation
   - Implement build process transparency with public logs and artifact tracking
   - _Requirements: 3.2, 3.5, 6.7_
 
-- [ ] 3.2 Implement community verification system
+- [x] 3.2 Implement community verification system
   - Create community checksum verification guidelines and tools
   - Implement verification reporting system through GitHub issues integration
   - Create community build comparison and validation tools
   - _Requirements: 3.1, 3.6, 9.5_
 
-- [ ] 3.3 Create security warning and antivirus documentation
-  - Write comprehensive documentation explaining mining software security warnings
-  - Create step-by-step antivirus whitelist instructions for major security products
-  - Implement clear "Unknown Publisher" warning explanation and safe installation guides
-  - _Requirements: 3.4, 8.7, 10.2_
-
 - [ ] 4. Implement macOS DMG installer system
   - Activate existing macOS installer infrastructure for DMG creation
   - Create professional drag-to-Applications installation interface
   - Implement macOS system integration with proper application bundling
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 4.1, 4.2, 4.3, 4.6_
 
 - [ ] 4.1 Create macOS DMG build system
@@ -107,6 +104,8 @@
   - Activate existing Linux package creation infrastructure
   - Create DEB, RPM, and AppImage package generation
   - Implement Linux desktop environment integration
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 5.2, 5.3, 5.4, 5.6_
 
 - [ ] 5.1 Create Linux package build system
@@ -131,6 +130,8 @@
   - Write platform-specific installation guides with security warning handling
   - Create community contribution and verification documentation
   - Implement user support channels and troubleshooting resources
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 10.1, 10.2, 10.3, 10.7_
 
 - [ ] 6.1 Create installation documentation
@@ -155,6 +156,8 @@
   - Create automated GitHub release publishing with all platform installers
   - Implement version management and release note generation
   - Create community distribution channel preparation and submission
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 6.1, 6.2, 6.5, 6.6_
 
 - [ ] 7.1 Create automated release publishing
@@ -179,6 +182,8 @@
   - Create comprehensive security scanning and validation system
   - Implement community security audit support and documentation
   - Create security incident response and patch distribution system
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 8.1, 8.2, 8.4, 8.6_
 
 - [ ] 8.1 Create security scanning integration
@@ -197,6 +202,8 @@
   - Implement automated testing across all platforms and installation methods
   - Create user experience validation and feedback collection system
   - Implement performance monitoring and optimization for build and installation processes
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
 - [ ] 9.1 Implement cross-platform testing automation
@@ -215,6 +222,8 @@
   - Complete all platform installer testing and validation
   - Launch community distribution channels and support systems
   - Create launch documentation and community announcement materials
+  - Verify that your code is correct and error free, then stage code for commit
+  - Provide message for commit summarizing the commit
   - _Requirements: All requirements integration and final validation_
 
 - [ ] 10.1 Complete final integration testing

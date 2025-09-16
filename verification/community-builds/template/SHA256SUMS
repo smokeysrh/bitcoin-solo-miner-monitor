@@ -1,0 +1,32 @@
+# Bitcoin Solo Miner Monitor vX.X.X - Community Verified Checksums
+# 
+# This file contains SHA256 checksums that have been verified by multiple
+# community members through independent verification processes.
+#
+# Verification Status: [UNVERIFIED/PENDING/VERIFIED/FAILED]
+# Community Verifications: X independent verifications
+# Consensus Reached: YYYY-MM-DD HH:MM:SS UTC
+#
+# To verify these checksums:
+# 1. Download the verification tool:
+#    curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/verification/tools/community-verify.py
+# 2. Run verification:
+#    python3 community-verify.py --version vX.X.X --method checksum
+#
+# For more information, see:
+# https://github.com/smokeysrh/bitcoin-solo-miner-monitor/blob/main/verification/COMMUNITY_VERIFICATION_GUIDE.md
+
+# Windows Installers
+# [CHECKSUM_PLACEHOLDER]  BitcoinSoloMinerMonitor-X.X.X-Setup.exe
+
+# macOS Installers  
+# [CHECKSUM_PLACEHOLDER]  BitcoinSoloMinerMonitor-X.X.X.dmg
+
+# Linux Packages
+# [CHECKSUM_PLACEHOLDER]  bitcoin-solo-miner-monitor_X.X.X_amd64.deb
+# [CHECKSUM_PLACEHOLDER]  bitcoin-solo-miner-monitor-X.X.X-1.x86_64.rpm
+# [CHECKSUM_PLACEHOLDER]  BitcoinSoloMinerMonitor-X.X.X-x86_64.AppImage
+
+# Source Archives
+# [CHECKSUM_PLACEHOLDER]  bitcoin-solo-miner-monitor-X.X.X.tar.gz
+# [CHECKSUM_PLACEHOLDER]  bitcoin-solo-miner-monitor-X.X.X.zip

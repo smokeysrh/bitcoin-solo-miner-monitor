@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Solo Miner Monitor - Community Verification Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f7931a;
+        }
+        .header h1 {
+            color: #f7931a;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        .header p {
+            color: #666;
+            margin: 10px 0 0 0;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #f7931a;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #f7931a;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .versions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        .versions-table th,
+        .versions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .versions-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-verified { background: #d4edda; color: #155724; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .status-unverified { background: #e2e3e5; color: #383d41; }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #f7931a;
+            transition: width 0.3s ease;
+        }
+        .method-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .method-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 0.9em;
+        }
+        .security-alert {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Community Verification Dashboard</h1>
+            <p>Bitcoin Solo Miner Monitor - Decentralized Trust Through Transparency</p>
+            <p><strong>Last Updated:</strong> 2025-09-16 08:12:33 UTC</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">1</div>
+                <div class="stat-label">Total Versions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">1</div>
+                <div class="stat-label">Verified Versions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Community Verifications</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">5</div>
+                <div class="stat-label">Active Verifiers</div>
+            </div>
+        </div>
+
+        <h2>📊 Verification Progress</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: 100.0%"></div>
+        </div>
+        <p><strong>100.0%</strong> of releases have been community verified</p>
+
+        <h2>🔧 Verification Methods</h2>
+        <div class="method-stats">
+
+            <div class="method-card">
+                <h4>Checksum</h4>
+                <p><strong>Attempts:</strong> 5</p>
+                <p><strong>Successes:</strong> 5</p>
+                <p><strong>Success Rate:</strong> 100.0%</p>
+            </div>
+
+            <div class="method-card">
+                <h4>Reproducible Build</h4>
+                <p><strong>Attempts:</strong> 3</p>
+                <p><strong>Successes:</strong> 3</p>
+                <p><strong>Success Rate:</strong> 100.0%</p>
+            </div>
+
+            <div class="method-card">
+                <h4>Source Audit</h4>
+                <p><strong>Attempts:</strong> 1</p>
+                <p><strong>Successes:</strong> 1</p>
+                <p><strong>Success Rate:</strong> 100.0%</p>
+            </div>
+
+        </div>
+
+        <h2>💻 Platform Coverage</h2>
+        <div class="method-stats">
+
+            <div class="method-card">
+                <h4>Windows</h4>
+                <p><strong>Verified Versions:</strong> 1</p>
+            </div>
+
+            <div class="method-card">
+                <h4>Macos</h4>
+                <p><strong>Verified Versions:</strong> 1</p>
+            </div>
+
+            <div class="method-card">
+                <h4>Linux</h4>
+                <p><strong>Verified Versions:</strong> 1</p>
+            </div>
+
+        </div>
+
+        <h2>📋 Version Details</h2>
+        <table class="versions-table">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Verifications</th>
+                    <th>Methods</th>
+                    <th>Security Notes</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+
+                <tr>
+                    <td><strong>v1.0.0</strong></td>
+                    <td><span class="status-badge status-verified">Verified</span></td>
+                    <td>5</td>
+                    <td>checksum, reproducible_build, source_audit</td>
+                    <td>✅ None</td>
+                    <td>2024-01-16</td>
+                </tr>
+
+            </tbody>
+        </table>
+
+        <div class="footer">
+            <p>
+                <strong>How to Contribute:</strong> 
+                <a href="https://github.com/smokeysrh/bitcoin-solo-miner-monitor/blob/main/verification/COMMUNITY_VERIFICATION_GUIDE.md">
+                    Community Verification Guide
+                </a> | 
+                <a href="https://github.com/smokeysrh/bitcoin-solo-miner-monitor/issues/new?template=verification-success.md">
+                    Report Verification
+                </a>
+            </p>
+            <p>
+                This dashboard is automatically generated from community verification reports. 
+                Data is updated when new verification reports are submitted through GitHub issues.
+            </p>
+            <p>
+                <em>Bitcoin Solo Miner Monitor - Empowering decentralized Bitcoin mining through open-source transparency</em>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
