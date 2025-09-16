@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+    <!-- Bitcoin Miner Configuration Files -->
+    <mime-type type="application/x-bitcoin-miner-config">
+        <comment>Bitcoin Miner Configuration</comment>
+        <comment xml:lang="es">Configuración de Minero Bitcoin</comment>
+        <comment xml:lang="fr">Configuration de Mineur Bitcoin</comment>
+        <comment xml:lang="de">Bitcoin Miner Konfiguration</comment>
+        <comment xml:lang="zh_CN">比特币矿机配置</comment>
+        <comment xml:lang="ja">ビットコインマイナー設定</comment>
+        <comment xml:lang="ko">비트코인 마이너 구성</comment>
+        <comment xml:lang="ru">Конфигурация Bitcoin майнера</comment>
+        <comment xml:lang="pt">Configuração do Minerador Bitcoin</comment>
+        <comment xml:lang="it">Configurazione Miner Bitcoin</comment>
+        <comment xml:lang="nl">Bitcoin Miner Configuratie</comment>
+        
+        <icon name="bitcoin-solo-miner-monitor"/>
+        <generic-icon name="text-x-generic"/>
+        
+        <!-- File extensions -->
+        <glob pattern="*.miner"/>
+        <glob pattern="*.btcminer"/>
+        <glob pattern="*.mining-config"/>
+        <glob pattern="*.asic-config"/>
+        <glob pattern="*.bitaxe"/>
+        <glob pattern="*.avalon"/>
+        <glob pattern="*.magic-miner"/>
+        
+        <!-- Magic bytes detection -->
+        <magic priority="50">
+            <match type="string" offset="0" value="[MinerConfig]"/>
+            <match type="string" offset="0" value="# Bitcoin Miner Configuration"/>
+            <match type="string" offset="0" value="# ASIC Miner Configuration"/>
+            <match type="string" offset="0" value="# Bitaxe Configuration"/>
+            <match type="string" offset="0" value="# Avalon Configuration"/>
+            <match type="string" offset="0" value="# Magic Miner Configuration"/>
+        </magic>
+        
+        <!-- Sub-class relationships -->
+        <sub-class-of type="text/plain"/>
+        <sub-class-of type="application/x-config"/>
+    </mime-type>
+    
+    <!-- Mining Pool Configuration Files -->
+    <mime-type type="application/x-mining-pool-config">
+        <comment>Mining Pool Configuration</comment>
+        <comment xml:lang="es">Configuración de Pool de Minería</comment>
+        <comment xml:lang="fr">Configuration de Pool de Minage</comment>
+        <comment xml:lang="de">Mining Pool Konfiguration</comment>
+        <comment xml:lang="zh_CN">矿池配置</comment>
+        <comment xml:lang="ja">マイニングプール設定</comment>
+        <comment xml:lang="ko">마이닝 풀 구성</comment>
+        <comment xml:lang="ru">Конфигурация пула майнинга</comment>
+        <comment xml:lang="pt">Configuração do Pool de Mineração</comment>
+        <comment xml:lang="it">Configurazione Pool di Mining</comment>
+        <comment xml:lang="nl">Mining Pool Configuratie</comment>
+        
+        <icon name="bitcoin-solo-miner-monitor"/>
+        <generic-icon name="text-x-generic"/>
+        
+        <!-- File extensions -->
+        <glob pattern="*.pool"/>
+        <glob pattern="*.mining-pool"/>
+        <glob pattern="*.pool-config"/>
+        <glob pattern="*.stratum"/>
+        <glob pattern="*.solo-pool"/>
+        
+        <!-- Magic bytes detection -->
+        <magic priority="50">
+            <match type="string" offset="0" value="[PoolConfig]"/>
+            <match type="string" offset="0" value="# Mining Pool Configuration"/>
+            <match type="string" offset="0" value="# Stratum Configuration"/>
+            <match type="string" offset="0" value="# Solo Pool Configuration"/>
+        </magic>
+        
+        <!-- Sub-class relationships -->
+        <sub-class-of type="text/plain"/>
+        <sub-class-of type="application/x-config"/>
+    </mime-type>
+    
+    <!-- Bitcoin Solo Miner Monitor Project Files -->
+    <mime-type type="application/x-bitcoin-monitor-project">
+        <comment>Bitcoin Solo Miner Monitor Project</comment>
+        <comment xml:lang="es">Proyecto de Monitor de Minería Bitcoin Solo</comment>
+        <comment xml:lang="fr">Projet de Moniteur de Minage Bitcoin Solo</comment>
+        <comment xml:lang="de">Bitcoin Solo Mining Monitor Projekt</comment>
+        <comment xml:lang="zh_CN">比特币独立挖矿监控项目</comment>
+        <comment xml:lang="ja">ビットコインソロマイニングモニタープロジェクト</comment>
+        <comment xml:lang="ko">비트코인 솔로 마이닝 모니터 프로젝트</comment>
+        <comment xml:lang="ru">Проект Bitcoin Solo Miner Monitor</comment>
+        <comment xml:lang="pt">Projeto Bitcoin Solo Miner Monitor</comment>
+        <comment xml:lang="it">Progetto Bitcoin Solo Miner Monitor</comment>
+        <comment xml:lang="nl">Bitcoin Solo Miner Monitor Project</comment>
+        
+        <icon name="bitcoin-solo-miner-monitor"/>
+        <generic-icon name="application-x-generic"/>
+        
+        <!-- File extensions -->
+        <glob pattern="*.bsmm"/>
+        <glob pattern="*.bitcoin-monitor"/>
+        <glob pattern="*.mining-project"/>
+        
+        <!-- Magic bytes detection -->
+        <magic priority="60">
+            <match type="string" offset="0" value="# Bitcoin Solo Miner Monitor Project"/>
+            <match type="string" offset="0" value="[BitcoinMonitorProject]"/>
+        </magic>
+        
+        <!-- Sub-class relationships -->
+        <sub-class-of type="application/x-config"/>
+    </mime-type>
+    
+    <!-- Mining Hardware Profile Files -->
+    <mime-type type="application/x-mining-hardware-profile">
+        <comment>Mining Hardware Profile</comment>
+        <comment xml:lang="es">Perfil de Hardware de Minería</comment>
+        <comment xml:lang="fr">Profil de Matériel de Minage</comment>
+        <comment xml:lang="de">Mining Hardware Profil</comment>
+        <comment xml:lang="zh_CN">挖矿硬件配置文件</comment>
+        <comment xml:lang="ja">マイニングハードウェアプロファイル</comment>
+        <comment xml:lang="ko">마이닝 하드웨어 프로필</comment>
+        <comment xml:lang="ru">Профиль оборудования для майнинга</comment>
+        <comment xml:lang="pt">Perfil de Hardware de Mineração</comment>
+        <comment xml:lang="it">Profilo Hardware di Mining</comment>
+        <comment xml:lang="nl">Mining Hardware Profiel</comment>
+        
+        <icon name="bitcoin-solo-miner-monitor"/>
+        <generic-icon name="text-x-generic"/>
+        
+        <!-- File extensions -->
+        <glob pattern="*.hwprofile"/>
+        <glob pattern="*.hardware-profile"/>
+        <glob pattern="*.miner-profile"/>
+        <glob pattern="*.device-profile"/>
+        
+        <!-- Magic bytes detection -->
+        <magic priority="50">
+            <match type="string" offset="0" value="[HardwareProfile]"/>
+            <match type="string" offset="0" value="# Mining Hardware Profile"/>
+            <match type="string" offset="0" value="# Device Profile"/>
+        </magic>
+        
+        <!-- Sub-class relationships -->
+        <sub-class-of type="text/plain"/>
+        <sub-class-of type="application/x-config"/>
+    </mime-type>
+    
+    <!-- Mining Statistics Export Files -->
+    <mime-type type="application/x-mining-statistics">
+        <comment>Mining Statistics Data</comment>
+        <comment xml:lang="es">Datos de Estadísticas de Minería</comment>
+        <comment xml:lang="fr">Données de Statistiques de Minage</comment>
+        <comment xml:lang="de">Mining Statistik Daten</comment>
+        <comment xml:lang="zh_CN">挖矿统计数据</comment>
+        <comment xml:lang="ja">マイニング統計データ</comment>
+        <comment xml:lang="ko">마이닝 통계 데이터</comment>
+        <comment xml:lang="ru">Данные статистики майнинга</comment>
+        <comment xml:lang="pt">Dados de Estatísticas de Mineração</comment>
+        <comment xml:lang="it">Dati Statistiche di Mining</comment>
+        <comment xml:lang="nl">Mining Statistiek Gegevens</comment>
+        
+        <icon name="bitcoin-solo-miner-monitor"/>
+        <generic-icon name="text-x-generic"/>
+        
+        <!-- File extensions -->
+        <glob pattern="*.mining-stats"/>
+        <glob pattern="*.mstats"/>
+        <glob pattern="*.mining-data"/>
+        <glob pattern="*.hashrate-data"/>
+        
+        <!-- Magic bytes detection -->
+        <magic priority="50">
+            <match type="string" offset="0" value="# Mining Statistics Export"/>
+            <match type="string" offset="0" value="[MiningStatistics]"/>
+            <match type="string" offset="0" value="timestamp,hashrate,temperature"/>
+        </magic>
+        
+        <!-- Sub-class relationships -->
+        <sub-class-of type="text/csv"/>
+        <sub-class-of type="text/plain"/>
+    </mime-type>
+</mime-info>
