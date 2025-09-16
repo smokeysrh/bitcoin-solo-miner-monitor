@@ -16,7 +16,9 @@
         "read_text_file",
         "directory_tree",
         "read_multiple_files",
-        "search_files"
+        "search_files",
+        "edit_file",
+        "edit_file"
       ]
     },
     "duckduckgo-search": {

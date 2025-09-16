@@ -1050,46 +1050,84 @@ jobs:
         echo "📋 Final release assets:"
         ls -la release-assets/
       
-    - name: Generate release notes
+    - name: Setup Python for release notes
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Generate comprehensive release notes
       id: release_notes
       run: |
         VERSION=${{ needs.build-windows.outputs.version }}
-        echo "## Bitcoin Solo Miner Monitor v${VERSION}" > release_notes.md
-        echo "" >> release_notes.md
-        echo "### Downloads" >> release_notes.md
-        echo "" >> release_notes.md
+        TAG_NAME=${{ github.ref_name }}
         
-        # Add download links for each platform
-        for file in release-assets/*; do
-          if [ -f "$file" ] && [ "$(basename "$file")" != "SHA256SUMS" ]; then
-            filename=$(basename "$file")
-            echo "- **${filename}**" >> release_notes.md
-          fi
-        done
+        echo "🔧 Generating comprehensive release notes for version ${VERSION}..."
         
-        echo "" >> release_notes.md
-        echo "### Verification" >> release_notes.md
-        echo "" >> release_notes.md
-        echo "All downloads include SHA256 checksums for verification. Download the \`SHA256SUMS\` file and verify your download:" >> release_notes.md
-        echo "" >> release_notes.md
-        echo "\`\`\`bash" >> release_notes.md
-        echo "# On Windows (PowerShell):" >> release_notes.md
-        echo "Get-FileHash -Algorithm SHA256 <filename>" >> release_notes.md
-        echo "" >> release_notes.md
-        echo "# On macOS/Linux:" >> release_notes.md
-        echo "shasum -a 256 <filename>" >> release_notes.md
-        echo "\`\`\`" >> release_notes.md
-        echo "" >> release_notes.md
-        echo "### Installation Instructions" >> release_notes.md
-        echo "" >> release_notes.md
-        echo "- **Windows**: Download the .exe file and run it. Windows may show an \"Unknown Publisher\" warning - this is normal for open-source software." >> release_notes.md
-        echo "- **macOS**: Download the .dmg file, open it, and drag the application to your Applications folder." >> release_notes.md
-        echo "- **Linux**: Download the appropriate package (.deb for Ubuntu/Debian, .rpm for Fedora/CentOS, or .AppImage for universal compatibility)." >> release_notes.md
+        # Install any additional Python dependencies if needed
+        pip install requests
+        
+        # Generate release notes using our enhanced generator
+        python scripts/release/generate-release-notes.py "${VERSION}" \
+          --tag-name "${TAG_NAME}" \
+          --output release_notes.md \
+          --update-changelog
+        
+        echo "✅ Release notes generated successfully"
+        
+        # Display preview of release notes
+        echo "📋 Release notes preview (first 50 lines):"
+        head -50 release_notes.md
         
         # Set output for GitHub release
         echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
         cat release_notes.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
+        
+    - name: Update documentation
+      run: |
+        VERSION=${{ needs.build-windows.outputs.version }}
+        TAG_NAME=${{ github.ref_name }}
+        
+        echo "📚 Updating documentation for version ${VERSION}..."
+        
+        # Update all documentation with new version information
+        python scripts/release/update-documentation.py "${VERSION}" \
+          --tag-name "${TAG_NAME}"
+        
+        echo "✅ Documentation updated successfully"
+        
+    - name: Commit documentation updates
+      run: |
+        VERSION=${{ needs.build-windows.outputs.version }}
+        
+        # Configure git
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Add documentation changes
+        git add docs/ CHANGELOG.md README.md || true
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No documentation changes to commit"
+        else
+          echo "📝 Committing documentation updates..."
+          
+          # Commit the changes
+          git commit -m "docs: update documentation for release v${VERSION}
+          
+          - Update download links and version references
+          - Update installation guides with new version
+          - Update CHANGELOG.md with release information
+          - Create/update download page
+          
+          [skip ci]"
+          
+          # Push the changes back to the repository
+          git push origin HEAD:main || echo "⚠️  Could not push documentation updates (may be expected in some workflows)"
+          
+          echo "✅ Documentation updates committed"
+        fi
       
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
