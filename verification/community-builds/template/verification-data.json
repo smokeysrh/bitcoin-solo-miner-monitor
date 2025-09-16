@@ -1,0 +1,61 @@
+{
+  "version": "vX.X.X",
+  "release_date": "YYYY-MM-DDTHH:MM:SSZ",
+  "verification_status": "unverified",
+  "verification_count": 0,
+  "consensus_reached": null,
+  "verifications": [],
+  "security_notes": [],
+  "build_reproducibility": {
+    "reproducible": null,
+    "deterministic_builds": 0,
+    "build_variations": 0,
+    "notes": []
+  },
+  "platforms": {
+    "windows": {
+      "verified": false,
+      "verifications": 0,
+      "files": []
+    },
+    "macos": {
+      "verified": false,
+      "verifications": 0,
+      "files": []
+    },
+    "linux": {
+      "verified": false,
+      "verifications": 0,
+      "files": []
+    }
+  },
+  "verification_methods": {
+    "checksum": {
+      "attempts": 0,
+      "successes": 0,
+      "failures": 0
+    },
+    "reproducible_build": {
+      "attempts": 0,
+      "successes": 0,
+      "failures": 0
+    },
+    "source_audit": {
+      "attempts": 0,
+      "successes": 0,
+      "failures": 0
+    }
+  },
+  "community_feedback": {
+    "positive_reports": 0,
+    "negative_reports": 0,
+    "issues_reported": [],
+    "recommendations": []
+  },
+  "maintainer_notes": {
+    "created_by": "automated_system",
+    "created_date": "YYYY-MM-DDTHH:MM:SSZ",
+    "last_updated": "YYYY-MM-DDTHH:MM:SSZ",
+    "update_history": []
+  }
+}

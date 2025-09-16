@@ -2,6 +2,18 @@
 
 This document provides comprehensive instructions for building Bitcoin Solo Miner Monitor from source code, including creating platform-specific installers.
 
+## 🔒 Reproducible Builds
+
+**For reproducible builds and community verification**, see the comprehensive documentation in [`docs/build/`](./build/):
+
+- **[Reproducible Builds Guide](./build/REPRODUCIBLE_BUILDS.md)** - Complete guide for verifiable builds
+- **[Build Environment Setup](./build/BUILD_ENVIRONMENT.md)** - Deterministic environment configuration  
+- **[Build Transparency](./build/BUILD_TRANSPARENCY.md)** - Public logs and audit trails
+
+The reproducible build system ensures that anyone can verify the authenticity of our releases by building identical binaries from the same source code - a critical security feature for Bitcoin-related software.
+
+---
+
 ## Prerequisites
 
 ### All Platforms
