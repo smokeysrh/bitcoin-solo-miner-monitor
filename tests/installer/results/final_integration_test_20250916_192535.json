@@ -1,0 +1,383 @@
+{
+  "timestamp": "2025-09-16T19:25:34.831045",
+  "overall_status": "failed",
+  "test_categories": {
+    "platform_installers": {
+      "status": "failed",
+      "platforms": {
+        "windows": {
+          "status": "partial",
+          "tests": {
+            "build_scripts": {
+              "status": "passed",
+              "details": {
+                "nsis_script": "found"
+              }
+            },
+            "configuration": {
+              "status": "passed",
+              "details": {
+                "config_files": []
+              }
+            },
+            "assets": {
+              "status": "passed",
+              "details": {
+                "asset_files": [
+                  "assets\\app_icon.ico",
+                  "assets\\config_icon.ico",
+                  "assets\\console_icon.ico",
+                  "assets\\doc_icon.ico",
+                  "assets\\folder_icon.ico",
+                  "assets\\installer_icon.ico",
+                  "assets\\python_icon.ico",
+                  "assets\\uninstaller_icon.ico",
+                  "assets\\web_icon.ico",
+                  "assets\\header_image.bmp",
+                  "assets\\welcome_image.bmp"
+                ],
+                "asset_count": 11
+              }
+            },
+            "cicd_integration": {
+              "status": "failed",
+              "details": {
+                "error": "'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+              }
+            }
+          },
+          "issues": [],
+          "recommendations": [
+            "Address failing tests for windows"
+          ]
+        },
+        "macos": {
+          "status": "failed",
+          "tests": {
+            "build_scripts": {
+              "status": "passed",
+              "details": {
+                "dmg_script": "found"
+              }
+            },
+            "configuration": {
+              "status": "passed",
+              "details": {
+                "config_files": [
+                  "github-actions-macos.yml"
+                ],
+                "plist_files": []
+              }
+            },
+            "assets": {
+              "status": "partial",
+              "details": {
+                "asset_files": [],
+                "asset_count": 0,
+                "warning": "No asset files found - installers may lack branding"
+              }
+            },
+            "cicd_integration": {
+              "status": "failed",
+              "details": {
+                "error": "'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+              }
+            }
+          },
+          "issues": [
+            "Multiple critical failures in macos installer"
+          ],
+          "recommendations": []
+        },
+        "linux": {
+          "status": "failed",
+          "tests": {
+            "build_scripts": {
+              "status": "failed",
+              "details": {
+                "package_types": [],
+                "issue": "No Linux package scripts found"
+              }
+            },
+            "configuration": {
+              "status": "passed",
+              "details": {
+                "config_files": [],
+                "desktop_files": [
+                  "templates\\bitcoin-solo-miner-monitor.desktop"
+                ]
+              }
+            },
+            "assets": {
+              "status": "partial",
+              "details": {
+                "asset_files": [],
+                "asset_count": 0,
+                "warning": "No asset files found - installers may lack branding"
+              }
+            },
+            "cicd_integration": {
+              "status": "failed",
+              "details": {
+                "error": "'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+              }
+            }
+          },
+          "issues": [
+            "Multiple critical failures in linux installer"
+          ],
+          "recommendations": []
+        }
+      },
+      "summary": {
+        "total_platforms": 3,
+        "passed_platforms": 0,
+        "failed_platforms": 3,
+        "issues": [
+          "Multiple critical failures in macos installer",
+          "Multiple critical failures in linux installer"
+        ]
+      }
+    },
+    "community_verification": {
+      "status": "partial",
+      "components": {
+        "verification_tools": {
+          "status": "passed",
+          "details": {
+            "tools_found": [
+              "community-verify.py",
+              "compare-builds.py",
+              "comprehensive-build-verification.py",
+              "github-integration.py",
+              "verification-dashboard.py"
+            ],
+            "tools_count": 5
+          },
+          "issues": []
+        },
+        "documentation": {
+          "status": "passed",
+          "details": {
+            "guide_size": 9335
+          },
+          "issues": []
+        },
+        "checksum_generation": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating checksum_generation: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+          ]
+        },
+        "reproducible_builds": {
+          "status": "passed",
+          "details": {
+            "build_docs": [
+              "docs\\BUILD.md",
+              "docs\\build\\BUILD_ENVIRONMENT.md",
+              "docs\\build\\BUILD_TRANSPARENCY.md",
+              "docs\\build\\COMMUNITY_BUILD_VERIFICATION.md",
+              "docs\\build\\DEVELOPER_BUILD_GUIDE.md",
+              "docs\\build\\REPRODUCIBLE_BUILDS.md",
+              "docs\\BUILD.md",
+              "docs\\build\\BUILD_ENVIRONMENT.md",
+              "docs\\build\\BUILD_TRANSPARENCY.md",
+              "docs\\build\\COMMUNITY_BUILD_VERIFICATION.md",
+              "docs\\build\\DEVELOPER_BUILD_GUIDE.md",
+              "docs\\build\\REPRODUCIBLE_BUILDS.md"
+            ]
+          },
+          "issues": []
+        },
+        "community_guidelines": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating community_guidelines: 'charmap' codec can't decode byte 0x90 in position 2297: character maps to <undefined>"
+          ]
+        }
+      },
+      "summary": {
+        "total_components": 5,
+        "passed_components": 3,
+        "issues": [
+          "Exception validating checksum_generation: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>",
+          "Exception validating community_guidelines: 'charmap' codec can't decode byte 0x90 in position 2297: character maps to <undefined>"
+        ]
+      }
+    },
+    "security_audit": {
+      "status": "needs_attention",
+      "scans": {
+        "dependency_scan": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception in dependency_scan: 'charmap' codec can't decode byte 0x8d in position 1218: character maps to <undefined>"
+          ]
+        },
+        "code_analysis": {
+          "status": "passed",
+          "details": {
+            "analysis": "basic_validation"
+          },
+          "issues": []
+        },
+        "workflow_security": {
+          "status": "failed",
+          "details": {
+            "workflow_count": 4
+          },
+          "issues": [
+            "Exception in workflow_security: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+          ]
+        },
+        "audit_preparation": {
+          "status": "passed",
+          "details": {
+            "security_reports": 11
+          },
+          "issues": []
+        }
+      },
+      "summary": {
+        "total_scans": 4,
+        "passed_scans": 2,
+        "security_issues": [
+          "Exception in dependency_scan: 'charmap' codec can't decode byte 0x8d in position 1218: character maps to <undefined>",
+          "Exception in workflow_security: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+        ],
+        "recommendations": []
+      }
+    },
+    "documentation": {
+      "status": "passed",
+      "documents": {
+        "README.md": {
+          "status": "passed",
+          "details": {
+            "size": 4657,
+            "lines": 126
+          },
+          "issues": []
+        },
+        "CONTRIBUTING.md": {
+          "status": "passed",
+          "details": {
+            "size": 13693,
+            "lines": 449
+          },
+          "issues": []
+        },
+        "docs/installation/": {
+          "status": "passed",
+          "details": {
+            "document_count": 6,
+            "documents": [
+              "linux-installation.md",
+              "macos-installation.md",
+              "README.md",
+              "security-guide.md",
+              "troubleshooting.md",
+              "windows-installation.md"
+            ]
+          },
+          "issues": []
+        },
+        "docs/BUILD.md": {
+          "status": "passed",
+          "details": {
+            "size": 8175,
+            "lines": 327
+          },
+          "issues": []
+        },
+        "verification/COMMUNITY_VERIFICATION_GUIDE.md": {
+          "status": "passed",
+          "details": {
+            "size": 9322,
+            "lines": 266
+          },
+          "issues": []
+        }
+      },
+      "summary": {
+        "total_documents": 5,
+        "accurate_documents": 5,
+        "issues": []
+      }
+    },
+    "cicd_pipeline": {
+      "status": "failed",
+      "workflows": {
+        "build-installers.yml": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating build-installers.yml: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+          ]
+        },
+        "comprehensive-installer-testing.yml": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating comprehensive-installer-testing.yml: 'charmap' codec can't decode byte 0x9d in position 3319: character maps to <undefined>"
+          ]
+        },
+        "security-scan.yml": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating security-scan.yml: 'charmap' codec can't decode byte 0x8d in position 1218: character maps to <undefined>"
+          ]
+        },
+        "test-installers.yml": {
+          "status": "failed",
+          "details": {},
+          "issues": [
+            "Exception validating test-installers.yml: 'charmap' codec can't decode byte 0x9d in position 1334: character maps to <undefined>"
+          ]
+        }
+      },
+      "summary": {
+        "total_workflows": 4,
+        "functional_workflows": 0,
+        "issues": [
+          "Exception validating build-installers.yml: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>",
+          "Exception validating comprehensive-installer-testing.yml: 'charmap' codec can't decode byte 0x9d in position 3319: character maps to <undefined>",
+          "Exception validating security-scan.yml: 'charmap' codec can't decode byte 0x8d in position 1218: character maps to <undefined>",
+          "Exception validating test-installers.yml: 'charmap' codec can't decode byte 0x9d in position 1334: character maps to <undefined>"
+        ]
+      }
+    }
+  },
+  "summary": {
+    "total_categories": 5,
+    "passed_categories": 1,
+    "failed_categories": 4,
+    "total_issues": 8,
+    "critical_issues": 2,
+    "overall_success_rate": 20.0
+  },
+  "recommendations": [
+    "Address all critical issues before release",
+    "Improve failing test categories to meet quality standards",
+    "Complete security scanning and address any vulnerabilities",
+    "Ensure community verification processes are fully functional",
+    "Perform final manual testing on clean systems",
+    "Update documentation with any recent changes",
+    "Prepare release notes and changelog",
+    "Notify community of upcoming release"
+  ],
+  "release_readiness": "not_ready",
+  "readiness_message": "\u274c NOT READY: Critical issues must be resolved",
+  "overall_score": 44.0,
+  "category_scores": {
+    "platform_installers": 0,
+    "community_verification": 70,
+    "security_audit": 50,
+    "documentation": 100,
+    "cicd_pipeline": 0
+  }
+}

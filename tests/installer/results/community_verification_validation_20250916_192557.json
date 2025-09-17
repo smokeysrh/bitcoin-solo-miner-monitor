@@ -1,0 +1,99 @@
+{
+  "timestamp": "2025-09-16T19:25:57.861727",
+  "overall_status": "partial",
+  "validations": {
+    "verification_tools_functionality": {
+      "status": "passed",
+      "details": {
+        "found_tools": [
+          "community-verify.py",
+          "compare-builds.py",
+          "github-integration.py",
+          "verification-dashboard.py"
+        ],
+        "missing_tools": [],
+        "main_script": "found"
+      },
+      "issues": []
+    },
+    "documentation_accuracy": {
+      "status": "passed",
+      "details": {
+        "found_docs": [
+          "verification\\COMMUNITY_VERIFICATION_GUIDE.md",
+          "verification\\README.md",
+          "docs\\installation",
+          "CONTRIBUTING.md"
+        ],
+        "missing_docs": []
+      },
+      "issues": []
+    },
+    "checksum_verification_process": {
+      "status": "failed",
+      "details": {},
+      "issues": [
+        "Exception in checksum_verification_process: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+      ]
+    },
+    "reproducible_build_process": {
+      "status": "passed",
+      "details": {
+        "build_documentation": [
+          "docs\\BUILD.md",
+          "docs\\build\\BUILD_ENVIRONMENT.md",
+          "docs\\build\\BUILD_TRANSPARENCY.md",
+          "docs\\build\\COMMUNITY_BUILD_VERIFICATION.md",
+          "docs\\build\\DEVELOPER_BUILD_GUIDE.md",
+          "docs\\build\\REPRODUCIBLE_BUILDS.md",
+          "docs\\BUILD.md",
+          "docs\\build\\BUILD_ENVIRONMENT.md",
+          "docs\\build\\BUILD_TRANSPARENCY.md",
+          "docs\\build\\COMMUNITY_BUILD_VERIFICATION.md",
+          "docs\\build\\DEVELOPER_BUILD_GUIDE.md",
+          "docs\\build\\REPRODUCIBLE_BUILDS.md"
+        ]
+      },
+      "issues": []
+    },
+    "github_integration": {
+      "status": "passed",
+      "details": {
+        "workflows": [
+          "build-installers.yml",
+          "comprehensive-installer-testing.yml",
+          "security-scan.yml",
+          "test-installers.yml"
+        ]
+      },
+      "issues": []
+    },
+    "community_guidelines": {
+      "status": "passed",
+      "details": {
+        "community_files": [
+          "CONTRIBUTING.md"
+        ]
+      },
+      "issues": []
+    },
+    "verification_dashboard": {
+      "status": "passed",
+      "details": {
+        "dashboard_tool": "found"
+      },
+      "issues": []
+    }
+  },
+  "summary": {
+    "total_validations": 7,
+    "passed_validations": 6,
+    "failed_validations": 1,
+    "issues": [
+      "Exception in checksum_verification_process: 'charmap' codec can't decode byte 0x90 in position 3909: character maps to <undefined>"
+    ],
+    "recommendations": [
+      "Implement comprehensive checksum generation and verification"
+    ]
+  }
+}
