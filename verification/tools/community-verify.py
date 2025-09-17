@@ -162,7 +162,7 @@ class CommunityVerifier:
         # Run reproducible build
         try:
             self.log("Running reproducible build")
-            build_script = repo_dir / "build-reproducible.sh"
+            build_script = repo_dir / "tools/build/build-reproducible.sh"
             if build_script.exists():
                 subprocess.run([
                     "bash", str(build_script), self.version.lstrip('v')
@@ -170,7 +170,7 @@ class CommunityVerifier:
                 result["build_success"] = True
             else:
                 result["status"] = "failed"
-                result["error"] = "build-reproducible.sh not found"
+                result["error"] = "tools/build/build-reproducible.sh not found"
                 return result
                 
         except subprocess.CalledProcessError as e:

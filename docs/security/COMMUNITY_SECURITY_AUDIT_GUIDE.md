@@ -113,7 +113,7 @@ git verify-commit HEAD  # If commits are signed
 sha256sum -c checksums.txt  # If checksums provided
 
 # 3. Execute reproducible build
-python build-from-source.py --reproducible
+python tools/build/build-from-source.py --reproducible
 
 # 4. Generate and compare checksums
 sha256sum dist/* > community-checksums.txt

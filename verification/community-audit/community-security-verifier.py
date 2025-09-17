@@ -181,7 +181,7 @@ class CommunitySecurityVerifier:
         
         try:
             # Check if we're in the project directory
-            if not (self.project_root / "build-from-source.py").exists():
+            if not (self.project_root / "tools/build/build-from-source.py").exists():
                 result["issues"].append("build-from-source.py not found - not in project directory?")
                 result["overall_status"] = "error"
                 return result
@@ -203,7 +203,7 @@ class CommunitySecurityVerifier:
             
             # Perform reproducible build
             print("🔨 Running reproducible build...")
-            build_cmd = [sys.executable, "build-from-source.py", "--reproducible"]
+            build_cmd = [sys.executable, "tools/build/build-from-source.py", "--reproducible"]
             
             if version:
                 # Checkout specific version

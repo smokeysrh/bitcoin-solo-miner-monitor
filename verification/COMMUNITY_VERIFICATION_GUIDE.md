@@ -26,10 +26,10 @@ This guide helps community members verify the authenticity and integrity of Bitc
 2. **Verify checksums** using our verification tool:
    ```bash
    # Download the verification script
-   curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/verify-checksums.py
+   curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/tools/verification/verify-checksums.py
    
    # Verify the downloaded installer
-   python3 verify-checksums.py SHA256SUMS
+   python3 tools/verification/verify-checksums.py SHA256SUMS
    ```
 
 3. **Manual verification** (alternative method):
@@ -60,7 +60,7 @@ This guide helps community members verify the authenticity and integrity of Bitc
 1. **Use our automated verification script**:
    ```bash
    # Download and run verification
-   curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/verify-reproducible-build.sh
+   curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/tools/build/verify-reproducible-build.sh
    chmod +x verify-reproducible-build.sh
    ./verify-reproducible-build.sh v1.0.0 SHA256SUMS
    ```
@@ -75,7 +75,7 @@ This guide helps community members verify the authenticity and integrity of Bitc
    git checkout v1.0.0
    
    # Run reproducible build
-   ./build-reproducible.sh 1.0.0
+   ./tools/build/build-reproducible.sh 1.0.0
    
    # Compare checksums
    diff SHA256SUMS distribution/SHA256SUMS
