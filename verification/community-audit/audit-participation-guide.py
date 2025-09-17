@@ -564,7 +564,7 @@ Let's get started with your security audit journey!
 1. **Reproducible Build:**
    ```bash
    cd bitcoin-solo-miner-monitor
-   python build-from-source.py --reproducible
+   python tools/build/build-from-source.py --reproducible
    ```
 
 2. **Compare Artifacts:**

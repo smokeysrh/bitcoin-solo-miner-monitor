@@ -71,7 +71,7 @@ rm -rf .git .github .pytest_cache __pycache__ node_modules .vscode
 rm -rf src/frontend/node_modules src/frontend/dist
 rm -rf tests testing debug logs
 rm -rf installer distribution verification
-rm -rf .gitignore *.md build-reproducible.sh
+rm -rf .gitignore *.md tools/build/build-reproducible.sh
 
 # Remove Python cache files
 find . -name "*.pyc" -delete

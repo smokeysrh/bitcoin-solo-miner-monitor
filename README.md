@@ -71,6 +71,16 @@ npm run build
 
 ## Development
 
+### Development Tools
+
+The project includes various development and utility tools in the `tools/` directory:
+
+- **Build Tools** (`tools/build/`) - Scripts for building installers from source and reproducible builds
+- **Verification Tools** (`tools/verification/`) - Tools for verifying checksums and build integrity
+- **Utility Scripts** - Development helpers like miner reload scripts
+
+See `tools/README.md` for detailed information about available tools.
+
 ### Backend Development
 
 The backend is built with FastAPI and uses:
