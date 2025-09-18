@@ -221,52 +221,11 @@
     </v-card>
 
     <!-- Add Miner Dialog -->
-    <v-dialog v-model="addMinerDialog" max-width="500px">
-      <v-card>
-        <v-card-title>Add New Miner</v-card-title>
-        <v-card-text>
-          <v-form ref="form" v-model="valid">
-            <v-text-field
-              v-model="newMiner.name"
-              label="Miner Name"
-              required
-              :rules="[(v) => !!v || 'Name is required']"
-            ></v-text-field>
-            <v-text-field
-              v-model="newMiner.ip"
-              label="IP Address"
-              required
-              :rules="[
-                (v) => !!v || 'IP Address is required',
-                (v) =>
-                  /^(\d{1,3}\.){3}\d{1,3}$/.test(v) ||
-                  'IP Address must be valid',
-              ]"
-            ></v-text-field>
-            <v-select
-              v-model="newMiner.type"
-              :items="minerTypes"
-              label="Miner Type"
-              required
-              :rules="[(v) => !!v || 'Miner type is required']"
-            ></v-select>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="blue darken-1" text @click="addMinerDialog = false"
-            >Cancel</v-btn
-          >
-          <v-btn
-            color="blue darken-1"
-            text
-            @click="saveMiner"
-            :disabled="!valid"
-            >Save</v-btn
-          >
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
 
     <!-- Help Overlay -->
     <v-dialog v-model="showHelp" max-width="700px">
@@ -351,12 +310,14 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import InfoBubble from "../components/InfoBubble.vue";
+import AddMinerDialog from "../components/AddMinerDialog.vue";
 import { formatTemperature } from "../utils/formatters";
 
 export default {
   name: "SimpleDashboard",
   components: {
     InfoBubble,
+    AddMinerDialog,
   },
   setup() {
     const router = useRouter();
@@ -370,16 +331,6 @@ export default {
     const addMinerDialog = ref(false);
     const showHelp = ref(false);
     const dontShowAgain = ref(false);
-    const valid = ref(false);
-    const form = ref(null);
-
-    const newMiner = ref({
-      name: "",
-      ip: "",
-      type: "",
-    });
-
-    const minerTypes = ref(["Magic Miner", "Avalon Nano", "Bitaxe"]);
 
     const headers = ref([
       { text: "Name", value: "name" },
@@ -449,16 +400,14 @@ export default {
       addMinerDialog.value = true;
     };
 
-    const saveMiner = async () => {
-      if (form.value.validate()) {
-        try {
-          await minersStore.addMiner(newMiner.value);
-          addMinerDialog.value = false;
-          newMiner.value = { name: "", ip: "", type: "" };
-        } catch (error) {
-          console.error("Error adding miner:", error);
-        }
-      }
+    const handleMinerAdded = (miner) => {
+      console.log(`Miner "${miner.name}" added successfully`);
+      // Optionally show a success message or refresh data
+    };
+
+    const handleMinerError = (error) => {
+      console.error('Error adding miner:', error);
+      // Optionally show an error message
     };
 
     const restartMiner = async (miner) => {
@@ -524,10 +473,6 @@ export default {
       addMinerDialog,
       showHelp,
       dontShowAgain,
-      valid,
-      form,
-      newMiner,
-      minerTypes,
       headers,
 
       // Computed
@@ -544,7 +489,8 @@ export default {
       getTemperatureColor,
       viewMiner,
       addMiner,
-      saveMiner,
+      handleMinerAdded,
+      handleMinerError,
       restartMiner,
       restartAll,
       scanNetwork,

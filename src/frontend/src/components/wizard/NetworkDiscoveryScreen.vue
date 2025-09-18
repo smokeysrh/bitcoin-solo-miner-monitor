@@ -148,72 +148,20 @@
               <v-window-item>
                 <v-card flat>
                   <v-card-text>
-                    <v-form ref="manualForm" v-model="manualFormValid">
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.name"
-                            label="Miner Name"
-                            variant="outlined"
-                            :rules="[(v) => !!v || 'Name is required']"
-                          ></v-text-field>
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.ip"
-                            label="IP Address"
-                            variant="outlined"
-                            :rules="[
-                              (v) => !!v || 'IP Address is required',
-                              ipAddressRule,
-                            ]"
-                          ></v-text-field>
-                        </v-col>
-                      </v-row>
-
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-select
-                            v-model="manualMiner.type"
-                            :items="minerTypeOptions"
-                            label="Miner Type"
-                            variant="outlined"
-                            :rules="[(v) => !!v || 'Miner type is required']"
-                            attach
-                            :menu-props="{
-                              closeOnContentClick: true,
-                              maxHeight: 300,
-                              transition: 'slide-y-transition',
-                            }"
-                          ></v-select>
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.port"
-                            label="Port (Optional)"
-                            type="number"
-                            variant="outlined"
-                            hint="Leave empty for default port"
-                            persistent-hint
-                          ></v-text-field>
-                        </v-col>
-                      </v-row>
-
-                      <v-row>
-                        <v-col cols="12" class="text-center">
-                          <v-btn
-                            color="primary"
-                            @click="addManualMiner"
-                            :disabled="!manualFormValid"
-                          >
-                            <v-icon start>mdi-plus</v-icon>
-                            Add Miner
-                          </v-btn>
-                        </v-col>
-                      </v-row>
-                    </v-form>
+                    <div class="text-center">
+                      <h3 class="text-h6 mb-4">Add Miner Manually</h3>
+                      <p class="text-body-2 mb-6">
+                        If you know the exact details of your miner, you can add it directly using the standardized form.
+                      </p>
+                      <v-btn
+                        color="primary"
+                        size="large"
+                        @click="openAddMinerDialog"
+                      >
+                        <v-icon start>mdi-plus-circle</v-icon>
+                        Add Miner
+                      </v-btn>
+                    </div>
                   </v-card-text>
                 </v-card>
               </v-window-item>
@@ -277,18 +225,25 @@
       </v-container>
     </div>
 
-
+    <!-- Add Miner Dialog -->
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
   </div>
 </template>
 
 <script>
 import BitcoinLogo from '../BitcoinLogo.vue'
+import AddMinerDialog from '../AddMinerDialog.vue'
 
 export default {
   name: "NetworkDiscoveryScreen",
   
   components: {
-    BitcoinLogo
+    BitcoinLogo,
+    AddMinerDialog
   },
 
   props: {
@@ -316,13 +271,7 @@ export default {
         timeout: 15,
       },
 
-      manualFormValid: false,
-      manualMiner: {
-        name: "",
-        ip: "",
-        type: "",
-        port: "",
-      },
+      addMinerDialog: false,
 
       discoveredMiners: [],
 
@@ -432,28 +381,27 @@ export default {
       return end - start + 1;
     },
 
-    addManualMiner() {
-      if (!this.$refs.manualForm.validate()) return;
+    openAddMinerDialog() {
+      this.addMinerDialog = true;
+    },
 
-      // Add the manually entered miner to the discovered miners list
+    handleMinerAdded(miner) {
+      // Add the miner to the discovered miners list
       this.discoveredMiners.push({
-        name: this.manualMiner.name,
-        ip: this.manualMiner.ip,
-        type: this.manualMiner.type,
-        port: this.manualMiner.port || null,
+        name: miner.name,
+        ip: miner.ip_address,
+        type: miner.type,
+        port: miner.port || null,
         status: "unknown", // Status is unknown until we connect to it
       });
 
-      // Reset the form
-      this.manualMiner = {
-        name: "",
-        ip: "",
-        type: "",
-        port: "",
-      };
-
-      // Switch to results tab
+      // Switch to results tab to show the added miner
       this.activeTab = 2;
+    },
+
+    handleMinerError(error) {
+      console.error('Error adding miner in wizard:', error);
+      // Could show a snackbar or alert here if needed
     },
 
     removeMiner(miner) {

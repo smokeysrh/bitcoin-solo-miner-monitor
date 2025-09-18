@@ -272,6 +272,13 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <!-- Add Miner Dialog -->
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
   </div>
 </template>
 
@@ -281,6 +288,7 @@ import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import BitcoinLoadingSpinner from "../components/BitcoinLoadingSpinner.vue";
+import AddMinerDialog from "../components/AddMinerDialog.vue";
 import { formatTemperature } from "../utils/formatters";
 
 export default {
@@ -288,6 +296,7 @@ export default {
 
   components: {
     BitcoinLoadingSpinner,
+    AddMinerDialog,
   },
 
   setup() {
@@ -429,9 +438,20 @@ export default {
       }
     };
 
+    const addMinerDialog = ref(false);
+
     const openAddMinerDialog = () => {
-      // Emit event to open add miner dialog in parent App component
-      window.dispatchEvent(new CustomEvent("open-add-miner-dialog"));
+      addMinerDialog.value = true;
+    };
+
+    const handleMinerAdded = (miner) => {
+      console.log(`Miner "${miner.name}" added successfully`);
+      // Optionally show a success message or refresh data
+    };
+
+    const handleMinerError = (error) => {
+      console.error('Error adding miner:', error);
+      // Optionally show an error message
     };
 
     // Lifecycle hooks
@@ -486,6 +506,7 @@ export default {
       discoveryLoading,
       discoveryStatus,
       simpleMode,
+      addMinerDialog,
 
       // Computed
       miners,
@@ -503,6 +524,8 @@ export default {
       startDiscovery,
       addDiscoveredMiner,
       openAddMinerDialog,
+      handleMinerAdded,
+      handleMinerError,
       toggleMode,
     };
   },

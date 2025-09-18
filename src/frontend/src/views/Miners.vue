@@ -149,6 +149,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Add Miner Dialog -->
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
   </div>
 </template>
 
@@ -158,9 +165,14 @@ import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import { formatTemperature } from "../utils/formatters";
+import AddMinerDialog from "../components/AddMinerDialog.vue";
 
 export default {
   name: "Miners",
+
+  components: {
+    AddMinerDialog,
+  },
 
   setup() {
     const router = useRouter();
@@ -282,10 +294,20 @@ export default {
       }
     };
 
+    const addMinerDialog = ref(false);
+
     const openAddMinerDialog = () => {
-      // This function will be provided by the parent App component
-      // We'll emit an event to trigger it
-      window.dispatchEvent(new CustomEvent("open-add-miner-dialog"));
+      addMinerDialog.value = true;
+    };
+
+    const handleMinerAdded = (miner) => {
+      console.log(`Miner "${miner.name}" added successfully`);
+      // Optionally show a success message or refresh data
+    };
+
+    const handleMinerError = (error) => {
+      console.error('Error adding miner:', error);
+      // Optionally show an error message
     };
 
     // Lifecycle hooks
@@ -320,6 +342,7 @@ export default {
       // State
       restartDialog,
       removeDialog,
+      addMinerDialog,
 
       // Computed
       miners,
@@ -336,6 +359,8 @@ export default {
       confirmRemove,
       removeMiner,
       openAddMinerDialog,
+      handleMinerAdded,
+      handleMinerError,
     };
   },
 };
