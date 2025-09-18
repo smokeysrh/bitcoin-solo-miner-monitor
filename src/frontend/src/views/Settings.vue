@@ -712,8 +712,9 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, watch, provide } from "vue";
 import { useSettingsStore } from "../stores/settings";
+import { useNotifications } from "../composables/useNotifications";
 import { resetFirstRun } from "../services/firstRunService";
 import axios from "axios";
 import { cloneDeep } from "lodash";
@@ -725,6 +726,7 @@ export default {
   setup() {
     const settingsStore = useSettingsStore();
     const router = useRouter();
+    const notifications = useNotifications();
 
     // Forms
     const settingsForm = ref(null);
@@ -813,78 +815,83 @@ export default {
 
     // Options
 
+    const themeOptions = [
+      { title: "Dark", value: "dark" },
+      { title: "Light", value: "light" },
+    ];
+
     const uiModeOptions = [
-      { text: "Simple Mode", value: "simple" },
-      { text: "Advanced Mode", value: "advanced" },
+      { title: "Simple Mode", value: "simple" },
+      { title: "Advanced Mode", value: "advanced" },
     ];
 
     const refreshIntervalOptions = [
-      { text: "5 seconds", value: 5 },
-      { text: "10 seconds", value: 10 },
-      { text: "30 seconds", value: 30 },
-      { text: "1 minute", value: 60 },
-      { text: "5 minutes", value: 300 },
+      { title: "5 seconds", value: 5 },
+      { title: "10 seconds", value: 10 },
+      { title: "30 seconds", value: 30 },
+      { title: "1 minute", value: 60 },
+      { title: "5 minutes", value: 300 },
     ];
 
     const retentionOptions = [
-      { text: "7 days", value: 7 },
-      { text: "14 days", value: 14 },
-      { text: "30 days", value: 30 },
-      { text: "60 days", value: 60 },
-      { text: "90 days", value: 90 },
-      { text: "180 days", value: 180 },
-      { text: "365 days", value: 365 },
+      { title: "7 days", value: 7 },
+      { title: "14 days", value: 14 },
+      { title: "30 days", value: 30 },
+      { title: "60 days", value: 60 },
+      { title: "90 days", value: 90 },
+      { title: "180 days", value: 180 },
+      { title: "365 days", value: 365 },
     ];
 
     const temperatureUnitOptions = [
-      { text: "Celsius (°C)", value: "celsius" },
-      { text: "Fahrenheit (°F)", value: "fahrenheit" },
+      { title: "Celsius (°C)", value: "celsius" },
+      { title: "Fahrenheit (°F)", value: "fahrenheit" },
     ];
 
     const defaultViewOptions = [
-      { text: "Dashboard", value: "dashboard" },
-      { text: "Miners", value: "miners" },
-      { text: "Analytics", value: "analytics" },
-      { text: "Network", value: "network" },
+      { title: "Dashboard", value: "dashboard" },
+      { title: "Miners", value: "miners" },
+      { title: "Analytics", value: "analytics" },
+      { title: "Network", value: "network" },
     ];
 
     const pollingIntervalOptions = [
-      { text: "10 seconds", value: 10 },
-      { text: "30 seconds", value: 30 },
-      { text: "1 minute", value: 60 },
-      { text: "5 minutes", value: 300 },
-      { text: "10 minutes", value: 600 },
+      { title: "10 seconds", value: 10 },
+      { title: "30 seconds", value: 30 },
+      { title: "1 minute", value: 60 },
+      { title: "5 minutes", value: 300 },
+      { title: "10 minutes", value: 600 },
     ];
 
     const notificationMethodOptions = [
-      { text: "Browser Notifications", value: "browser" },
-      { text: "Email", value: "email" },
-      { text: "Webhook", value: "webhook" },
-      { text: "Telegram", value: "telegram" },
+      { title: "Browser Notifications", value: "browser" },
+      { title: "Email", value: "email" },
+      { title: "Webhook", value: "webhook" },
+      { title: "Telegram", value: "telegram" },
     ];
 
     const emailFrequencyOptions = [
-      { text: "Immediate", value: "immediate" },
-      { text: "Hourly Digest", value: "hourly" },
-      { text: "Daily Digest", value: "daily" },
+      { title: "Immediate", value: "immediate" },
+      { title: "Hourly Digest", value: "hourly" },
+      { title: "Daily Digest", value: "daily" },
     ];
 
     const logLevelOptions = [
-      { text: "Debug", value: "debug" },
-      { text: "Info", value: "info" },
-      { text: "Warning", value: "warning" },
-      { text: "Error", value: "error" },
+      { title: "Debug", value: "debug" },
+      { title: "Info", value: "info" },
+      { title: "Warning", value: "warning" },
+      { title: "Error", value: "error" },
     ];
 
     const purgeOptions = [
-      { text: "7 days", value: "7d" },
-      { text: "30 days", value: "30d" },
-      { text: "90 days", value: "90d" },
-      { text: "180 days", value: "180d" },
-      { text: "365 days", value: "365d" },
+      { title: "7 days", value: "7d" },
+      { title: "30 days", value: "30d" },
+      { title: "90 days", value: "90d" },
+      { title: "180 days", value: "180d" },
+      { title: "365 days", value: "365d" },
     ];
 
-    // Computed properties
+    // Computed properties - Enhanced with settings store integration
     const settingsChanged = computed(() => {
       return (
         JSON.stringify(settings) !== JSON.stringify(originalSettings.value)
@@ -897,6 +904,8 @@ export default {
         JSON.stringify(originalAlertSettings.value)
       );
     });
+
+    // Enhanced loading states are handled by the existing ref variables above
 
     const apiSettingsChanged = computed(() => {
       const originalApi = {
@@ -936,10 +945,15 @@ export default {
     // Methods
     const loadSettings = async () => {
       try {
+        console.log('Settings view: Loading settings with enhanced error handling');
+        
+        // Use the enhanced settings store
+        await settingsStore.fetchSettings();
+        
         // Get settings from store
         const storeSettings = settingsStore.settings;
 
-        // Update settings
+        // Update local settings
         Object.assign(settings, storeSettings);
         
         // Sync simple_mode with localStorage (localStorage takes precedence for UI mode)
@@ -949,20 +963,20 @@ export default {
 
         // Save original settings for comparison
         originalSettings.value = cloneDeep(settings);
+        
+        console.log('Settings view: Settings loaded successfully:', settings);
       } catch (error) {
-        console.error("Error loading settings:", error);
-        showNotification("Error loading settings", "error");
+        console.error("Settings view: Error loading settings:", error);
+        notifications.error("Failed to load settings. Using defaults.");
       }
     };
 
     const loadAlertSettings = async () => {
       try {
-        // Fetch alert settings from API
-        const response = await axios.get("/api/settings/alerts");
-
-        // Update alert settings
-        Object.assign(alertSettings, response.data);
-
+        // Alert settings are part of the main settings endpoint
+        // They will be loaded with the main settings
+        console.log("Alert settings loaded with main settings");
+        
         // Save original settings for comparison
         originalAlertSettings.value = cloneDeep(alertSettings);
       } catch (error) {
@@ -1003,69 +1017,77 @@ export default {
 
     const saveSettings = async () => {
       if (!formValid.value) {
-        showNotification("Please fix the errors in the form", "error");
+        notifications.error("Please fix the errors in the form before saving");
         return;
       }
 
-      saving.value = true;
-
       try {
+        console.log('Settings view: Saving settings with enhanced error handling');
+        
         // Sync ui_mode with simple_mode before saving
         settings.ui_mode = settings.simple_mode ? "simple" : "advanced";
         
         // Update localStorage
         localStorage.setItem("uiMode", settings.ui_mode);
 
-        // Update settings in store
-        await settingsStore.updateSettings(settings);
+        // Convert string values to appropriate types before saving
+        const settingsToSave = {
+          ...settings,
+          polling_interval: parseInt(settings.polling_interval) || 30,
+          refresh_interval: parseInt(settings.refresh_interval) || 10,
+          chart_retention_days: parseInt(settings.chart_retention_days) || 30
+        };
 
-        // Update original settings
+        // Use the enhanced settings store with notification integration
+        await notifications.settingsOperation(
+          settingsStore.updateSettings(settingsToSave),
+          "Saving settings...",
+          "Settings saved successfully"
+        );
+
+        // Update original settings for comparison
         originalSettings.value = cloneDeep(settings);
 
-        showNotification("Settings saved successfully", "success");
+        console.log('Settings view: Settings saved successfully');
       } catch (error) {
-        console.error("Error saving settings:", error);
-        showNotification("Error saving settings", "error");
-      } finally {
-        saving.value = false;
+        console.error("Settings view: Error saving settings:", error);
+        // Error notification is handled by the notification composable
       }
     };
 
     const saveAlertSettings = async () => {
       if (!alertsFormValid.value) {
-        showNotification("Please fix the errors in the form", "error");
+        notifications.error("Please fix the errors in the alert form before saving");
         return;
       }
 
-      savingAlerts.value = true;
-
       try {
-        // Save alert settings to API
-        await axios.put("/api/settings/alerts", alertSettings);
+        // Use notification composable for consistent UX
+        await notifications.settingsOperation(
+          axios.put("/api/settings/alerts", alertSettings),
+          "Saving alert settings...",
+          "Alert settings saved successfully"
+        );
 
         // Update original settings
         originalAlertSettings.value = cloneDeep(alertSettings);
-
-        showNotification("Alert settings saved successfully", "success");
       } catch (error) {
-        console.error("Error saving alert settings:", error);
-        showNotification("Error saving alert settings", "error");
-      } finally {
-        savingAlerts.value = false;
+        console.error("Settings view: Error saving alert settings:", error);
+        // Error notification is handled by the notification composable
       }
     };
 
     const saveAdvancedSettings = async (section) => {
-      savingAdvanced.value = true;
-
       try {
         let payload = {};
+        let sectionName = "";
 
         if (section === "api") {
           payload = {
             api_enabled: advancedSettings.api_enabled,
             api_port: advancedSettings.api_port,
           };
+          sectionName = "API";
         } else if (section === "performance") {
           payload = {
             log_level: advancedSettings.log_level,
@@ -1074,20 +1096,21 @@ export default {
             websocket_update_interval:
               advancedSettings.websocket_update_interval,
           };
+          sectionName = "Performance";
         }
 
-        // Save advanced settings to API
-        await axios.put("/api/settings/advanced", payload);
+        // Use notification composable for consistent UX
+        await notifications.settingsOperation(
+          axios.put("/api/settings/advanced", payload),
+          `Saving ${sectionName.toLowerCase()} settings...`,
+          `${sectionName} settings saved successfully`
+        );
 
         // Update original settings
         originalAdvancedSettings.value = cloneDeep(advancedSettings);
-
-        showNotification("Advanced settings saved successfully", "success");
       } catch (error) {
-        console.error("Error saving advanced settings:", error);
-        showNotification("Error saving advanced settings", "error");
-      } finally {
-        savingAdvanced.value = false;
+        console.error(`Settings view: Error saving ${section} settings:`, error);
+        // Error notification is handled by the notification composable
       }
     };
 
@@ -1247,6 +1270,17 @@ export default {
       snackbarColor.value = color;
       showSnackbar.value = true;
     };
+
+    // Provide the showSnackbar function to child components and composables
+    provide('showSnackbar', (message, type = 'info', timeout = 3000) => {
+      showNotification(message, type);
+      // Update timeout if different from default
+      if (timeout !== 3000) {
+        setTimeout(() => {
+          showSnackbar.value = false;
+        }, timeout);
+      }
+    });
 
 
 

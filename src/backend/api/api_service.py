@@ -228,6 +228,36 @@ class APIService:
             dependencies=[Depends(api_key_auth)]
         )(self.update_settings)
         
+        # Alert settings endpoints
+        self.app.get(
+            "/api/settings/alerts", 
+            response_model=Dict[str, Any]
+        )(self.get_alert_settings)
+        
+        self.app.put(
+            "/api/settings/alerts", 
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_alert_settings)
+        
+        # Advanced settings endpoints
+        self.app.get(
+            "/api/settings/advanced", 
+            response_model=Dict[str, Any]
+        )(self.get_advanced_settings)
+        
+        self.app.put(
+            "/api/settings/advanced", 
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_advanced_settings)
+        
+        # Database info endpoint
+        self.app.get(
+            "/api/system/database", 
+            response_model=Dict[str, Any]
+        )(self.get_database_info)
+        
         # System monitoring
         self.app.get(
             "/api/system/info", 
@@ -857,6 +887,213 @@ class APIService:
         await self.data_storage.save_app_settings(current_settings)
         
         return current_settings
+    
+    async def get_alert_settings(self) -> Dict[str, Any]:
+        """
+        Get alert settings.
+        
+        Returns:
+            Dict[str, Any]: Alert settings
+        """
+        try:
+            # Get full settings and extract alert-related settings
+            all_settings = await self.data_storage.get_app_settings()
+            
+            # Extract alert settings with defaults
+            alert_settings = {
+                "enabled": all_settings.get("alerts_enabled", False),
+                "notification_method": all_settings.get("notification_method", "browser"),
+                "temperature_threshold": all_settings.get("temperature_threshold", 80),
+                "hashrate_drop_percent": all_settings.get("hashrate_drop_percent", 20),
+                "offline_duration": all_settings.get("offline_duration", 5),
+                "rejected_shares_percent": all_settings.get("rejected_shares_percent", 5),
+                "email_address": all_settings.get("email_address", ""),
+                "email_frequency": all_settings.get("email_frequency", "immediate"),
+                "webhook_url": all_settings.get("webhook_url", ""),
+                "telegram_bot_token": all_settings.get("telegram_bot_token", ""),
+                "telegram_chat_id": all_settings.get("telegram_chat_id", ""),
+            }
+            
+            return alert_settings
+            
+        except Exception as e:
+            logger.error(f"Error getting alert settings: {e}")
+            # Return default alert settings on error
+            return {
+                "enabled": False,
+                "notification_method": "browser",
+                "temperature_threshold": 80,
+                "hashrate_drop_percent": 20,
+                "offline_duration": 5,
+                "rejected_shares_percent": 5,
+                "email_address": "",
+                "email_frequency": "immediate",
+                "webhook_url": "",
+                "telegram_bot_token": "",
+                "telegram_chat_id": "",
+            }
+    
+    async def update_alert_settings(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update alert settings.
+        
+        Args:
+            alert_data (Dict[str, Any]): Alert settings to update
+            
+        Returns:
+            Dict[str, Any]: Updated alert settings
+        """
+        try:
+            # Get current settings
+            current_settings = await self.data_storage.get_app_settings()
+            
+            # Update alert-related settings
+            if "enabled" in alert_data:
+                current_settings["alerts_enabled"] = alert_data["enabled"]
+            if "notification_method" in alert_data:
+                current_settings["notification_method"] = alert_data["notification_method"]
+            if "temperature_threshold" in alert_data:
+                current_settings["temperature_threshold"] = alert_data["temperature_threshold"]
+            if "hashrate_drop_percent" in alert_data:
+                current_settings["hashrate_drop_percent"] = alert_data["hashrate_drop_percent"]
+            if "offline_duration" in alert_data:
+                current_settings["offline_duration"] = alert_data["offline_duration"]
+            if "rejected_shares_percent" in alert_data:
+                current_settings["rejected_shares_percent"] = alert_data["rejected_shares_percent"]
+            if "email_address" in alert_data:
+                current_settings["email_address"] = alert_data["email_address"]
+            if "email_frequency" in alert_data:
+                current_settings["email_frequency"] = alert_data["email_frequency"]
+            if "webhook_url" in alert_data:
+                current_settings["webhook_url"] = alert_data["webhook_url"]
+            if "telegram_bot_token" in alert_data:
+                current_settings["telegram_bot_token"] = alert_data["telegram_bot_token"]
+            if "telegram_chat_id" in alert_data:
+                current_settings["telegram_chat_id"] = alert_data["telegram_chat_id"]
+            
+            # Save settings
+            await self.data_storage.save_app_settings(current_settings)
+            
+            # Return updated alert settings
+            return await self.get_alert_settings()
+            
+        except Exception as e:
+            logger.error(f"Error updating alert settings: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update alert settings")
+    
+    async def get_advanced_settings(self) -> Dict[str, Any]:
+        """
+        Get advanced settings.
+        
+        Returns:
+            Dict[str, Any]: Advanced settings
+        """
+        try:
+            # Get full settings and extract advanced settings
+            all_settings = await self.data_storage.get_app_settings()
+            
+            # Extract advanced settings with defaults
+            advanced_settings = {
+                "api_enabled": all_settings.get("api_enabled", True),
+                "api_port": all_settings.get("api_port", 8000),
+                "log_level": all_settings.get("log_level", "info"),
+                "max_concurrent_requests": all_settings.get("max_concurrent_requests", 5),
+                "request_timeout": all_settings.get("request_timeout", 10),
+                "websocket_update_interval": all_settings.get("websocket_update_interval", 1),
+            }
+            
+            return advanced_settings
+            
+        except Exception as e:
+            logger.error(f"Error getting advanced settings: {e}")
+            # Return default advanced settings on error
+            return {
+                "api_enabled": True,
+                "api_port": 8000,
+                "log_level": "info",
+                "max_concurrent_requests": 5,
+                "request_timeout": 10,
+                "websocket_update_interval": 1,
+            }
+    
+    async def update_advanced_settings(self, advanced_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update advanced settings.
+        
+        Args:
+            advanced_data (Dict[str, Any]): Advanced settings to update
+            
+        Returns:
+            Dict[str, Any]: Updated advanced settings
+        """
+        try:
+            # Get current settings
+            current_settings = await self.data_storage.get_app_settings()
+            
+            # Update advanced settings
+            if "api_enabled" in advanced_data:
+                current_settings["api_enabled"] = advanced_data["api_enabled"]
+            if "api_port" in advanced_data:
+                current_settings["api_port"] = advanced_data["api_port"]
+            if "log_level" in advanced_data:
+                current_settings["log_level"] = advanced_data["log_level"]
+            if "max_concurrent_requests" in advanced_data:
+                current_settings["max_concurrent_requests"] = advanced_data["max_concurrent_requests"]
+            if "request_timeout" in advanced_data:
+                current_settings["request_timeout"] = advanced_data["request_timeout"]
+            if "websocket_update_interval" in advanced_data:
+                current_settings["websocket_update_interval"] = advanced_data["websocket_update_interval"]
+            
+            # Save settings
+            await self.data_storage.save_app_settings(current_settings)
+            
+            # Return updated advanced settings
+            return await self.get_advanced_settings()
+            
+        except Exception as e:
+            logger.error(f"Error updating advanced settings: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update advanced settings")
+    
+    async def get_database_info(self) -> Dict[str, Any]:
+        """
+        Get database information and status.
+        
+        Returns:
+            Dict[str, Any]: Database information
+        """
+        try:
+            # Get database connection status and info
+            db_info = {
+                "sqlite_path": str(self.data_storage.db_path) if hasattr(self.data_storage, 'db_path') else "data/config.db",
+                "sqlite_status": "connected" if self.data_storage else "disconnected",
+                "influx_url": "http://localhost:8086",  # Default InfluxDB URL
+                "influx_status": "connected",  # For now, assume connected
+            }
+            
+            # Try to get actual database file size and info
+            try:
+                import os
+                if hasattr(self.data_storage, 'db_path') and os.path.exists(self.data_storage.db_path):
+                    db_size = os.path.getsize(self.data_storage.db_path)
+                    db_info["sqlite_size"] = db_size
+                    db_info["sqlite_status"] = "connected"
+                else:
+                    db_info["sqlite_status"] = "file_not_found"
+            except Exception as e:
+                logger.warning(f"Could not get database file info: {e}")
+                db_info["sqlite_status"] = "unknown"
+            
+            return db_info
+            
+        except Exception as e:
+            logger.error(f"Error getting database info: {e}")
+            # Return basic info on error
+            return {
+                "sqlite_path": "data/config.db",
+                "sqlite_status": "error",
+                "influx_url": "http://localhost:8086",
+                "influx_status": "error",
+            }
     
     async def websocket_endpoint(self, websocket: WebSocket):
         """

@@ -98,6 +98,39 @@ class DistributionBuilder:
             
         return app_dir
         
+    def prepare_python_runtime(self, app_dir):
+        """Prepare Python runtime and create launcher files for Windows"""
+        print("🐍 Preparing Python runtime and launcher files...")
+        
+        try:
+            # Import the Python runtime preparer
+            sys.path.insert(0, str(self.installer_dir / "windows" / "scripts"))
+            from prepare_python_runtime import PythonRuntimePreparer
+            
+            # Prepare the Python runtime in the app directory
+            with PythonRuntimePreparer(app_dir) as preparer:
+                preparer.prepare_runtime(self.project_root / "requirements.txt")
+                
+            print("✅ Python runtime and launcher files prepared")
+            
+        except Exception as e:
+            print(f"⚠️  Python runtime preparation failed: {e}")
+            print("📝 Creating simple batch launcher as fallback...")
+            
+            # Create a simple batch launcher as fallback
+            launcher_content = [
+                "@echo off",
+                "cd /d \"%~dp0\"",
+                "python run.py %*",
+                "pause"
+            ]
+            
+            launcher_path = app_dir / "BitcoinSoloMinerMonitor.bat"
+            with open(launcher_path, 'w') as f:
+                f.write('\n'.join(launcher_content))
+                
+            print("✅ Fallback batch launcher created")
+        
     def build_windows(self, version):
         """Build Windows NSIS installer"""
         print("🪟 Building Windows installer...")
@@ -107,6 +140,9 @@ class DistributionBuilder:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             app_dir = self.prepare_app_bundle(temp_path)
+            
+            # Prepare Python runtime and create launcher files
+            self.prepare_python_runtime(app_dir)
             
             # Check if NSIS installer script exists
             nsis_script = self.installer_dir / "windows" / "installer.nsi"

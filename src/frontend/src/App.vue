@@ -182,7 +182,6 @@
         </v-card-title>
         <v-card-text>
           <v-form ref="settingsForm" v-model="settingsFormValid">
-
             <v-text-field
               v-model="settings.polling_interval"
               label="Polling Interval (seconds)"
@@ -225,18 +224,17 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn
-            color="blue darken-1"
-            text
+            variant="text"
             @click="settingsDialog = false"
           >
             Cancel
           </v-btn>
           <v-btn
-            color="blue darken-1"
-            text
+            color="primary"
+            variant="text"
             @click="saveSettings"
             :disabled="!settingsFormValid"
-            :loading="settingsStore.loading"
+            :loading="settingsLoading"
           >
             Save
           </v-btn>
@@ -377,6 +375,7 @@ export default {
         { title: 'Miners', icon: 'mdi-server', to: '/miners' },
         { title: 'Analytics', icon: 'mdi-chart-line', to: '/analytics' },
         { title: 'Network', icon: 'mdi-network', to: '/network' },
+        { title: 'Settings', icon: 'mdi-cog', to: '/settings' },
         { title: 'About', icon: 'mdi-information', to: '/about' },
       ]
       
@@ -423,6 +422,11 @@ export default {
       polling_interval: 30,
       refresh_interval: 10,
       chart_retention_days: 30
+    })
+    
+    // Computed property for settings loading state
+    const settingsLoading = computed(() => {
+      return settingsStore?.loading || false
     })
     
 
@@ -483,16 +487,24 @@ export default {
     const saveSettings = async () => {
       console.log('saveSettings method called!')
       console.log('settingsFormValid:', settingsFormValid.value)
-      console.log('settingsStore.loading:', settingsStore.loading)
+      console.log('settingsStore.loading:', settingsStore?.loading)
       
-      if (settingsStore.loading) {
+      if (settingsStore?.loading) {
         console.log('Settings save already in progress, skipping...')
         return
       }
       
       try {
-        console.log('Saving settings:', settings.value)
-        await settingsStore.updateSettings(settings.value)
+        // Convert string values to appropriate types before saving
+        const settingsToSave = {
+          ...settings.value,
+          polling_interval: parseInt(settings.value.polling_interval) || 30,
+          refresh_interval: parseInt(settings.value.refresh_interval) || 10,
+          chart_retention_days: parseInt(settings.value.chart_retention_days) || 30
+        }
+        
+        console.log('Saving settings:', settingsToSave)
+        await settingsStore.updateSettings(settingsToSave)
         
         // Auto-close dialog on successful save
         settingsDialog.value = false
@@ -866,6 +878,8 @@ export default {
       settingsFormValid,
       settingsForm,
       settings,
+      settingsStore, // Add settingsStore to fix the loading state access
+      settingsLoading, // Add computed loading state
       refreshing,
       snackbar,
       openAddMinerDialog,
@@ -1223,5 +1237,21 @@ export default {
   .donation-address:active {
     transform: none;
   }
+}
+
+/* Settings dialog actions visibility fix */
+:deep(.settings-dialog-actions) {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  padding: 16px 24px !important;
+  min-height: 64px !important;
+  border-top: 1px solid rgba(var(--v-border-color), 0.12);
+  background-color: rgba(var(--v-theme-surface), 1) !important;
+}
+
+:deep(.settings-dialog-actions .v-btn) {
+  margin-left: 8px !important;
+  min-width: 80px !important;
 }
 </style>
