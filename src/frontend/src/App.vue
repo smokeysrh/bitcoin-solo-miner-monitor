@@ -48,7 +48,7 @@
           <v-btn
             block
             color="primary"
-            @click="openAddMinerDialog"
+            @click="navigateToMinersPage"
           >
             <v-icon left>mdi-plus</v-icon>
             Add Miner
@@ -110,66 +110,7 @@
       <router-view v-else />
     </v-main>
 
-    <!-- Add Miner Dialog -->
-    <v-dialog
-      v-model="addMinerDialog"
-      max-width="500px"
-    >
-      <v-card>
-        <v-card-title>
-          Add New Miner
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="addMinerForm" v-model="addMinerFormValid">
-            <v-select
-              v-model="newMiner.type"
-              :items="minerTypes"
-              label="Miner Type"
-              required
-              :rules="[v => !!v || 'Miner type is required']"
-            ></v-select>
-            <v-text-field
-              v-model="newMiner.ip_address"
-              label="IP Address"
-              required
-              :rules="[
-                v => !!v || 'IP address is required',
-                v => /^(\d{1,3}\.){3}\d{1,3}$/.test(v) || 'Invalid IP address format'
-              ]"
-            ></v-text-field>
-            <v-text-field
-              v-model="newMiner.port"
-              label="Port (Optional)"
-              type="number"
-              hint="Leave empty for default port"
-            ></v-text-field>
-            <v-text-field
-              v-model="newMiner.name"
-              label="Name (Optional)"
-              hint="Leave empty for auto-generated name"
-            ></v-text-field>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn
-            color="blue darken-1"
-            text
-            @click="addMinerDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="blue darken-1"
-            text
-            @click="addMiner"
-            :disabled="!addMinerFormValid"
-          >
-            Add
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+
 
     <!-- Settings Dialog -->
     <v-dialog
@@ -311,6 +252,7 @@ import { useUpdateChecker } from './composables/useUpdateChecker'
 import BitcoinLogo from './components/BitcoinLogo.vue'
 import UpdateNotification from './components/UpdateNotification.vue'
 
+
 export default {
   name: 'App',
   
@@ -396,23 +338,7 @@ export default {
       return route.path === '/setup'
     })
     
-    // Add miner dialog
-    const addMinerDialog = ref(false)
-    const addMinerFormValid = ref(false)
-    const addMinerForm = ref(null)
-    const newMiner = ref({
-      type: 'bitaxe',
-      ip_address: '',
-      port: null,
-      name: ''
-    })
-    
-    // Miner types
-    const minerTypes = [
-      { title: 'Bitaxe', value: 'bitaxe' },
-      { title: 'Avalon Nano', value: 'avalon_nano' },
-      { title: 'Magic Miner', value: 'magic_miner' }
-    ]
+
     
     // Settings dialog
     const settingsDialog = ref(false)
@@ -443,26 +369,8 @@ export default {
     })
     
     // Methods
-    const openAddMinerDialog = () => {
-      // Reset form
-      newMiner.value = {
-        type: 'bitaxe',
-        ip_address: '',
-        port: null,
-        name: ''
-      }
-      addMinerFormValid.value = false
-      addMinerDialog.value = true
-    }
-    
-    const addMiner = async () => {
-      try {
-        await minersStore.addMiner(newMiner.value)
-        addMinerDialog.value = false
-        showSnackbar('Miner added successfully', 'success')
-      } catch (error) {
-        showSnackbar(`Error adding miner: ${error.message}`, 'error')
-      }
+    const navigateToMinersPage = () => {
+      router.push('/miners')
     }
     
     const openSettingsDialog = () => {
@@ -767,6 +675,8 @@ export default {
         console.error('Error in first run check:', error)
       }
       
+
+      
       console.log('=== APP MOUNTED COMPLETE ===')
     })
     
@@ -869,11 +779,6 @@ export default {
       menuItems,
       currentPageTitle,
       isSetupRoute,
-      addMinerDialog,
-      addMinerFormValid,
-      addMinerForm,
-      newMiner,
-      minerTypes,
       settingsDialog,
       settingsFormValid,
       settingsForm,
@@ -882,8 +787,7 @@ export default {
       settingsLoading, // Add computed loading state
       refreshing,
       snackbar,
-      openAddMinerDialog,
-      addMiner,
+      navigateToMinersPage,
       openSettingsDialog,
       saveSettings,
       refreshData,
