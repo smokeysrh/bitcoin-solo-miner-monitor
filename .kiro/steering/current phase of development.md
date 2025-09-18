@@ -1,6 +1,10 @@
-We are in the final stage of testing, bug finding, and bug fixing. do not add any additional features outside of what is required by the task at hand. We do not want to introduce new bugs while fixing current bugs. When debugging, before changing or creating new code, always choose to enhance debugging first, then retest so that we accurately pin point issues before making changes.
+We are in the final stage of testing, bug finding, and bug fixing. do not add any additional features outside of what is required by the task at hand. We do not want to introduce new bugs while fixing current bugs.
 
-We have identified multiple issues with the Installer and are now in the middle of making the changes with the professional-installer-distribution Spec. Remember that we have much installer code wrote, we should build from or build upon this foundation to complete the tasks.md.
+When debugging, before changing or creating new code, always choose to enhance debugging first, then retest so that we accurately pin point issues before making any changes.
+
+We have identified multiple issues with the UI/UX, we are currently debugging these issues and then fixing them as per the tasks list.
+
+Always be sure to look for things that already exist so that you dont duplicate things.
 
 We are developing in a Windows environment, use the proper Windows commands to execute tasks:
 Add files to git first with git add

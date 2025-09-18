@@ -22,7 +22,12 @@
 
 ; Set basic information
 Name "${APP_NAME}"
-OutFile "BitcoinSoloMinerMonitor-${VERSION}-Setup.exe"
+; Use OUTPUT_FILE if provided, otherwise use default naming
+!ifdef OUTPUT_FILE
+  OutFile "${OUTPUT_FILE}"
+!else
+  OutFile "BitcoinSoloMinerMonitor-${VERSION}-Setup.exe"
+!endif
 InstallDir "$PROGRAMFILES\${APP_NAME}"
 InstallDirRegKey HKLM "${REGKEY}" "InstallDir"
 RequestExecutionLevel admin
@@ -47,7 +52,7 @@ SetCompressor /SOLID lzma
 
 ; Define finish page
 !define MUI_FINISHPAGE_NOAUTOCLOSE
-!define MUI_FINISHPAGE_RUN "$INSTDIR\BitcoinSoloMinerMonitor.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\BitcoinSoloMinerMonitor.bat"
 !define MUI_FINISHPAGE_RUN_TEXT "Launch ${APP_NAME}"
 !define MUI_FINISHPAGE_LINK "Visit ${WEBSITE} for more information"
 !define MUI_FINISHPAGE_LINK_LOCATION "${WEBSITE}"
@@ -101,7 +106,7 @@ Section "!Core Files (required)" SecCore
   WriteRegStr HKLM "${UNINSTALL_REGKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKLM "${UNINSTALL_REGKEY}" "Publisher" "${PUBLISHER}"
   WriteRegStr HKLM "${UNINSTALL_REGKEY}" "URLInfoAbout" "${WEBSITE}"
-  WriteRegStr HKLM "${UNINSTALL_REGKEY}" "DisplayIcon" "$INSTDIR\BitcoinSoloMinerMonitor.exe,0"
+  WriteRegStr HKLM "${UNINSTALL_REGKEY}" "DisplayIcon" "$INSTDIR\BitcoinSoloMinerMonitor.bat,0"
   WriteRegStr HKLM "${UNINSTALL_REGKEY}" "UninstallString" "$INSTDIR\Uninstall.exe"
   WriteRegDWORD HKLM "${UNINSTALL_REGKEY}" "NoModify" 1
   WriteRegDWORD HKLM "${UNINSTALL_REGKEY}" "NoRepair" 1
@@ -114,12 +119,12 @@ SectionEnd
 
 Section "Start Menu Shortcuts" SecStartMenu
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.exe"
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.bat"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 SectionEnd
 
 Section "Desktop Shortcut" SecDesktop
-  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.exe"
+  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.bat"
 SectionEnd
 
 Section "Start with Windows" SecStartup
