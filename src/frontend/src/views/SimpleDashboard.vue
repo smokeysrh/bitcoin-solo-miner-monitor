@@ -82,68 +82,15 @@
     </v-card>
 
     <!-- Quick Actions -->
-    <v-card class="mb-6">
-      <v-card-title class="headline">
-        Quick Actions
-        <InfoBubble
-          tooltip-text="Common actions you can perform on your miners"
-          dialog-title="Quick Actions Information"
-          dialog-content="<p>Common tasks you can perform:</p><ul><li><strong>Scan Network:</strong> Search your network for new miners automatically</li><li><strong>Add Miner:</strong> Manually add a new miner to monitor and manage</li><li><strong>Restart All:</strong> Restart all miners simultaneously (use with caution)</li><li><strong>Analytics:</strong> View detailed performance charts and historical data</li></ul>"
-          aria-label="quick actions section"
-          class="ml-2"
-        />
-      </v-card-title>
-      <v-card-text>
-        <v-row>
-          <v-col cols="6" sm="3">
-            <v-btn
-              block
-              color="primary"
-              class="action-button"
-              @click="scanNetwork"
-              :loading="scanning"
-            >
-              <v-icon left>mdi-refresh</v-icon>
-              Scan Network
-            </v-btn>
-          </v-col>
-          <v-col cols="6" sm="3">
-            <v-btn
-              block
-              color="success"
-              class="action-button"
-              @click="addMiner"
-            >
-              <v-icon left>mdi-plus</v-icon>
-              Add Miner
-            </v-btn>
-          </v-col>
-          <v-col cols="6" sm="3">
-            <v-btn
-              block
-              color="warning"
-              class="action-button"
-              @click="restartAll"
-              :disabled="miners.length === 0"
-            >
-              <v-icon left>mdi-restart</v-icon>
-              Restart All
-            </v-btn>
-          </v-col>
-          <v-col cols="6" sm="3">
-            <v-btn
-              block
-              color="info"
-              class="action-button"
-              @click="viewAnalytics"
-            >
-              <v-icon left>mdi-chart-line</v-icon>
-              Analytics
-            </v-btn>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+    <QuickActions
+      default-network="192.168.1.0/24"
+      @scan-network="handleQuickScanNetwork"
+      @add-miner="handleQuickAddMiner"
+      @restart-all="handleQuickRestartAll"
+      @view-analytics="handleQuickViewAnalytics"
+      @miner-added="handleMinerAdded"
+      @miner-error="handleMinerError"
+    />
 
     <!-- Miners Overview -->
     <v-card>
@@ -220,12 +167,7 @@
       </v-data-table>
     </v-card>
 
-    <!-- Add Miner Dialog -->
-    <AddMinerDialog
-      v-model="addMinerDialog"
-      @miner-added="handleMinerAdded"
-      @error="handleMinerError"
-    />
+
 
     <!-- Help Overlay -->
     <v-dialog v-model="showHelp" max-width="700px">
@@ -311,6 +253,7 @@ import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import InfoBubble from "../components/InfoBubble.vue";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
+import QuickActions from "../components/QuickActions.vue";
 import { formatTemperature } from "../utils/formatters";
 
 export default {
@@ -318,6 +261,7 @@ export default {
   components: {
     InfoBubble,
     AddMinerDialog,
+    QuickActions,
   },
   setup() {
     const router = useRouter();
@@ -328,7 +272,6 @@ export default {
     const search = ref("");
     const loading = ref(false);
     const scanning = ref(false);
-    const addMinerDialog = ref(false);
     const showHelp = ref(false);
     const dontShowAgain = ref(false);
 
@@ -397,7 +340,8 @@ export default {
     };
 
     const addMiner = () => {
-      addMinerDialog.value = true;
+      // This method is now handled by QuickActions component
+      console.log("Add miner triggered from SimpleDashboard");
     };
 
     const handleMinerAdded = (miner) => {
@@ -446,6 +390,27 @@ export default {
       router.push("/analytics");
     };
 
+    // Quick Actions event handlers
+    const handleQuickScanNetwork = async (network) => {
+      // Use the existing scanNetwork method
+      await scanNetwork();
+    };
+
+    const handleQuickAddMiner = () => {
+      // Use the existing addMiner method
+      addMiner();
+    };
+
+    const handleQuickRestartAll = async () => {
+      // Use the existing restartAll method
+      await restartAll();
+    };
+
+    const handleQuickViewAnalytics = () => {
+      // Use the existing viewAnalytics method
+      viewAnalytics();
+    };
+
     // Watchers
     watch(showHelp, (val) => {
       if (!val && dontShowAgain.value) {
@@ -470,7 +435,6 @@ export default {
       search,
       loading,
       scanning,
-      addMinerDialog,
       showHelp,
       dontShowAgain,
       headers,
@@ -495,6 +459,10 @@ export default {
       restartAll,
       scanNetwork,
       viewAnalytics,
+      handleQuickScanNetwork,
+      handleQuickAddMiner,
+      handleQuickRestartAll,
+      handleQuickViewAnalytics,
     };
   },
 };
@@ -514,16 +482,7 @@ export default {
   box-shadow: var(--shadow-3);
 }
 
-.action-button {
-  height: var(--button-height-large);
-  font-weight: var(--font-weight-medium);
-  transition: all var(--transition-fast);
-}
 
-.action-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-2);
-}
 
 /* Enhanced card styling */
 :deep(.v-card) {
@@ -671,11 +630,6 @@ export default {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .action-button {
-    height: var(--button-height);
-    font-size: var(--font-size-small);
-  }
-
   .status-card {
     margin-bottom: var(--spacing-md);
   }
@@ -684,7 +638,6 @@ export default {
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
   .status-card,
-  .action-button,
   :deep(.v-card),
   :deep(.v-btn) {
     transition: none;
@@ -692,7 +645,6 @@ export default {
   }
 
   .status-card:hover,
-  .action-button:hover,
   :deep(.v-btn:hover) {
     transform: none !important;
   }
