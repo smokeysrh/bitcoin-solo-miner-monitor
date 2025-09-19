@@ -45,53 +45,7 @@
                     </v-col>
                   </v-row>
 
-                  <v-row>
-                    <v-col cols="12">
-                      <h3 class="text-subtitle-1 mb-2">Dashboard Widgets</h3>
-                      <p class="text-caption mb-4">
-                        Select which widgets to display on your dashboard
-                      </p>
 
-                      <v-item-group v-model="preferences.widgets" multiple>
-                        <v-container>
-                          <v-row>
-                            <v-col
-                              v-for="widget in availableWidgets"
-                              :key="widget.id"
-                              cols="12"
-                              md="4"
-                            >
-                              <v-item
-                                :value="widget.id"
-                                v-slot="{ active, toggle }"
-                              >
-                                <v-card
-                                  :class="[
-                                    'widget-card',
-                                    'd-flex',
-                                    'align-center',
-                                    active
-                                      ? 'widget-card--selected'
-                                      : 'widget-card--unselected',
-                                  ]"
-                                  height="100"
-                                  @click="toggle"
-                                >
-                                  <v-card-text>
-                                    <v-icon start>{{ widget.icon }}</v-icon>
-                                    {{ widget.name }}
-                                    <div class="text-caption">
-                                      {{ widget.description }}
-                                    </div>
-                                  </v-card-text>
-                                </v-card>
-                              </v-item>
-                            </v-col>
-                          </v-row>
-                        </v-container>
-                      </v-item-group>
-                    </v-col>
-                  </v-row>
                 </v-card-text>
               </v-card>
 
@@ -321,7 +275,6 @@ export default {
 
       preferences: {
         dashboard_layout: "grid",
-        widgets: [0, 1, 2], // Default selected widgets
         desktop_notifications: true,
         sound_alerts: true,
         email_notifications: false,
@@ -336,44 +289,7 @@ export default {
         animations: true,
       },
 
-      availableWidgets: [
-        {
-          id: 0,
-          name: "Miner Status",
-          icon: "mdi-server",
-          description: "Overview of all miners",
-        },
-        {
-          id: 1,
-          name: "Hashrate Chart",
-          icon: "mdi-chart-line",
-          description: "Hashrate over time",
-        },
-        {
-          id: 2,
-          name: "Temperature Monitor",
-          icon: "mdi-thermometer",
-          description: "Miner temperatures",
-        },
-        {
-          id: 3,
-          name: "Earnings Estimate",
-          icon: "mdi-currency-btc",
-          description: "Estimated earnings",
-        },
-        {
-          id: 4,
-          name: "Network Difficulty",
-          icon: "mdi-chart-bar",
-          description: "Bitcoin network difficulty",
-        },
-        {
-          id: 5,
-          name: "Power Consumption",
-          icon: "mdi-flash",
-          description: "Power usage metrics",
-        },
-      ],
+
 
       layoutOptions: [
         { title: "Grid Layout", value: "grid" },
@@ -422,35 +338,19 @@ export default {
       // Apply different default preferences based on experience level
       switch (this.experienceLevel) {
         case "beginner":
-          this.preferences.widgets = [0, 1, 2, 3]; // Basic widgets + earnings (everyone deserves to know!)
           this.preferences.dashboard_layout = "grid";
           this.preferences.compact_tables = false;
           break;
 
         case "intermediate":
-          this.preferences.widgets = [0, 1, 2, 3, 4]; // Add network difficulty widget
           this.preferences.dashboard_layout = "dashboard";
           this.preferences.compact_tables = true;
           break;
 
         case "advanced":
-          this.preferences.widgets = [0, 1, 2, 3, 4, 5]; // All widgets
           this.preferences.dashboard_layout = "dashboard";
           this.preferences.compact_tables = true;
           break;
-      }
-
-      // Validate widgets after setting defaults (safe since no watcher now)
-      this.validateWidgets();
-    },
-
-    validateWidgets() {
-      // Ensure widgets array contains only valid widget IDs
-      if (Array.isArray(this.preferences.widgets)) {
-        const validWidgetIds = this.availableWidgets.map((w) => w.id);
-        this.preferences.widgets = this.preferences.widgets.filter((id) =>
-          validWidgetIds.includes(id),
-        );
       }
     },
 
@@ -746,54 +646,5 @@ export default {
   box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.3);
 }
 
-/* Widget selection styling */
-.widget-card {
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-radius: 12px;
-}
 
-.widget-card--selected {
-  background: rgb(var(--v-theme-primary)) !important;
-  color: white !important;
-  border: 2px solid rgb(var(--v-theme-primary)) !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.4) !important;
-}
-
-.widget-card--selected :deep(.v-card-text) {
-  color: white !important;
-}
-
-.widget-card--selected :deep(.v-icon) {
-  color: white !important;
-}
-
-.widget-card--selected :deep(.text-caption) {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-.widget-card--unselected {
-  background: rgb(var(--v-theme-surface)) !important;
-  color: rgb(var(--v-theme-on-surface)) !important;
-  border: 1px solid rgb(var(--v-theme-outline-variant)) !important;
-}
-
-.widget-card--unselected:hover {
-  border: 1px solid rgb(var(--v-theme-primary)) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-}
-
-.widget-card--unselected :deep(.v-card-text) {
-  color: rgb(var(--v-theme-on-surface)) !important;
-}
-
-.widget-card--unselected :deep(.v-icon) {
-  color: rgb(var(--v-theme-primary)) !important;
-}
-
-.widget-card--unselected :deep(.text-caption) {
-  color: rgb(var(--v-theme-on-surface-variant)) !important;
-}
 </style>

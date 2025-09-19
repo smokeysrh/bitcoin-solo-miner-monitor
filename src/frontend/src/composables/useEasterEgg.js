@@ -76,9 +76,8 @@ export function useEasterEgg() {
     const logo = document.createElement("div");
     logo.className = "bitcoin-easter-egg-logo";
 
-    // Random positioning and timing
-    const startX =
-      Math.random() * window.innerWidth * ANIMATION_CONFIG.horizontalSpread;
+    // Random positioning and timing - ensure full viewport width coverage
+    const startX = Math.random() * (window.innerWidth - ANIMATION_CONFIG.logoSize);
     const fallDuration =
       ANIMATION_CONFIG.fallSpeed.min +
       Math.random() *

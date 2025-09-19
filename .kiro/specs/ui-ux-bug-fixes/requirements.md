@@ -87,17 +87,17 @@ This specification addresses critical user interface and user experience bugs id
 2. WHEN the tagline is displayed THEN it SHALL be prominently positioned and styled appropriately
 3. WHEN I read the About page THEN the content SHALL reflect the application's purpose and character
 
-### Requirement 8: Setup Wizard Visual Feedback
+### Requirement 8: Setup Wizard Simplification
 
-**User Story:** As a user, I want clear visual feedback when selecting dashboard widgets in the setup wizard, so that I understand which options I have chosen.
+**User Story:** As a user, I want the setup wizard to only include functional features, so that I'm not confused by options that don't actually work.
 
 #### Acceptance Criteria
 
-1. WHEN I click a dashboard widget option in the setup wizard THEN the system SHALL highlight the selected option
-2. WHEN I click a highlighted widget option THEN the system SHALL remove the highlight (deselect)
-3. WHEN widget options are highlighted THEN they SHALL use a distinct visual style to indicate selection
-4. WHEN widget options are not selected THEN they SHALL appear in a dark/unselected state
-5. WHEN I proceed through the setup wizard THEN my widget selections SHALL be preserved and applied
+1. WHEN I go through the setup wizard THEN I SHALL only see preferences that actually affect the application
+2. WHEN I complete the setup wizard THEN all selected preferences SHALL be properly applied
+3. WHEN I use the dashboard THEN it SHALL reflect my chosen layout and notification preferences
+4. WHEN non-functional features are removed THEN the setup process SHALL be cleaner and more focused
+5. WHEN I proceed through the setup wizard THEN my functional preferences SHALL be preserved and applied
 
 ### Requirement 9: Functional Help Links
 
