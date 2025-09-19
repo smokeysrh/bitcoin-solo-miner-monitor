@@ -302,6 +302,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import BitcoinLoadingSpinner from "../components/BitcoinLoadingSpinner.vue";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
 import QuickActions from "../components/QuickActions.vue";
@@ -320,6 +321,7 @@ export default {
     const minersStore = useMinersStore();
     const settingsStore = useSettingsStore();
     const router = useRouter();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
 
     // Simple Mode toggle
     const simpleMode = ref((localStorage.getItem('uiMode') || 'advanced') === 'simple');
@@ -463,7 +465,7 @@ export default {
 
     const handleMinerAdded = (miner) => {
       console.log(`Miner "${miner.name}" added successfully`);
-      // Optionally show a success message or refresh data
+      showSuccess(`Miner "${miner.name}" added successfully`);
     };
 
     const handleMinerError = (error) => {

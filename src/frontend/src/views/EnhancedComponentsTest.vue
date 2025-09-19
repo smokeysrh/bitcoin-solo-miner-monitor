@@ -203,6 +203,8 @@
 </template>
 
 <script>
+import { ref } from "vue";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import EnhancedFormDemo from "../components/EnhancedFormDemo.vue";
 
 export default {
@@ -212,28 +214,38 @@ export default {
     EnhancedFormDemo,
   },
 
-  data() {
-    return {
-      testInput: "",
-      testCheckbox: false,
-      testSelect: "",
-      testInputVuetify: "",
-      testCheckboxVuetify: false,
-      testSelectVuetify: "",
-      selectItems: [
-        { title: "Option 1", value: "option1" },
-        { title: "Option 2", value: "option2" },
-        { title: "Option 3", value: "option3" },
-      ],
-    };
-  },
+  setup() {
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
 
-  methods: {
-    handleFormSubmit(formData) {
+    // Reactive data
+    const testInput = ref("");
+    const testCheckbox = ref(false);
+    const testSelect = ref("");
+    const testInputVuetify = ref("");
+    const testCheckboxVuetify = ref(false);
+    const testSelectVuetify = ref("");
+    const selectItems = ref([
+      { title: "Option 1", value: "option1" },
+      { title: "Option 2", value: "option2" },
+      { title: "Option 3", value: "option3" },
+    ]);
+
+    // Methods
+    const handleFormSubmit = (formData) => {
       console.log("Form submitted from demo:", formData);
-      // Handle form submission
-      this.$emit("show-snackbar", "Form submitted successfully!", "success");
-    },
+      showSuccess("Form submitted successfully!");
+    };
+
+    return {
+      testInput,
+      testCheckbox,
+      testSelect,
+      testInputVuetify,
+      testCheckboxVuetify,
+      testSelectVuetify,
+      selectItems,
+      handleFormSubmit,
+    };
   },
 };
 </script>

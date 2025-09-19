@@ -192,14 +192,15 @@
       v-model="snackbar.show"
       :color="snackbar.color"
       :timeout="snackbar.timeout"
-      location="bottom"
+      location="bottom center"
       :multi-line="false"
+      class="global-snackbar"
+      app
     >
       {{ snackbar.text }}
-      <template v-slot:action="{ attrs }">
+      <template v-slot:actions>
         <v-btn
-          text
-          v-bind="attrs"
+          variant="text"
           @click="snackbar.show = false"
         >
           Close
@@ -254,6 +255,8 @@ import { isFirstRun, getDiscoveredMiners, getInitialRoute } from './services/fir
 import { connectionStatus, forceReconnect } from './services/websocket'
 import { useEasterEgg } from './composables/useEasterEgg'
 import { useUpdateChecker } from './composables/useUpdateChecker'
+import { useClipboard } from './composables/useClipboard'
+import { useGlobalSnackbar } from './composables/useGlobalSnackbar'
 import BitcoinLogo from './components/BitcoinLogo.vue'
 import UpdateNotification from './components/UpdateNotification.vue'
 
@@ -276,6 +279,12 @@ export default {
     
     // Initialize easter egg
     const easterEgg = useEasterEgg()
+    
+    // Initialize clipboard functionality
+    const clipboard = useClipboard()
+    
+    // Initialize global snackbar
+    const { snackbar, showSnackbar } = useGlobalSnackbar()
     
     // Initialize update checker
     let checkUpdates, checkingUpdates
@@ -377,13 +386,7 @@ export default {
     // Refresh state
     const refreshing = ref(false)
     
-    // Snackbar for notifications
-    const snackbar = ref({
-      show: false,
-      text: '',
-      color: 'info',
-      timeout: 3000
-    })
+    // Snackbar is now handled by the global composable
     
     // Methods
     const navigateToMinersPage = () => {
@@ -579,29 +582,20 @@ export default {
       }
     }
     
-    const showSnackbar = (text, color = 'info') => {
-      snackbar.value = {
-        show: true,
-        text,
-        color,
-        timeout: 3000
-      }
-    }
+    // showSnackbar is now provided by the global composable
     
     const copyDonationAddress = async () => {
-      const donationAddress = 'bc1qnce06pg2gqewjvjmfavwrjt5f4zc37k5d26c6e'
       try {
-        await navigator.clipboard.writeText(donationAddress)
-        showSnackbar('Donation address copied to clipboard! Thank you for your support! 🧡', 'success')
+        const result = await clipboard.copyDonationAddress()
+        
+        if (result.success) {
+          showSnackbar(result.message, 'success')
+        } else {
+          showSnackbar(result.message, 'error')
+        }
       } catch (error) {
-        // Fallback for older browsers or when clipboard API is not available
-        const textArea = document.createElement('textarea')
-        textArea.value = donationAddress
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        showSnackbar('Donation address copied to clipboard! Thank you for your support! 🧡', 'success')
+        console.error('Error copying donation address:', error)
+        showSnackbar('Failed to copy donation address. Please copy manually.', 'error')
       }
     }
     
@@ -902,6 +896,56 @@ export default {
 }
 
 /* Navigation drawer styling */
+
+/* Global snackbar positioning - force viewport bottom positioning */
+:deep(.v-overlay.v-snackbar__wrapper) {
+  position: fixed !important;
+  top: auto !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+:deep(.v-snackbar.global-snackbar) {
+  position: static !important;
+  max-width: 90vw !important;
+  margin: 0 auto !important;
+}
+
+/* Ensure snackbar success color is properly green */
+:deep(.v-snackbar--variant-elevated.bg-success) {
+  background-color: rgb(76, 175, 80) !important;
+  color: white !important;
+}
+
+:deep(.v-snackbar--variant-elevated.bg-success .v-btn) {
+  color: white !important;
+}
+
+/* Footer positioning to avoid snackbar overlap */
+.footer-fixed {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Donation address styling */
+.donation-address {
+  color: rgb(255, 152, 0) !important;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+}
+
+.donation-address:hover {
+  color: rgb(255, 193, 7) !important;
+}
 :deep(.v-navigation-drawer) {
   background-color: var(--color-surface) !important;
   border-right: 1px solid var(--color-border-subtle);
@@ -1039,13 +1083,7 @@ export default {
   border-radius: var(--radius-sm);
 }
 
-/* Snackbar styling */
-:deep(.v-snackbar .v-snackbar__wrapper) {
-  background-color: var(--color-surface-elevated) !important;
-  color: var(--color-text-primary) !important;
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-3);
-}
+/* Snackbar styling handled globally in main.css */
 
 /* Footer styling */
 :deep(.v-footer) {

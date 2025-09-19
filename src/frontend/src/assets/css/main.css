@@ -408,6 +408,24 @@ input, textarea, select, button {
   border-radius: var(--radius-sm) !important;
 }
 
+/* Global snackbar styling - viewport positioning */
+.v-snackbar {
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  max-width: 90vw !important;
+}
+
+.v-snackbar .v-snackbar__wrapper {
+  background-color: var(--color-surface-elevated) !important;
+  color: var(--color-text-primary) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-3) !important;
+  border-radius: var(--radius-md) !important;
+}
+
 /* Global dialog styling */
 .v-dialog .v-card {
   background-color: var(--color-surface-elevated) !important;

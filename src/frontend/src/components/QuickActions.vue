@@ -74,6 +74,7 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import InfoBubble from "./InfoBubble.vue";
 import AddMinerDialog from "./AddMinerDialog.vue";
 
@@ -119,6 +120,7 @@ export default {
   setup(props, { emit }) {
     const router = useRouter();
     const minersStore = useMinersStore();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
 
     // Reactive data
     const scanning = ref(false);
@@ -165,6 +167,7 @@ export default {
 
     const handleMinerAdded = (miner) => {
       console.log(`Miner "${miner.name}" added successfully`);
+      showSuccess(`Miner "${miner.name}" added successfully`);
       emit('miner-added', miner);
     };
 

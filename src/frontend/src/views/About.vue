@@ -12,6 +12,13 @@
           <h1 class="text-h3 mb-2 bitcoin-hero__title">
             About Bitcoin Solo Miner Monitor
           </h1>
+          <div class="bitcoin-hero__tagline mb-4">
+            <p class="text-h5 font-italic text-center">
+              "One App to rule them all, One App to find them,<br>
+              One App to bring them all, and in the light bind them...<br>
+              <span class="text-warning font-weight-bold">to a single dashboard!</span>"
+            </p>
+          </div>
           <p class="text-h6 bitcoin-hero__subtitle">
             Unified monitoring for your Bitcoin mining operation
           </p>
@@ -28,7 +35,7 @@
             <p class="text-body-1">
               A unified monitoring and management solution for diverse Bitcoin
               mining hardware, specifically targeting solo miners running Magic
-              Miner, Avalon Nano, and Bitaxe devices on a local network.
+              Miner, Avalon Nano, and Bitaxe devices on a local network. BUILT BY PLEBS, FOR PLEBS.
             </p>
             <v-list-item>
               <v-list-item-icon>
@@ -380,6 +387,42 @@
       </v-col>
     </v-row>
 
+    <!-- Support -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card>
+          <v-card-title>Support the Project</v-card-title>
+          <v-card-text>
+            <p class="text-body-1">
+              If you find value in this application, please consider supporting its development.
+              Your contributions help maintain and improve the Bitcoin Solo Miner Monitor.
+            </p>
+            <div class="text-center mt-4">
+              <v-chip
+                class="donation-address-chip"
+                color="warning"
+                size="large"
+                @click="copyDonationAddress"
+                :loading="clipboard.isLoading.value"
+                prepend-icon="mdi-bitcoin"
+                variant="elevated"
+              >
+                <span class="donation-address-text">
+                  bc1qnce06pg2gqewjvjmfavwrjt5f4zc37k5d26c6e
+                </span>
+                <template v-slot:append>
+                  <v-icon>mdi-content-copy</v-icon>
+                </template>
+              </v-chip>
+              <p class="text-caption mt-2 text-medium-emphasis">
+                Click to copy Bitcoin address to clipboard
+              </p>
+            </div>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <!-- Credits -->
     <v-row class="mt-4">
       <v-col cols="12">
@@ -633,12 +676,16 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+
   </div>
 </template>
 
 <script>
 import { ref, onMounted } from "vue";
 import axios from "axios";
+import { useClipboard } from "@/composables/useClipboard";
+import { useGlobalSnackbar } from "@/composables/useGlobalSnackbar";
 import BitcoinLogo from "@/components/BitcoinLogo.vue";
 export default {
   name: "About",
@@ -667,6 +714,12 @@ export default {
 
     // Tabs
     const activeTab = ref("bitaxe");
+
+    // Clipboard functionality
+    const clipboard = useClipboard();
+
+    // Global snackbar functionality
+    const { showSnackbar } = useGlobalSnackbar();
 
     // Methods
     const fetchSystemInfo = async () => {
@@ -698,6 +751,23 @@ export default {
       showDocDialog.value = true;
     };
 
+    // showSnackbar is now provided by the global composable
+
+    const copyDonationAddress = async () => {
+      try {
+        const result = await clipboard.copyDonationAddress();
+        
+        if (result.success) {
+          showSnackbar(result.message, 'success');
+        } else {
+          showSnackbar(result.message, 'error');
+        }
+      } catch (error) {
+        console.error('Error copying donation address:', error);
+        showSnackbar('Failed to copy donation address. Please copy manually.', 'error');
+      }
+    };
+
     // Lifecycle hooks
     onMounted(() => {
       fetchSystemInfo();
@@ -712,9 +782,11 @@ export default {
       activeDoc,
       docDialogTitle,
       activeTab,
+      clipboard,
 
       // Methods
       openDocumentation,
+      copyDonationAddress,
     };
   },
 };
@@ -744,11 +816,30 @@ export default {
   margin-bottom: var(--spacing-sm);
 }
 
+.bitcoin-hero__tagline {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--spacing-md);
+  background: rgba(247, 147, 26, 0.05);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-warning);
+}
+
+.bitcoin-hero__tagline p {
+  margin: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
 .bitcoin-hero__subtitle {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-regular);
   opacity: 0.9;
 }
+
+/* Snackbar styling handled globally in main.css */
 
 /* Enhanced card styling */
 :deep(.v-card) {
@@ -946,6 +1037,15 @@ export default {
     font-size: var(--font-size-h3);
   }
 
+  .bitcoin-hero__tagline {
+    max-width: 500px;
+    padding: var(--spacing-sm);
+  }
+
+  .bitcoin-hero__tagline p {
+    font-size: var(--font-size-h6);
+  }
+
   .bitcoin-hero__subtitle {
     font-size: var(--font-size-h4);
   }
@@ -958,6 +1058,17 @@ export default {
 
   .bitcoin-hero__title {
     font-size: var(--font-size-h4);
+  }
+
+  .bitcoin-hero__tagline {
+    max-width: 100%;
+    padding: var(--spacing-xs);
+    margin: 0 var(--spacing-sm);
+  }
+
+  .bitcoin-hero__tagline p {
+    font-size: var(--font-size-body);
+    line-height: 1.3;
   }
 
   .bitcoin-hero__subtitle {
