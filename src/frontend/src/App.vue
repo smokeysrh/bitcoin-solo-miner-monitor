@@ -4,8 +4,8 @@
       v-if="!isSetupRoute"
       v-model="drawer"
       app
-      temporary
-      :scrim="true"
+      :temporary="mobile"
+      :scrim="mobile"
       class="sidebar-below-header"
       @click:outside="drawer = false"
     >
@@ -216,7 +216,7 @@
         <v-row align="center" justify="space-between">
           <v-col cols="auto">
             <span class="text-caption text-medium-emphasis">
-              Bitcoin Solo Miner Monitor
+              Bitcoin Solo Miner Monitor v0.1.0
             </span>
           </v-col>
           <v-col cols="auto" class="text-center">
@@ -246,6 +246,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { useMinersStore } from './stores/miners'
 import { useSettingsStore } from './stores/settings'
 import { useAlertsStore } from './stores/alerts'
@@ -271,6 +272,7 @@ export default {
     const minersStore = useMinersStore()
     const settingsStore = useSettingsStore()
     const alertsStore = useAlertsStore()
+    const { mobile } = useDisplay()
     
     // Initialize easter egg
     const easterEgg = useEasterEgg()
@@ -288,8 +290,19 @@ export default {
       checkingUpdates = ref(false)
     }
     
-    // Navigation drawer state
-    const drawer = ref(true)
+    // Navigation drawer state - responsive behavior
+    const drawer = ref(false)
+    
+    // Watch for screen size changes and adjust drawer accordingly
+    watch(mobile, (isMobile) => {
+      if (!isMobile) {
+        // On desktop, keep drawer open by default
+        drawer.value = true
+      } else {
+        // On mobile, close drawer to save space
+        drawer.value = false
+      }
+    }, { immediate: true })
     
     // Check for UI mode preference
     const uiMode = ref(localStorage.getItem('uiMode') || 'advanced')
@@ -374,11 +387,18 @@ export default {
     
     // Methods
     const navigateToMinersPage = () => {
+      // Only close drawer on mobile devices after navigation
+      if (mobile.value) {
+        drawer.value = false
+      }
       router.push('/miners')
     }
     
     const navigateToPage = (path) => {
-      drawer.value = false // Close the drawer first
+      // Only close drawer on mobile devices after navigation
+      if (mobile.value) {
+        drawer.value = false
+      }
       router.push(path)
     }
     
@@ -785,6 +805,7 @@ export default {
     
     return {
       drawer,
+      mobile,
       menuItems,
       currentPageTitle,
       isSetupRoute,

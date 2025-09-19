@@ -445,6 +445,37 @@ class APIService:
                 )
             raise HTTPException(status_code=404, detail="Bitcoin symbol PNG not found")
         
+        # Easter egg GIF endpoints
+        @self.app.get("/BTC-PacMan-Fiat.gif")
+        async def btc_pacman_gif():
+            """Serve the BTC PacMan easter egg GIF."""
+            gif_path = frontend_dir / "BTC-PacMan-Fiat.gif"
+            if gif_path.exists():
+                return FileResponse(
+                    str(gif_path),
+                    media_type="image/gif",
+                    headers={
+                        "Cache-Control": "public, max-age=31536000",  # 1 year
+                        "ETag": f'"{gif_path.stat().st_mtime}"'
+                    }
+                )
+            raise HTTPException(status_code=404, detail="BTC PacMan GIF not found")
+        
+        @self.app.get("/Bugs-King-BTC.gif")
+        async def bugs_king_btc_gif():
+            """Serve the Bugs King BTC easter egg GIF."""
+            gif_path = frontend_dir / "Bugs-King-BTC.gif"
+            if gif_path.exists():
+                return FileResponse(
+                    str(gif_path),
+                    media_type="image/gif",
+                    headers={
+                        "Cache-Control": "public, max-age=31536000",  # 1 year
+                        "ETag": f'"{gif_path.stat().st_mtime}"'
+                    }
+                )
+            raise HTTPException(status_code=404, detail="Bugs King BTC GIF not found")
+        
         # Handle root route specifically
         @self.app.get("/")
         async def root_handler():
