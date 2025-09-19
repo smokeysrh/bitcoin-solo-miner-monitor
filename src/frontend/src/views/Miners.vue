@@ -2,7 +2,19 @@
   <div>
     <v-row>
       <v-col cols="12">
-        <h1 class="text-h4 mb-4">Miners</h1>
+        <div class="d-flex justify-space-between align-center mb-4">
+          <h1 class="text-h4">Miners</h1>
+          <div v-if="miners.length > 0">
+            <v-btn color="primary" class="mr-2" @click="openAddMinerDialog">
+              <v-icon left>mdi-plus</v-icon>
+              Add Miner
+            </v-btn>
+            <v-btn color="secondary" @click="openNetworkScanner">
+              <v-icon left>mdi-magnify</v-icon>
+              Scan Network
+            </v-btn>
+          </div>
+        </div>
       </v-col>
     </v-row>
 
@@ -106,12 +118,18 @@
             <v-icon size="64" color="grey lighten-1">mdi-server-off</v-icon>
             <h3 class="mt-3">No Miners Found</h3>
             <p class="grey--text">
-              Add a miner to get started or run network discovery.
+              Add a miner manually or scan your network to discover miners automatically.
             </p>
-            <v-btn color="primary" class="mt-3" @click="openAddMinerDialog">
-              <v-icon left>mdi-plus</v-icon>
-              Add Miner
-            </v-btn>
+            <div class="mt-4">
+              <v-btn color="primary" class="mr-3 mb-2" @click="openAddMinerDialog">
+                <v-icon left>mdi-plus</v-icon>
+                Add Miner Manually
+              </v-btn>
+              <v-btn color="secondary" class="mb-2" @click="openNetworkScanner">
+                <v-icon left>mdi-magnify</v-icon>
+                Scan Network
+              </v-btn>
+            </div>
           </v-card-text>
         </v-card>
       </v-col>
@@ -156,6 +174,11 @@
       @miner-added="handleMinerAdded"
       @error="handleMinerError"
     />
+
+    <!-- Network Scanner Dialog -->
+    <v-dialog v-model="networkScannerDialog" max-width="900px" persistent>
+      <NetworkScanner @close="networkScannerDialog = false" />
+    </v-dialog>
   </div>
 </template>
 
@@ -164,20 +187,24 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import { formatTemperature } from "../utils/formatters";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
+import NetworkScanner from "../components/NetworkScanner.vue";
 
 export default {
   name: "Miners",
 
   components: {
     AddMinerDialog,
+    NetworkScanner,
   },
 
   setup() {
     const router = useRouter();
     const minersStore = useMinersStore();
     const settingsStore = useSettingsStore();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
 
     // Dialogs
     const restartDialog = ref({
@@ -295,14 +322,19 @@ export default {
     };
 
     const addMinerDialog = ref(false);
+    const networkScannerDialog = ref(false);
 
     const openAddMinerDialog = () => {
       addMinerDialog.value = true;
     };
 
+    const openNetworkScanner = () => {
+      networkScannerDialog.value = true;
+    };
+
     const handleMinerAdded = (miner) => {
       console.log(`Miner "${miner.name}" added successfully`);
-      // Optionally show a success message or refresh data
+      showSuccess(`Miner "${miner.name}" added successfully`);
     };
 
     const handleMinerError = (error) => {
@@ -343,6 +375,7 @@ export default {
       restartDialog,
       removeDialog,
       addMinerDialog,
+      networkScannerDialog,
 
       // Computed
       miners,
@@ -359,6 +392,7 @@ export default {
       confirmRemove,
       removeMiner,
       openAddMinerDialog,
+      openNetworkScanner,
       handleMinerAdded,
       handleMinerError,
     };

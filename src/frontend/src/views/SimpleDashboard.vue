@@ -251,6 +251,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import InfoBubble from "../components/InfoBubble.vue";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
 import QuickActions from "../components/QuickActions.vue";
@@ -266,6 +267,7 @@ export default {
   setup() {
     const router = useRouter();
     const minersStore = useMinersStore();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
 
     // Reactive data
     const simpleMode = ref(true);
@@ -346,7 +348,7 @@ export default {
 
     const handleMinerAdded = (miner) => {
       console.log(`Miner "${miner.name}" added successfully`);
-      // Optionally show a success message or refresh data
+      showSuccess(`Miner "${miner.name}" added successfully`);
     };
 
     const handleMinerError = (error) => {
@@ -377,10 +379,11 @@ export default {
         const defaultNetwork = "192.168.1.0/24";
         await minersStore.startDiscovery(defaultNetwork);
         
-        // Optionally show a success message or update UI
+        showInfo("Network scan initiated");
         console.log("Network scan initiated");
       } catch (error) {
         console.error("Error scanning network:", error);
+        showError("Failed to start network scan");
       } finally {
         scanning.value = false;
       }

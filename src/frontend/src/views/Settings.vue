@@ -701,20 +701,14 @@
       </v-card>
     </v-dialog>
 
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarText }}
-      <template v-slot:action="{ attrs }">
-        <v-btn text v-bind="attrs" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
+    <!-- Local snackbar removed - using global snackbar from App.vue -->
   </div>
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted, watch, provide } from "vue";
 import { useSettingsStore } from "../stores/settings";
-import { useNotifications } from "../composables/useNotifications";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import { resetFirstRun } from "../services/firstRunService";
 import axios from "axios";
 import { cloneDeep } from "lodash";
@@ -726,7 +720,19 @@ export default {
   setup() {
     const settingsStore = useSettingsStore();
     const router = useRouter();
-    const notifications = useNotifications();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
+
+    // Helper function to handle settings operations with notifications
+    const handleSettingsOperation = async (operation, loadingMessage, successMessage) => {
+      try {
+        await operation;
+        showSuccess(successMessage);
+      } catch (error) {
+        console.error("Settings operation failed:", error);
+        showError("Operation failed. Please try again.");
+        throw error;
+      }
+    };
 
     // Forms
     const settingsForm = ref(null);
@@ -808,10 +814,7 @@ export default {
 
     // Authentication removed - no longer needed for local network access
 
-    // Snackbar
-    const showSnackbar = ref(false);
-    const snackbarText = ref("");
-    const snackbarColor = ref("success");
+    // Local snackbar state removed - using global snackbar
 
     // Options
 
@@ -967,7 +970,7 @@ export default {
         console.log('Settings view: Settings loaded successfully:', settings);
       } catch (error) {
         console.error("Settings view: Error loading settings:", error);
-        notifications.error("Failed to load settings. Using defaults.");
+        showError("Failed to load settings. Using defaults.");
       }
     };
 
@@ -981,7 +984,7 @@ export default {
         originalAlertSettings.value = cloneDeep(alertSettings);
       } catch (error) {
         console.error("Error loading alert settings:", error);
-        showNotification("Error loading alert settings", "error");
+        showError("Error loading alert settings");
       }
     };
 
@@ -997,7 +1000,7 @@ export default {
         originalAdvancedSettings.value = cloneDeep(advancedSettings);
       } catch (error) {
         console.error("Error loading advanced settings:", error);
-        showNotification("Error loading advanced settings", "error");
+        showError("Error loading advanced settings");
       }
     };
 
@@ -1017,7 +1020,7 @@ export default {
 
     const saveSettings = async () => {
       if (!formValid.value) {
-        notifications.error("Please fix the errors in the form before saving");
+        showError("Please fix the errors in the form before saving");
         return;
       }
 
@@ -1057,7 +1060,7 @@ export default {
 
     const saveAlertSettings = async () => {
       if (!alertsFormValid.value) {
-        notifications.error("Please fix the errors in the alert form before saving");
+        showError("Please fix the errors in the alert form before saving");
         return;
       }
 
@@ -1135,10 +1138,10 @@ export default {
         link.click();
         link.remove();
 
-        showNotification("Configuration database backup created", "success");
+        showSuccess("Configuration database backup created");
       } catch (error) {
         console.error("Error backing up configuration database:", error);
-        showNotification("Error creating backup", "error");
+        showError("Error creating backup");
       } finally {
         backingUpConfig.value = false;
       }
@@ -1165,10 +1168,10 @@ export default {
         link.click();
         link.remove();
 
-        showNotification("Full backup created", "success");
+        showSuccess("Full backup created");
       } catch (error) {
         console.error("Error creating full backup:", error);
-        showNotification("Error creating backup", "error");
+        showError("Error creating backup");
       } finally {
         creatingBackup.value = false;
       }
@@ -1176,7 +1179,7 @@ export default {
 
     const restoreFromBackup = async () => {
       if (!backupFile.value) {
-        showNotification("Please select a backup file", "error");
+        showError("Please select a backup file");
         return;
       }
 
@@ -1194,10 +1197,7 @@ export default {
           },
         });
 
-        showNotification(
-          "Backup restored successfully. The application will restart.",
-          "success",
-        );
+        showSuccess("Backup restored successfully. The application will restart.");
 
         // Reload the page after a short delay
         setTimeout(() => {
@@ -1205,7 +1205,7 @@ export default {
         }, 3000);
       } catch (error) {
         console.error("Error restoring from backup:", error);
-        showNotification("Error restoring from backup", "error");
+        showError("Error restoring from backup");
       } finally {
         restoring.value = false;
       }
@@ -1220,14 +1220,11 @@ export default {
           age: purgeAge.value,
         });
 
-        showNotification(
-          `Data older than ${purgeAge.value} purged successfully`,
-          "success",
-        );
+        showSuccess(`Data older than ${purgeAge.value} purged successfully`);
         showPurgeDialog.value = false;
       } catch (error) {
         console.error("Error purging data:", error);
-        showNotification("Error purging data", "error");
+        showError("Error purging data");
       } finally {
         purging.value = false;
       }
@@ -1246,10 +1243,7 @@ export default {
         localStorage.clear();
 
         // Show notification
-        showNotification(
-          "Application reset successful. Redirecting to setup wizard...",
-          "success",
-        );
+        showSuccess("Application reset successful. Redirecting to setup wizard...");
 
         // Wait a moment before redirecting
         setTimeout(() => {
@@ -1260,27 +1254,13 @@ export default {
         }, 2000);
       } catch (error) {
         console.error("Error resetting application:", error);
-        showNotification("Error resetting application", "error");
+        showError("Error resetting application");
         resetting.value = false;
       }
     };
 
-    const showNotification = (text, color = "success") => {
-      snackbarText.value = text;
-      snackbarColor.value = color;
-      showSnackbar.value = true;
-    };
-
-    // Provide the showSnackbar function to child components and composables
-    provide('showSnackbar', (message, type = 'info', timeout = 3000) => {
-      showNotification(message, type);
-      // Update timeout if different from default
-      if (timeout !== 3000) {
-        setTimeout(() => {
-          showSnackbar.value = false;
-        }, timeout);
-      }
-    });
+    // Local showNotification method removed - using global snackbar methods
+    // showSuccess, showError, showWarning, showInfo are available from useGlobalSnackbar
 
 
 
@@ -1299,10 +1279,7 @@ export default {
       }
       
       // Show feedback to user
-      showNotification(
-        `Switched to ${settings.simple_mode ? 'Simple' : 'Advanced'} Mode`, 
-        'success'
-      );
+      showSuccess(`Switched to ${settings.simple_mode ? 'Simple' : 'Advanced'} Mode`);
     };
 
     // Watch for changes in notification method
@@ -1380,10 +1357,7 @@ export default {
 
       // Authentication removed
 
-      // Snackbar
-      showSnackbar,
-      snackbarText,
-      snackbarColor,
+      // Local snackbar state removed - using global snackbar
 
       // Options
       themeOptions,

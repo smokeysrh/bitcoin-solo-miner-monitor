@@ -216,6 +216,12 @@ class APIService:
             response_model=Dict[str, Any]
         )(self.get_discovery_status)
         
+        self.app.post(
+            "/api/discovery/stop", 
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.stop_discovery)
+        
         # Settings
         self.app.get(
             "/api/settings", 
@@ -512,6 +518,10 @@ class APIService:
         """
         # Initialize services
         await self.data_storage.initialize()
+        
+        # Connect WebSocket manager to miner manager for real-time updates
+        self.miner_manager.set_websocket_manager(self.websocket_manager)
+        
         await self.miner_manager.start()
         await self.system_monitor.start()
         
@@ -846,6 +856,33 @@ class APIService:
             Dict[str, Any]: Discovery status
         """
         return await self.miner_manager.get_discovery_status()
+    
+    async def stop_discovery(self) -> Dict[str, Any]:
+        """
+        Stop the current discovery process.
+        
+        Returns:
+            Dict[str, Any]: Stop result
+        """
+        try:
+            success = await self.miner_manager.stop_discovery()
+            
+            if success:
+                return {
+                    "status": "success",
+                    "message": "Discovery process stopped successfully",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": "No discovery process was running",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error stopping discovery: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
     
     async def get_setup_status(self) -> Dict[str, Any]:
         """
@@ -1254,6 +1291,7 @@ class APIService:
             "miners": self._get_miners_data,
             "alerts": self._get_alerts_data,
             "system": self._get_system_data,
+            "discovery": self._get_discovery_data,
         }
         
         # Start broadcast tasks
@@ -1339,6 +1377,15 @@ class APIService:
             Dict[str, Any]: System data
         """
         return await self.system_monitor.get_system_metrics()
+    
+    async def _get_discovery_data(self):
+        """
+        Get discovery data for broadcasting.
+        
+        Returns:
+            Dict[str, Any]: Discovery data
+        """
+        return await self.miner_manager.get_discovery_status()
     
     async def get_validation_stats(self) -> Dict[str, Any]:
         """

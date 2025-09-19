@@ -41,10 +41,13 @@ class MinerManager:
         self.polling_tasks: Dict[str, asyncio.Task] = {}  # key: miner_id, value: polling task
         self.polling_interval = DEFAULT_POLLING_INTERVAL
         self.discovery_task = None
+        self.discovery_state = None
         self.is_running = False
         self.last_discovery = None
         # Add lock for miners dictionary access
         self._miners_lock = asyncio.Lock()
+        # WebSocket manager for real-time updates (will be set by API service)
+        self.websocket_manager = None
     
     async def start(self):
         """
@@ -356,13 +359,14 @@ class MinerManager:
             })
             return False
     
-    async def start_discovery(self, network: str, ports: Optional[List[int]] = None) -> bool:
+    async def start_discovery(self, network: str, ports: Optional[List[int]] = None, timeout: int = 5) -> bool:
         """
         Start discovery of miners on the network.
         
         Args:
             network (str): Network to scan (e.g., "192.168.1.0/24")
             ports (Optional[List[int]]): Ports to check (if None, default ports will be checked)
+            timeout (int): Timeout in seconds for each connection attempt
             
         Returns:
             bool: True if discovery started successfully, False otherwise
@@ -372,7 +376,22 @@ class MinerManager:
             return False
         
         try:
-            self.discovery_task = asyncio.create_task(self._discover_miners(network, ports))
+            # Initialize discovery state
+            self.discovery_state = {
+                "status": "starting",
+                "network": network,
+                "ports": ports or [80, 4028],
+                "timeout": timeout,
+                "total_hosts": 0,
+                "scanned_hosts": 0,
+                "current_ip": None,
+                "found_miners": [],
+                "start_time": datetime.now(),
+                "end_time": None,
+                "error": None
+            }
+            
+            self.discovery_task = asyncio.create_task(self._discover_miners(network, ports, timeout))
             self.last_discovery = datetime.now()
             return True
         except DiscoveryError as e:
@@ -405,6 +424,24 @@ class MinerManager:
                 "last_discovery": self.last_discovery.isoformat() if self.last_discovery else None
             }
         
+        # Return current discovery state if available
+        if self.discovery_state:
+            status_data = self.discovery_state.copy()
+            
+            # Convert datetime objects to ISO strings
+            if status_data.get("start_time"):
+                status_data["start_time"] = status_data["start_time"].isoformat()
+            if status_data.get("end_time"):
+                status_data["end_time"] = status_data["end_time"].isoformat()
+            
+            # Calculate progress percentage
+            if status_data["total_hosts"] > 0:
+                status_data["progress"] = (status_data["scanned_hosts"] / status_data["total_hosts"]) * 100
+            else:
+                status_data["progress"] = 0
+            
+            return status_data
+        
         if self.discovery_task.done():
             try:
                 result = self.discovery_task.result()
@@ -433,6 +470,50 @@ class MinerManager:
                 "status": "in_progress",
                 "last_discovery": self.last_discovery.isoformat() if self.last_discovery else None
             }
+    
+    async def stop_discovery(self) -> bool:
+        """
+        Stop the current discovery process.
+        
+        Returns:
+            bool: True if discovery was stopped, False if no discovery was running
+        """
+        if not self.discovery_task or self.discovery_task.done():
+            return False
+        
+        try:
+            self.discovery_task.cancel()
+            try:
+                await self.discovery_task
+            except asyncio.CancelledError:
+                pass
+            
+            # Update discovery state
+            if self.discovery_state:
+                self.discovery_state["status"] = "cancelled"
+                self.discovery_state["end_time"] = datetime.now()
+                
+                # Broadcast final status update
+                if self.websocket_manager:
+                    await self.websocket_manager.broadcast_to_topic("discovery", {
+                        "type": "discovery_update",
+                        "data": self.discovery_state
+                    })
+            
+            logger.info("Discovery process stopped")
+            return True
+        except Exception as e:
+            logger.error(f"Error stopping discovery: {str(e)}")
+            return False
+    
+    def set_websocket_manager(self, websocket_manager):
+        """
+        Set the WebSocket manager for real-time updates.
+        
+        Args:
+            websocket_manager: WebSocket manager instance
+        """
+        self.websocket_manager = websocket_manager
     
     async def set_polling_interval(self, interval: int) -> bool:
         """
@@ -599,13 +680,14 @@ class MinerManager:
             # Wait for next polling interval
             await asyncio.sleep(self.polling_interval)
     
-    async def _discover_miners(self, network: str, ports: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+    async def _discover_miners(self, network: str, ports: Optional[List[int]] = None, timeout: int = 5) -> List[Dict[str, Any]]:
         """
-        Discover miners on the network.
+        Discover miners on the network with real-time progress updates.
         
         Args:
             network (str): Network to scan (e.g., "192.168.1.0/24")
             ports (Optional[List[int]]): Ports to check (if None, default ports will be checked)
+            timeout (int): Timeout in seconds for each connection attempt
             
         Returns:
             List[Dict[str, Any]]: List of discovered miners
@@ -623,30 +705,119 @@ class MinerManager:
             # Get list of hosts to scan
             hosts = list(network_obj.hosts())
             
-            # Scan hosts in parallel
-            scan_tasks = []
-            for host in hosts:
-                scan_tasks.append(self._scan_host(str(host), ports))
+            # Update discovery state
+            if self.discovery_state:
+                self.discovery_state["status"] = "scanning"
+                self.discovery_state["total_hosts"] = len(hosts)
+                self.discovery_state["scanned_hosts"] = 0
+                
+                # Broadcast initial status
+                if self.websocket_manager:
+                    await self.websocket_manager.broadcast_to_topic("discovery", {
+                        "type": "discovery_update",
+                        "data": self.discovery_state
+                    })
             
-            results = await asyncio.gather(*scan_tasks)
+            # Scan hosts sequentially for better progress tracking
+            # Use semaphore to limit concurrent scans for better control
+            semaphore = asyncio.Semaphore(10)  # Limit to 10 concurrent scans
+            
+            async def scan_with_progress(host_ip: str) -> Optional[Dict[str, Any]]:
+                async with semaphore:
+                    try:
+                        # Update current IP being scanned
+                        if self.discovery_state:
+                            self.discovery_state["current_ip"] = host_ip
+                            
+                            # Broadcast progress update every 5 hosts or for first/last host
+                            if (self.discovery_state["scanned_hosts"] % 5 == 0 or 
+                                self.discovery_state["scanned_hosts"] == 0 or
+                                self.discovery_state["scanned_hosts"] == self.discovery_state["total_hosts"] - 1):
+                                if self.websocket_manager:
+                                    await self.websocket_manager.broadcast_to_topic("discovery", {
+                                        "type": "discovery_update",
+                                        "data": self.discovery_state
+                                    })
+                        
+                        # Scan the host
+                        result = await self._scan_host(host_ip, ports, timeout)
+                        
+                        # Update progress
+                        if self.discovery_state:
+                            self.discovery_state["scanned_hosts"] += 1
+                            if result:
+                                self.discovery_state["found_miners"].append(result)
+                        
+                        return result
+                    except asyncio.CancelledError:
+                        # Discovery was cancelled
+                        raise
+                    except Exception as e:
+                        # Log error but continue scanning
+                        logger.debug(f"Error scanning host {host_ip}: {str(e)}")
+                        if self.discovery_state:
+                            self.discovery_state["scanned_hosts"] += 1
+                        return None
+            
+            # Create scan tasks
+            scan_tasks = [scan_with_progress(str(host)) for host in hosts]
+            
+            # Execute scans with progress tracking
+            results = await asyncio.gather(*scan_tasks, return_exceptions=True)
             
             # Process results
             for result in results:
-                if result:
+                if isinstance(result, Exception):
+                    if isinstance(result, asyncio.CancelledError):
+                        # Discovery was cancelled
+                        if self.discovery_state:
+                            self.discovery_state["status"] = "cancelled"
+                            self.discovery_state["end_time"] = datetime.now()
+                        raise result
+                    # Other exceptions are already logged, continue
+                    continue
+                elif result:
                     discovered_miners.append(result)
             
+            # Update final discovery state
+            if self.discovery_state:
+                self.discovery_state["status"] = "completed"
+                self.discovery_state["end_time"] = datetime.now()
+                self.discovery_state["current_ip"] = None
+                
+                # Broadcast final status
+                if self.websocket_manager:
+                    await self.websocket_manager.broadcast_to_topic("discovery", {
+                        "type": "discovery_update",
+                        "data": self.discovery_state
+                    })
+            
+            logger.info(f"Discovery completed. Found {len(discovered_miners)} miners on network {network}")
             return discovered_miners
+            
+        except asyncio.CancelledError:
+            # Discovery was cancelled
+            logger.info("Discovery process was cancelled")
+            raise
         except (ValueError, ipaddress.AddressValueError) as e:
             logger.error(f"Invalid network address for discovery", {
                 'network': network,
                 'error_type': 'address_error'
             })
+            if self.discovery_state:
+                self.discovery_state["status"] = "error"
+                self.discovery_state["error"] = f"Invalid network address: {network}"
+                self.discovery_state["end_time"] = datetime.now()
             raise DiscoveryError(f"Invalid network address: {network}")
         except NetworkError as e:
             logger.error(f"Network error during miner discovery", {
                 'network': network,
                 'error_type': 'network_error'
             })
+            if self.discovery_state:
+                self.discovery_state["status"] = "error"
+                self.discovery_state["error"] = "Network error"
+                self.discovery_state["end_time"] = datetime.now()
             raise
         except (RuntimeError, MemoryError) as e:
             logger.error(f"System error during miner discovery", {
@@ -654,21 +825,26 @@ class MinerManager:
                 'error_type': 'system_error',
                 'error': str(e)
             })
+            if self.discovery_state:
+                self.discovery_state["status"] = "error"
+                self.discovery_state["error"] = "System error"
+                self.discovery_state["end_time"] = datetime.now()
             raise DiscoveryError(f"Discovery failed: {str(e)}")
     
-    async def _scan_host(self, ip_address: str, ports: List[int]) -> Optional[Dict[str, Any]]:
+    async def _scan_host(self, ip_address: str, ports: List[int], timeout: int = 5) -> Optional[Dict[str, Any]]:
         """
         Scan a host for miners.
         
         Args:
             ip_address (str): IP address to scan
             ports (List[int]): Ports to check
+            timeout (int): Timeout in seconds for each connection attempt
             
         Returns:
             Optional[Dict[str, Any]]: Discovered miner information or None if no miner found
         """
         # First check if ports are open
-        open_ports = await self._check_open_ports(ip_address, ports)
+        open_ports = await self._check_open_ports(ip_address, ports, timeout)
         if not open_ports:
             return None
         
@@ -679,32 +855,43 @@ class MinerManager:
         
         return None
     
-    async def _check_open_ports(self, ip_address: str, ports: List[int]) -> List[int]:
+    async def _check_open_ports(self, ip_address: str, ports: List[int], timeout: int = 5) -> List[int]:
         """
         Check which ports are open on a host.
         
         Args:
             ip_address (str): IP address to check
             ports (List[int]): Ports to check
+            timeout (int): Timeout in seconds for each connection attempt
             
         Returns:
             List[int]: List of open ports
         """
         open_ports = []
         
-        for port in ports:
+        async def check_port(port: int) -> Optional[int]:
             try:
-                # Create socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(1.0)
+                # Use asyncio to create connection with timeout
+                future = asyncio.open_connection(ip_address, port)
+                reader, writer = await asyncio.wait_for(future, timeout=timeout)
                 
-                # Try to connect
-                result = sock.connect_ex((ip_address, port))
-                sock.close()
+                # Close connection
+                writer.close()
+                await writer.wait_closed()
                 
-                if result == 0:
-                    open_ports.append(port)
+                return port
+            except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+                return None
             except Exception:
-                pass
+                return None
+        
+        # Check all ports concurrently
+        port_tasks = [check_port(port) for port in ports]
+        results = await asyncio.gather(*port_tasks, return_exceptions=True)
+        
+        # Collect open ports
+        for result in results:
+            if isinstance(result, int):
+                open_ports.append(result)
         
         return open_ports
