@@ -61,6 +61,21 @@
       </v-col>
     </v-row>
 
+    <!-- Quick Actions -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <QuickActions
+          :default-network="discoveryNetwork"
+          @scan-network="handleQuickScanNetwork"
+          @add-miner="handleQuickAddMiner"
+          @restart-all="handleQuickRestartAll"
+          @view-analytics="handleQuickViewAnalytics"
+          @miner-added="handleMinerAdded"
+          @miner-error="handleMinerError"
+        />
+      </v-col>
+    </v-row>
+
     <!-- Miners Status Table -->
     <v-row class="mt-4">
       <v-col cols="12">
@@ -289,6 +304,7 @@ import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import BitcoinLoadingSpinner from "../components/BitcoinLoadingSpinner.vue";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
+import QuickActions from "../components/QuickActions.vue";
 import { formatTemperature } from "../utils/formatters";
 
 export default {
@@ -297,6 +313,7 @@ export default {
   components: {
     BitcoinLoadingSpinner,
     AddMinerDialog,
+    QuickActions,
   },
 
   setup() {
@@ -496,6 +513,31 @@ export default {
       router.push(targetRoute);
     };
 
+    // Quick Actions event handlers
+    const handleQuickScanNetwork = async (network) => {
+      // Use the existing startDiscovery method
+      await startDiscovery();
+    };
+
+    const handleQuickAddMiner = () => {
+      // Use the existing openAddMinerDialog method
+      openAddMinerDialog();
+    };
+
+    const handleQuickRestartAll = async () => {
+      // Restart all miners using the store
+      try {
+        await minersStore.restartAllMiners();
+      } catch (error) {
+        console.error("Error restarting all miners:", error);
+      }
+    };
+
+    const handleQuickViewAnalytics = () => {
+      // Navigate to analytics page
+      router.push("/analytics");
+    };
+
     return {
       // State
       search,
@@ -527,6 +569,10 @@ export default {
       handleMinerAdded,
       handleMinerError,
       toggleMode,
+      handleQuickScanNetwork,
+      handleQuickAddMiner,
+      handleQuickRestartAll,
+      handleQuickViewAnalytics,
     };
   },
 };
