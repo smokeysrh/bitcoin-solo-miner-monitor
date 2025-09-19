@@ -34,6 +34,16 @@ const ANIMATION_CONFIG = {
   },
   zIndex: 99999, // Very high z-index to appear above all content including modals
   waveInterval: 3000, // Create new wave every 3 seconds
+  // PacMan animation config
+  pacmanSize: 35, // 35% of viewport size
+  pacmanDuration: 8000, // 8 seconds for PacMan animation
+};
+
+// Available animation types
+const ANIMATION_TYPES = {
+  FALLING_COINS: 'falling_coins',
+  PACMAN: 'pacman',
+  BUGS_KING: 'bugs_king'
 };
 
 // Get easter egg hints
@@ -157,42 +167,190 @@ export function useEasterEgg() {
     return logo;
   };
 
-  // Start the Bitcoin rain animation
+  // Create centered PacMan animation
+  const createPacManAnimation = () => {
+    const pacman = document.createElement("div");
+    pacman.className = "bitcoin-easter-egg-pacman";
+
+    // Calculate size (35% of viewport)
+    const viewportSize = Math.min(window.innerWidth, window.innerHeight);
+    const pacmanSize = viewportSize * (ANIMATION_CONFIG.pacmanSize / 100);
+
+    // Center the PacMan
+    const centerX = (window.innerWidth - pacmanSize) / 2;
+    const centerY = (window.innerHeight - pacmanSize) / 2;
+
+    // Set initial styles
+    Object.assign(pacman.style, {
+      position: "fixed",
+      left: `${centerX}px`,
+      top: `${centerY}px`,
+      width: `${pacmanSize}px`,
+      height: `${pacmanSize}px`,
+      backgroundImage: `url(/BTC-PacMan-Fiat.gif)`,
+      backgroundSize: "contain",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      zIndex: ANIMATION_CONFIG.zIndex,
+      pointerEvents: "none",
+      opacity: "0",
+      transform: "scale(0.5)",
+      transition: "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
+    });
+
+    // Add to DOM and tracking
+    document.body.appendChild(pacman);
+    animationElements.value.push(pacman);
+
+    // Animate in
+    setTimeout(() => {
+      pacman.style.opacity = "1";
+      pacman.style.transform = "scale(1)";
+    }, 100);
+
+    // Animate out and cleanup
+    setTimeout(() => {
+      pacman.style.opacity = "0";
+      pacman.style.transform = "scale(0.8)";
+      
+      setTimeout(() => {
+        if (pacman.parentNode) {
+          pacman.parentNode.removeChild(pacman);
+        }
+        // Remove from tracking array
+        const index = animationElements.value.indexOf(pacman);
+        if (index > -1) {
+          animationElements.value.splice(index, 1);
+        }
+      }, 500);
+    }, ANIMATION_CONFIG.pacmanDuration);
+
+    return pacman;
+  };
+
+  // Create centered Bugs King animation
+  const createBugsKingAnimation = () => {
+    const bugsKing = document.createElement("div");
+    bugsKing.className = "bitcoin-easter-egg-bugs-king";
+
+    // Calculate size (35% of viewport)
+    const viewportSize = Math.min(window.innerWidth, window.innerHeight);
+    const bugsKingSize = viewportSize * (ANIMATION_CONFIG.pacmanSize / 100);
+
+    // Center the Bugs King
+    const centerX = (window.innerWidth - bugsKingSize) / 2;
+    const centerY = (window.innerHeight - bugsKingSize) / 2;
+
+    // Set initial styles
+    Object.assign(bugsKing.style, {
+      position: "fixed",
+      left: `${centerX}px`,
+      top: `${centerY}px`,
+      width: `${bugsKingSize}px`,
+      height: `${bugsKingSize}px`,
+      backgroundImage: `url(/Bugs-King-BTC.gif)`,
+      backgroundSize: "contain",
+      backgroundRepeat: "no-repeat",
+      backgroundPosition: "center",
+      zIndex: ANIMATION_CONFIG.zIndex,
+      pointerEvents: "none",
+      opacity: "0",
+      transform: "scale(0.5)",
+      transition: "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
+    });
+
+    // Add to DOM and tracking
+    document.body.appendChild(bugsKing);
+    animationElements.value.push(bugsKing);
+
+    // Animate in
+    setTimeout(() => {
+      bugsKing.style.opacity = "1";
+      bugsKing.style.transform = "scale(1)";
+    }, 100);
+
+    // Animate out and cleanup
+    setTimeout(() => {
+      bugsKing.style.opacity = "0";
+      bugsKing.style.transform = "scale(0.8)";
+      
+      setTimeout(() => {
+        if (bugsKing.parentNode) {
+          bugsKing.parentNode.removeChild(bugsKing);
+        }
+        // Remove from tracking array
+        const index = animationElements.value.indexOf(bugsKing);
+        if (index > -1) {
+          animationElements.value.splice(index, 1);
+        }
+      }, 500);
+    }, ANIMATION_CONFIG.pacmanDuration);
+
+    return bugsKing;
+  };
+
+  // Randomly select and start an animation
   const startAnimation = () => {
     if (!animationsEnabled.value || isActive.value) return;
 
     console.log(hints.console);
     isActive.value = true;
 
-    // Create waves of logos continuously
-    const createWave = () => {
-      if (!isActive.value) return;
+    // Randomly choose animation type
+    const animationTypes = Object.values(ANIMATION_TYPES);
+    const randomType = animationTypes[Math.floor(Math.random() * animationTypes.length)];
+
+    console.log(`🎮 Easter egg animation: ${randomType}`);
+
+    if (randomType === ANIMATION_TYPES.PACMAN) {
+      // PacMan animation
+      createPacManAnimation();
       
-      // Create a wave of logos with quick staggered timing
-      for (let i = 0; i < ANIMATION_CONFIG.logoCount; i++) {
-        setTimeout(() => {
-          if (isActive.value) {
-            createFallingLogo();
-          }
-        }, i * 100); // Quick stagger within each wave
-      }
-    };
-
-    // Create first wave immediately
-    createWave();
-
-    // Create additional waves at intervals
-    const waveCount = Math.floor(ANIMATION_CONFIG.duration / ANIMATION_CONFIG.waveInterval);
-    for (let wave = 1; wave < waveCount; wave++) {
+      // Auto-cleanup after PacMan duration
       setTimeout(() => {
-        createWave();
-      }, wave * ANIMATION_CONFIG.waveInterval);
-    }
+        stopAnimation();
+      }, ANIMATION_CONFIG.pacmanDuration + 1000); // Extra time for fade out
+      
+    } else if (randomType === ANIMATION_TYPES.BUGS_KING) {
+      // Bugs King animation
+      createBugsKingAnimation();
+      
+      // Auto-cleanup after Bugs King duration
+      setTimeout(() => {
+        stopAnimation();
+      }, ANIMATION_CONFIG.pacmanDuration + 1000); // Extra time for fade out
+      
+    } else {
+      // Falling coins animation (default)
+      const createWave = () => {
+        if (!isActive.value) return;
+        
+        // Create a wave of logos with quick staggered timing
+        for (let i = 0; i < ANIMATION_CONFIG.logoCount; i++) {
+          setTimeout(() => {
+            if (isActive.value) {
+              createFallingLogo();
+            }
+          }, i * 100); // Quick stagger within each wave
+        }
+      };
 
-    // Auto-cleanup after animation duration
-    setTimeout(() => {
-      stopAnimation();
-    }, ANIMATION_CONFIG.duration);
+      // Create first wave immediately
+      createWave();
+
+      // Create additional waves at intervals
+      const waveCount = Math.floor(ANIMATION_CONFIG.duration / ANIMATION_CONFIG.waveInterval);
+      for (let wave = 1; wave < waveCount; wave++) {
+        setTimeout(() => {
+          createWave();
+        }, wave * ANIMATION_CONFIG.waveInterval);
+      }
+
+      // Auto-cleanup after animation duration
+      setTimeout(() => {
+        stopAnimation();
+      }, ANIMATION_CONFIG.duration);
+    }
   };
 
   // Stop the animation and cleanup
