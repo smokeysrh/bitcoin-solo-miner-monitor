@@ -18,14 +18,14 @@ Bitcoin Solo Miner Monitor provides multiple installation options for Linux: DEB
 1. **Go to the official releases page**: [GitHub Releases](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest)
 
 2. **Download for your distribution**:
-   - **Ubuntu/Debian**: `bitcoin-solo-miner-monitor_1.0.0_amd64.deb`
-   - **Fedora/CentOS**: `bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm`
-   - **Universal**: `BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage`
+   - **Ubuntu/Debian**: `bitcoin-solo-miner-monitor_0.1.0_amd64.deb`
+   - **Fedora/CentOS**: `bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm`
+   - **Universal**: `BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage`
 
 3. **Verify the download** (recommended):
    ```bash
    # Download checksums
-   wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/SHA256SUMS
+   wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/SHA256SUMS
    
    # Verify your download
    sha256sum -c SHA256SUMS --ignore-missing
@@ -44,10 +44,10 @@ sudo apt install python3 python3-pip curl wget
 **Installation**:
 ```bash
 # Download the package
-wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 
 # Install the package
-sudo dpkg -i bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+sudo dpkg -i bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 
 # Install any missing dependencies
 sudo apt-get install -f
@@ -56,7 +56,7 @@ sudo apt-get install -f
 **Alternative using gdebi** (handles dependencies automatically):
 ```bash
 sudo apt install gdebi-core
-sudo gdebi bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+sudo gdebi bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 ```
 
 ### Fedora/CentOS/RHEL (.rpm Package)
@@ -74,15 +74,15 @@ sudo yum install python3 python3-pip curl wget
 **Installation**:
 ```bash
 # Download the package
-wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 
 # Install the package
-sudo rpm -i bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo rpm -i bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 
 # Or using dnf/yum (handles dependencies)
-sudo dnf install bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo dnf install bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 # or
-sudo yum install bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo yum install bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 ```
 
 ### Universal Linux (AppImage)
@@ -98,20 +98,20 @@ sudo yum install fuse fuse-libs  # CentOS/RHEL
 **Installation**:
 ```bash
 # Download the AppImage
-wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
 
 # Make it executable
-chmod +x BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+chmod +x BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
 
 # Run the application
-./BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+./BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
 ```
 
 **Optional - Integrate with desktop**:
 ```bash
 # Move to applications directory
 mkdir -p ~/.local/bin
-mv BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage ~/.local/bin/bitcoin-solo-miner-monitor
+mv BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage ~/.local/bin/bitcoin-solo-miner-monitor
 
 # Create desktop entry
 cat > ~/.local/share/applications/bitcoin-solo-miner-monitor.desktop << EOF
@@ -274,7 +274,7 @@ sudo apt install python3-dev python3-pip python3-venv
 rpm -q --conflicts bitcoin-solo-miner-monitor
 
 # Force installation (use with caution)
-sudo rpm -i --force bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo rpm -i --force bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 ```
 
 **AppImage won't run**:
@@ -287,8 +287,8 @@ sudo apt install fuse libfuse2  # Ubuntu/Debian
 sudo dnf install fuse fuse-libs  # Fedora
 
 # Check AppImage permissions
-ls -la BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
-chmod +x BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+ls -la BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
+chmod +x BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
 ```
 
 ### Runtime Issues

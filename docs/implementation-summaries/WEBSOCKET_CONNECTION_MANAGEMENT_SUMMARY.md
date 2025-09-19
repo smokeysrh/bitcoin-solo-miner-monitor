@@ -170,7 +170,7 @@ ws://localhost:8000/ws
   "available_topics": ["miners", "alerts", "system", "metrics"],
   "heartbeat_interval": 30.0,
   "server_info": {
-    "version": "1.0.0",
+    "version": "0.1.0",
     "features": ["real_time_updates", "multi_topic_subscription", "heartbeat"]
   }
 }

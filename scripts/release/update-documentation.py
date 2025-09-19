@@ -397,7 +397,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Update documentation for Bitcoin Solo Miner Monitor release")
-    parser.add_argument("version", help="Version string (e.g., 1.0.0)")
+    parser.add_argument("version", help="Version string (e.g., 0.1.0)")
     parser.add_argument("--tag-name", help="Git tag name (defaults to v{version})")
     parser.add_argument("--project-root", help="Project root directory")
     

@@ -133,21 +133,21 @@ if %ERRORLEVEL% neq 0 (
 
 REM Move installer to distribution directory
 echo [INFO] Moving installer to distribution directory...
-move "BitcoinSoloMinerMonitor-1.0.0-Setup.exe" "%DIST_DIR%\"
+move "BitcoinSoloMinerMonitor-0.1.0-Setup.exe" "%DIST_DIR%\"
 
 REM Generate checksums
 echo [INFO] Generating checksums...
 cd "%DIST_DIR%"
-certutil -hashfile "BitcoinSoloMinerMonitor-1.0.0-Setup.exe" SHA256 > "BitcoinSoloMinerMonitor-1.0.0-Setup.exe.sha256"
+certutil -hashfile "BitcoinSoloMinerMonitor-0.1.0-Setup.exe" SHA256 > "BitcoinSoloMinerMonitor-0.1.0-Setup.exe.sha256"
 
 REM Create installation instructions
 echo [INFO] Creating installation instructions...
 echo Bitcoin Solo Miner Monitor - Installation Instructions > "INSTALLATION_INSTRUCTIONS.txt"
 echo ================================================== >> "INSTALLATION_INSTRUCTIONS.txt"
 echo. >> "INSTALLATION_INSTRUCTIONS.txt"
-echo 1. Download: BitcoinSoloMinerMonitor-1.0.0-Setup.exe >> "INSTALLATION_INSTRUCTIONS.txt"
+echo 1. Download: BitcoinSoloMinerMonitor-0.1.0-Setup.exe >> "INSTALLATION_INSTRUCTIONS.txt"
 echo 2. Verify checksum (optional but recommended): >> "INSTALLATION_INSTRUCTIONS.txt"
-echo    Compare SHA256 hash with BitcoinSoloMinerMonitor-1.0.0-Setup.exe.sha256 >> "INSTALLATION_INSTRUCTIONS.txt"
+echo    Compare SHA256 hash with BitcoinSoloMinerMonitor-0.1.0-Setup.exe.sha256 >> "INSTALLATION_INSTRUCTIONS.txt"
 echo 3. Right-click the installer and select "Run as administrator" >> "INSTALLATION_INSTRUCTIONS.txt"
 echo 4. Follow the installation wizard >> "INSTALLATION_INSTRUCTIONS.txt"
 echo 5. Launch from Desktop or Start Menu >> "INSTALLATION_INSTRUCTIONS.txt"
@@ -166,11 +166,11 @@ echo.
 echo [SUCCESS] Final Windows installer built successfully!
 echo.
 echo === Build Results ===
-echo Installer: %DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe
-echo Checksum: %DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe.sha256
+echo Installer: %DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe
+echo Checksum: %DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe.sha256
 echo Instructions: %DIST_DIR%\INSTALLATION_INSTRUCTIONS.txt
 echo.
-dir "%DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe"
+dir "%DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe"
 echo.
 echo === Installation Features ===
 echo ✓ Complete Python runtime bundled

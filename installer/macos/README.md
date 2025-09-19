@@ -17,13 +17,13 @@ The macOS installer system now includes comprehensive application bundle integra
 
 ```bash
 # Create complete app bundle
-./build_macos_app_bundle.sh 1.0.0 ../../dist
+./build_macos_app_bundle.sh 0.1.0 ../../dist
 
 # Test the integration
-./test_app_bundle.sh 1.0.0
+./test_app_bundle.sh 0.1.0
 
 # Create DMG with integrated bundle
-./create_dmg.sh ../../dist ../../dist/BitcoinSoloMinerMonitor-1.0.0.dmg 1.0.0
+./create_dmg.sh ../../dist ../../dist/BitcoinSoloMinerMonitor-0.1.0.dmg 0.1.0
 ```
 
 For detailed information, see [MACOS_APP_BUNDLE_INTEGRATION.md](MACOS_APP_BUNDLE_INTEGRATION.md).
@@ -63,23 +63,23 @@ The macOS installer system creates a professional DMG (disk image) file that pro
 
 ```bash
 # Create complete app bundle with all integrations
-./build_macos_app_bundle.sh 1.0.0 ../../dist
+./build_macos_app_bundle.sh 0.1.0 ../../dist
 
 # Test the app bundle integration
-./test_app_bundle.sh 1.0.0
+./test_app_bundle.sh 0.1.0
 
 # Create app bundle only (without installers)
-python3 bundle/create_app_bundle.py --output ../../dist --version 1.0.0
+python3 bundle/create_app_bundle.py --output ../../dist --version 0.1.0
 ```
 
 #### Basic DMG Creation
 
 ```bash
 # Create DMG from prepared application directory
-./create_dmg.sh /path/to/app/dir ./BitcoinSoloMinerMonitor-1.0.0.dmg 1.0.0
+./create_dmg.sh /path/to/app/dir ./BitcoinSoloMinerMonitor-0.1.0.dmg 0.1.0
 
 # Full build process (recommended)
-./build_macos_dmg.sh 1.0.0
+./build_macos_dmg.sh 0.1.0
 ```
 
 #### Advanced Usage with Python Bundling
@@ -93,7 +93,7 @@ python3 bundle_python_runtime.py \
     --app-bundle ./app_bundle/Contents
 
 # Create DMG with bundled runtime
-./create_dmg.sh ./prepared_app ./output.dmg 1.0.0 3.11.7
+./create_dmg.sh ./prepared_app ./output.dmg 0.1.0 3.11.7
 ```
 
 ## DMG Structure
@@ -101,7 +101,7 @@ python3 bundle_python_runtime.py \
 The created DMG contains:
 
 ```
-Bitcoin Solo Miner Monitor 1.0.0/
+Bitcoin Solo Miner Monitor 0.1.0/
 ├── Bitcoin Solo Miner Monitor.app/    # Main application bundle
 │   ├── Contents/
 │   │   ├── Info.plist                 # Application metadata
@@ -185,10 +185,10 @@ Each DMG includes:
 ```bash
 # Build and test locally
 cd installer/macos
-./build_macos_dmg.sh 1.0.0
+./build_macos_dmg.sh 0.1.0
 
 # Test the created DMG
-open ../../dist/BitcoinSoloMinerMonitor-1.0.0.dmg
+open ../../dist/BitcoinSoloMinerMonitor-0.1.0.dmg
 ```
 
 ### CI/CD Integration

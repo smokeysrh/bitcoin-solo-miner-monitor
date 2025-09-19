@@ -16,24 +16,24 @@ The release system provides:
 
 **Windows:**
 ```cmd
-scripts\create-release.bat 1.0.0
+scripts\create-release.bat 0.1.0
 ```
 
 **Linux/macOS:**
 ```bash
-python scripts/release/create-release.py 1.0.0
+python scripts/release/create-release.py 0.1.0
 ```
 
 ### Dry Run (Test Without Changes)
 
 **Windows:**
 ```cmd
-scripts\create-release.bat 1.0.0 --dry-run
+scripts\create-release.bat 0.1.0 --dry-run
 ```
 
 **Linux/macOS:**
 ```bash
-python scripts/release/create-release.py 1.0.0 --dry-run
+python scripts/release/create-release.py 0.1.0 --dry-run
 ```
 
 ## 📁 Script Components
@@ -128,10 +128,10 @@ npm test  # or your test command
 
 ```bash
 # Standard release
-python scripts/release/create-release.py 1.0.0
+python scripts/release/create-release.py 0.1.0
 
 # Or with Windows batch script
-scripts\create-release.bat 1.0.0
+scripts\create-release.bat 0.1.0
 ```
 
 ### 3. Monitor Build
@@ -156,10 +156,10 @@ After the GitHub Actions build completes:
 
 ```bash
 # Generate and display release notes
-python scripts/release/generate-release-notes.py 1.0.0
+python scripts/release/generate-release-notes.py 0.1.0
 
 # Save to file and update changelog
-python scripts/release/generate-release-notes.py 1.0.0 \
+python scripts/release/generate-release-notes.py 0.1.0 \
   --output release-notes.md \
   --update-changelog
 ```
@@ -167,15 +167,15 @@ python scripts/release/generate-release-notes.py 1.0.0 \
 ### Update Documentation Only
 
 ```bash
-# Update all documentation for version 1.0.0
-python scripts/release/update-documentation.py 1.0.0 --tag-name v1.0.0
+# Update all documentation for version 0.1.0
+python scripts/release/update-documentation.py 0.1.0 --tag-name v0.1.0
 ```
 
 ### Test Release Process
 
 ```bash
 # Dry run - see what would happen without making changes
-python scripts/release/create-release.py 1.0.0 --dry-run
+python scripts/release/create-release.py 0.1.0 --dry-run
 ```
 
 ## 🔧 Configuration
@@ -196,7 +196,7 @@ The release notes generator categorizes commits based on patterns:
 The system uses [Keep a Changelog](https://keepachangelog.com/) format:
 
 ```markdown
-## [1.0.0] - 2024-01-15
+## [0.1.0] - 2024-01-15
 
 ### 🚀 New Features
 - Feature description ([commit-hash](link))
@@ -240,11 +240,11 @@ If the automated process fails partway through:
 1. **Tag already created but release failed:**
    ```bash
    # Delete the tag locally and remotely
-   git tag -d v1.0.0
-   git push origin :refs/tags/v1.0.0
+   git tag -d v0.1.0
+   git push origin :refs/tags/v0.1.0
    
    # Start over
-   python scripts/release/create-release.py 1.0.0
+   python scripts/release/create-release.py 0.1.0
    ```
 
 2. **Documentation committed but tag creation failed:**
@@ -253,7 +253,7 @@ If the automated process fails partway through:
    git reset --hard HEAD~1
    
    # Start over
-   python scripts/release/create-release.py 1.0.0
+   python scripts/release/create-release.py 0.1.0
    ```
 
 ## 🔐 Security Considerations

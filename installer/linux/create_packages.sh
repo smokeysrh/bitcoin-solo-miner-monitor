@@ -4,7 +4,7 @@
 # Configuration
 APP_NAME="bitcoin-solo-miner-monitor"
 DISPLAY_NAME="Bitcoin Solo Miner Monitor"
-VERSION="1.0.0"
+VERSION="0.1.0"
 PUBLISHER="Bitcoin Solo Miner Monitor"
 WEBSITE="https://github.com/bitcoin-solo-miner-monitor"
 DESCRIPTION="A unified monitoring and management solution for Bitcoin mining hardware"

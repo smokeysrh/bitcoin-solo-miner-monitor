@@ -28,7 +28,7 @@ A comprehensive Python script that creates proper macOS application bundles with
 ```bash
 python3 bundle/create_app_bundle.py \
     --output ./dist \
-    --version 1.0.0 \
+    --version 0.1.0 \
     --name "Bitcoin Solo Miner Monitor"
 ```
 
@@ -46,7 +46,7 @@ Orchestrates the complete app bundle creation process:
 
 #### Usage:
 ```bash
-./build_macos_app_bundle.sh 1.0.0 ./dist "Bitcoin Solo Miner Monitor"
+./build_macos_app_bundle.sh 0.1.0 ./dist "Bitcoin Solo Miner Monitor"
 ```
 
 ### 3. DMG Integration (`create_dmg.sh` updates)
@@ -193,7 +193,7 @@ The executable launcher script provides robust Python runtime management:
 ### Automated Testing:
 ```bash
 # Run comprehensive app bundle tests
-./test_app_bundle.sh 1.0.0
+./test_app_bundle.sh 0.1.0
 ```
 
 ### Manual Testing:
@@ -240,25 +240,25 @@ This implementation fulfills task 4.2 requirements:
 ### Create App Bundle:
 ```bash
 cd installer/macos
-python3 bundle/create_app_bundle.py --output ../../dist --version 1.0.0
+python3 bundle/create_app_bundle.py --output ../../dist --version 0.1.0
 ```
 
 ### Build Complete Distribution:
 ```bash
 cd installer/macos
-./build_macos_app_bundle.sh 1.0.0 ../../dist
+./build_macos_app_bundle.sh 0.1.0 ../../dist
 ```
 
 ### Test Integration:
 ```bash
 cd installer/macos
-./test_app_bundle.sh 1.0.0
+./test_app_bundle.sh 0.1.0
 ```
 
 ### Create DMG with Integrated Bundle:
 ```bash
 cd installer/macos
-./create_dmg.sh ../../dist ../../dist/BitcoinSoloMinerMonitor-1.0.0.dmg 1.0.0
+./create_dmg.sh ../../dist ../../dist/BitcoinSoloMinerMonitor-0.1.0.dmg 0.1.0
 ```
 
 ## Future Enhancements

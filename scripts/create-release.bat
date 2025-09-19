@@ -15,7 +15,7 @@ if "%1"=="" (
     echo Usage: create-release.bat ^<version^> [--dry-run] [--skip-build-wait]
     echo.
     echo Examples:
-    echo   create-release.bat 1.0.0
+    echo   create-release.bat 0.1.0
     echo   create-release.bat 1.0.1 --dry-run
     echo   create-release.bat 1.2.0 --skip-build-wait
     echo.

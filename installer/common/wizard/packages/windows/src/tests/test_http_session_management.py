@@ -282,7 +282,7 @@ class TestBitaxeMinerIntegration:
             mock_response.json = AsyncMock(return_value={
                 "hashRate": 1000,
                 "temp": 45,
-                "version": "1.0.0"
+                "version": "0.1.0"
             })
             mock_session_obj.request = AsyncMock(return_value=mock_response)
             mock_session.return_value.__aenter__ = AsyncMock(return_value=mock_session_obj)

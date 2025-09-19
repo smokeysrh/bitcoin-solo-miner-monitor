@@ -10,7 +10,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # Default configuration
 APP_DIR="${PROJECT_ROOT}/build/linux"
 DIST_DIR="${PROJECT_ROOT}/distribution"
-VERSION="1.0.0"
+VERSION="0.1.0"
 PACKAGE_TYPES="all"
 VERBOSE=false
 CLEAN_BUILD=false

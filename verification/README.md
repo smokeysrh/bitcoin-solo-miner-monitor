@@ -21,7 +21,7 @@ verification/
 ├── community-builds/                  # Community verification data
 │   ├── README.md                      # Community builds documentation
 │   ├── template/                      # Templates for new versions
-│   └── v1.0.0/                       # Version-specific verification data
+│   └── v0.1.0/                       # Version-specific verification data
 └── .github/ISSUE_TEMPLATE/            # GitHub issue templates
     ├── verification-success.md        # Success report template
     ├── verification-failure.md        # Failure report template
@@ -35,26 +35,26 @@ verification/
 1. **Basic Checksum Verification** (Recommended for all users):
    ```bash
    # Download and run the verification tool
-   python3 verification/verify.py verify --version v1.0.0 --method checksum
+   python3 verification/verify.py verify --version v0.1.0 --method checksum
    ```
 
 2. **Complete Verification** (All methods):
    ```bash
    # Run all verification methods
-   python3 verification/verify.py verify --version v1.0.0
+   python3 verification/verify.py verify --version v0.1.0
    ```
 
 3. **Compare Your Build**:
    ```bash
    # Compare your local build with community builds
-   python3 verification/verify.py compare --local SHA256SUMS --version v1.0.0
+   python3 verification/verify.py compare --local SHA256SUMS --version v0.1.0
    ```
 
 ### For Community Members (Contributing Verification)
 
 1. **Verify a Release**:
    ```bash
-   python3 verification/verify.py verify --version v1.0.0 --output my-verification.md
+   python3 verification/verify.py verify --version v0.1.0 --output my-verification.md
    ```
 
 2. **Report Your Results**:

@@ -42,7 +42,7 @@ assignees: ''
 
 ### Technical Details
 
-**Affected Versions**: (e.g., v1.0.0 - v1.2.0, or "all versions")
+**Affected Versions**: (e.g., v0.1.0 - v1.2.0, or "all versions")
 
 **Code Snippet** (if applicable):
 ```python

@@ -86,7 +86,7 @@ Security is paramount when installing Bitcoin-related software. This guide expla
 **Windows (PowerShell)**:
 ```powershell
 # Download the checksums file
-Invoke-WebRequest -Uri "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/SHA256SUMS" -OutFile "SHA256SUMS"
+Invoke-WebRequest -Uri "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/SHA256SUMS" -OutFile "SHA256SUMS"
 
 # Calculate checksum of your download
 Get-FileHash -Algorithm SHA256 BitcoinSoloMinerMonitor-Setup.exe
@@ -98,7 +98,7 @@ Get-Content SHA256SUMS | Select-String "BitcoinSoloMinerMonitor-Setup.exe"
 **macOS**:
 ```bash
 # Download checksums
-curl -O https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/SHA256SUMS
+curl -O https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/SHA256SUMS
 
 # Verify your download
 shasum -a 256 BitcoinSoloMinerMonitor.dmg
@@ -110,14 +110,14 @@ grep "BitcoinSoloMinerMonitor.dmg" SHA256SUMS
 **Linux**:
 ```bash
 # Download checksums
-wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/SHA256SUMS
+wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/SHA256SUMS
 
 # Verify all downloads at once
 sha256sum -c SHA256SUMS --ignore-missing
 
 # Or verify specific file
-sha256sum bitcoin-solo-miner-monitor_1.0.0_amd64.deb
-grep "bitcoin-solo-miner-monitor_1.0.0_amd64.deb" SHA256SUMS
+sha256sum bitcoin-solo-miner-monitor_0.1.0_amd64.deb
+grep "bitcoin-solo-miner-monitor_0.1.0_amd64.deb" SHA256SUMS
 ```
 
 ### 3. Reproducible Build Verification
@@ -130,10 +130,10 @@ git clone https://github.com/smokeysrh/bitcoin-solo-miner-monitor.git
 cd bitcoin-solo-miner-monitor
 
 # Checkout the exact release tag
-git checkout v1.0.0
+git checkout v0.1.0
 
 # Build the installer
-python scripts/create-distribution.py --version 1.0.0
+python scripts/create-distribution.py --version 0.1.0
 
 # Compare your build checksum with official release
 sha256sum distribution/windows/BitcoinSoloMinerMonitor-Setup.exe
@@ -181,10 +181,10 @@ sha256sum distribution/windows/BitcoinSoloMinerMonitor-Setup.exe
 2. ✅ **Install with appropriate flags**:
    ```bash
    # Ubuntu/Debian
-   sudo dpkg -i bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+   sudo dpkg -i bitcoin-solo-miner-monitor_0.1.0_amd64.deb
    
    # Fedora/CentOS
-   sudo rpm -i bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+   sudo rpm -i bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
    ```
 
 ## Antivirus Considerations

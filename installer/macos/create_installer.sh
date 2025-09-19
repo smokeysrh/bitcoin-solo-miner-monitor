@@ -3,7 +3,7 @@
 
 # Configuration
 APP_NAME="Bitcoin Solo Miner Monitor"
-VERSION="1.0.0"
+VERSION="0.1.0"
 PUBLISHER="Bitcoin Solo Miner Monitor"
 WEBSITE="https://github.com/bitcoin-solo-miner-monitor"
 DMG_NAME="BitcoinSoloMinerMonitor-${VERSION}"

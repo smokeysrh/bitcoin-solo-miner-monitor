@@ -50,7 +50,7 @@ class TestBitaxeMiner(BaseMinerTest):
         """
         # Mock response for system info
         mock_get.return_value = MockResponse({
-            "version": "1.0.0",
+            "version": "0.1.0",
             "ASICModel": "Bitaxe v2",
             "idfVersion": "4.4.3",
             "boardVersion": "2.0",
@@ -101,7 +101,7 @@ class TestBitaxeMiner(BaseMinerTest):
             "uptimeSeconds": 3600,
             "sharesAccepted": 10,
             "sharesRejected": 1,
-            "version": "1.0.0",
+            "version": "0.1.0",
             "asicCount": 1,
             "frequency": 500
         })
@@ -169,7 +169,7 @@ class TestBitaxeMiner(BaseMinerTest):
         """
         # Mock response for system info
         mock_get.return_value = MockResponse({
-            "version": "1.0.0",
+            "version": "0.1.0",
             "ASICModel": "Bitaxe v2",
             "idfVersion": "4.4.3",
             "boardVersion": "2.0",
@@ -185,7 +185,7 @@ class TestBitaxeMiner(BaseMinerTest):
         # Verify results
         self.assertEqual(device_info["type"], "Bitaxe")
         self.assertEqual(device_info["model"], "Bitaxe v2")
-        self.assertEqual(device_info["firmware_version"], "1.0.0")
+        self.assertEqual(device_info["firmware_version"], "0.1.0")
         self.assertEqual(device_info["mac_address"], "AA:BB:CC:DD:EE:FF")
         self.assertEqual(device_info["asic_count"], 1)
         mock_get.assert_called_once()

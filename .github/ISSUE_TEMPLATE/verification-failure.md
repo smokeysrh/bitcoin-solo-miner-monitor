@@ -11,7 +11,7 @@ assignees: ''
 
 **🚨 SECURITY NOTICE**: This report indicates a potential security issue. Do not use the software until this is resolved.
 
-**Version**: (e.g., v1.0.0)
+**Version**: (e.g., v0.1.0)
 **Verification Date**: (YYYY-MM-DD)
 **Reporter**: (Your GitHub username or identifier)
 

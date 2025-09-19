@@ -1,6 +1,6 @@
 {
   "app_name": "Bitcoin Solo Miner Monitor",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "publisher": "Bitcoin Solo Miner Monitor",
   "website": "https://github.com/bitcoin-solo-miner-monitor",
   "description": "A unified monitoring and management solution for Bitcoin mining hardware",

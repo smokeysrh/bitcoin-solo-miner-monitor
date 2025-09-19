@@ -106,7 +106,7 @@ npm audit --json > ../../security-reports/npm-audit-report.json
 # 1. Clean environment setup
 git clone https://github.com/smokeysrh/bitcoin-solo-miner-monitor.git
 cd bitcoin-solo-miner-monitor
-git checkout v1.0.0  # Replace with target version
+git checkout v0.1.0  # Replace with target version
 
 # 2. Verify source integrity
 git verify-commit HEAD  # If commits are signed
@@ -333,7 +333,7 @@ netstat -an | grep :8000
 # Run complete security assessment
 python scripts/security/security-integration.py \
   --scan-all \
-  --current-version 1.0.0 \
+  --current-version 0.1.0 \
   --installer-files dist/*.exe dist/*.dmg \
   --verbose
 ```
@@ -349,7 +349,7 @@ python scripts/security/installer-security-scanner.py \
 
 # Security patch checking
 python scripts/security/security-patch-distributor.py \
-  --check-updates --current-version 1.0.0
+  --check-updates --current-version 0.1.0
 ```
 
 ### Manual Verification Tools

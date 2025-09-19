@@ -32,7 +32,7 @@ log_warning() {
 }
 
 # Test configuration
-TEST_VERSION="1.0.0-ci-test"
+TEST_VERSION="0.1.0-ci-test"
 TEST_DIST_DIR="${PROJECT_ROOT}/test-distribution"
 TEMP_APP_DIR=""
 

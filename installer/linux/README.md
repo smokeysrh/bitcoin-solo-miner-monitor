@@ -46,13 +46,13 @@ The Linux package system provides:
 
 ```bash
 # Build DEB package directly
-./build_deb.sh /path/to/app /path/to/dist 1.0.0
+./build_deb.sh /path/to/app /path/to/dist 0.1.0
 
 # Build RPM package directly
-./build_rpm.sh /path/to/app /path/to/dist 1.0.0
+./build_rpm.sh /path/to/app /path/to/dist 0.1.0
 
 # Build AppImage directly
-./build_appimage.sh /path/to/app /path/to/dist 1.0.0
+./build_appimage.sh /path/to/app /path/to/dist 0.1.0
 ```
 
 ## File Structure
@@ -207,14 +207,14 @@ Templates in `templates/` directory can be customized:
 ./test_desktop_integration.sh
 
 # Test DEB package installation
-sudo dpkg -i distribution/bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+sudo dpkg -i distribution/bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 
 # Test RPM package installation
-sudo rpm -i distribution/bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo rpm -i distribution/bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 
 # Test AppImage execution
-chmod +x distribution/BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
-./distribution/BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+chmod +x distribution/BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
+./distribution/BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
 ```
 
 ### Validation
@@ -274,7 +274,7 @@ Enable verbose output for debugging:
 ./create_all_packages.sh --verbose
 
 # Debug individual package builds
-./build_deb.sh /path/to/app /path/to/dist 1.0.0 --verbose
+./build_deb.sh /path/to/app /path/to/dist 0.1.0 --verbose
 ```
 
 ## Distribution

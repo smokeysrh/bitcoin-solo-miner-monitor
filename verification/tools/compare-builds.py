@@ -373,7 +373,7 @@ def main():
     parser.add_argument(
         "--version", "-v",
         required=True,
-        help="Version to compare against (e.g., v1.0.0)"
+        help="Version to compare against (e.g., v0.1.0)"
     )
     parser.add_argument(
         "--output", "-o",

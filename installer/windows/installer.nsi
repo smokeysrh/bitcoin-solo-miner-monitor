@@ -6,7 +6,7 @@
 !define PUBLISHER "Bitcoin Solo Miner Monitor"
 ; VERSION is passed as a command line parameter via /DVERSION=x.x.x
 !ifndef VERSION
-  !define VERSION "1.0.0"
+  !define VERSION "0.1.0"
 !endif
 !define WEBSITE "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
 !define REGKEY "Software\${APP_NAME}"

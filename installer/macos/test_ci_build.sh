@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Test configuration
-TEST_VERSION="test-1.0.0"
+TEST_VERSION="test-0.1.0"
 TEST_OUTPUT_DIR="${PROJECT_ROOT}/test_build_output"
 TEST_DMG_NAME="BitcoinSoloMinerMonitor-${TEST_VERSION}.dmg"
 

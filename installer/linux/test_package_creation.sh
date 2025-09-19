@@ -34,7 +34,7 @@ log_warning() {
 TEST_DIR="/tmp/bitcoin-miner-package-test"
 TEST_APP_DIR="$TEST_DIR/app"
 TEST_DIST_DIR="$TEST_DIR/dist"
-TEST_VERSION="1.0.0-test"
+TEST_VERSION="0.1.0-test"
 
 cleanup() {
     log_info "Cleaning up test environment..."

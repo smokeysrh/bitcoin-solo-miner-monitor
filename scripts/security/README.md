@@ -46,10 +46,10 @@ Manages security patch distribution and updates:
 **Usage:**
 ```bash
 # Check for security updates
-python scripts/security/security-patch-distributor.py --check-updates --current-version 1.0.0
+python scripts/security/security-patch-distributor.py --check-updates --current-version 0.1.0
 
 # Download available patches
-python scripts/security/security-patch-distributor.py --check-updates --download-patches --current-version 1.0.0
+python scripts/security/security-patch-distributor.py --check-updates --download-patches --current-version 0.1.0
 ```
 
 ### 4. Security Integration (`security-integration.py`)
@@ -63,7 +63,7 @@ Main integration script that coordinates all security components:
 **Usage:**
 ```bash
 # Run complete security scan
-python scripts/security/security-integration.py --scan-all --current-version 1.0.0 --installer-files dist/*.exe
+python scripts/security/security-integration.py --scan-all --current-version 0.1.0 --installer-files dist/*.exe
 
 # Setup security monitoring
 python scripts/security/security-integration.py --setup-monitoring
@@ -198,8 +198,8 @@ python scripts/security/vulnerability-detector.py --all --verbose
 ```bash
 # Scan installer files
 python scripts/security/installer-security-scanner.py \
-  dist/BitcoinSoloMinerMonitor-1.0.0.exe \
-  dist/BitcoinSoloMinerMonitor-1.0.0.dmg \
+  dist/BitcoinSoloMinerMonitor-0.1.0.exe \
+  dist/BitcoinSoloMinerMonitor-0.1.0.dmg \
   --format markdown \
   --output-dir security-reports
 ```
@@ -210,7 +210,7 @@ python scripts/security/installer-security-scanner.py \
 # Run comprehensive security assessment
 python scripts/security/security-integration.py \
   --scan-all \
-  --current-version 1.0.0 \
+  --current-version 0.1.0 \
   --installer-files dist/*.exe dist/*.dmg \
   --verbose
 ```
@@ -221,7 +221,7 @@ python scripts/security/security-integration.py \
 # Check for available security updates
 python scripts/security/security-patch-distributor.py \
   --check-updates \
-  --current-version 1.0.0 \
+  --current-version 0.1.0 \
   --generate-advisory
 ```
 

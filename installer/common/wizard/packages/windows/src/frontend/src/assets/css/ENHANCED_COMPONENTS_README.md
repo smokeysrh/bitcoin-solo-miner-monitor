@@ -379,7 +379,7 @@ When adding new enhanced components:
 
 ## Changelog
 
-### Version 1.0.0 (Current)
+### Version 0.1.0 (Current)
 
 - ✅ Initial implementation of enhanced button system
 - ✅ Enhanced form input styling with validation states

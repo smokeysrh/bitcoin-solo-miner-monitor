@@ -30,9 +30,9 @@ async function launchLinuxInstaller(config) {
       let installerPath;
       
       if (packageType === 'deb') {
-        installerPath = path.join(__dirname, '..', 'linux', 'bitcoin-solo-miner-monitor_1.0.0_amd64.deb');
+        installerPath = path.join(__dirname, '..', 'linux', 'bitcoin-solo-miner-monitor_0.1.0_amd64.deb');
       } else if (packageType === 'rpm') {
-        installerPath = path.join(__dirname, '..', 'linux', 'bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm');
+        installerPath = path.join(__dirname, '..', 'linux', 'bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm');
       } else {
         throw new Error(`Unsupported Linux distribution: ${packageType}`);
       }

@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 class AppBundleCreator:
     """Creates macOS application bundles with proper structure and metadata."""
     
-    def __init__(self, app_name: str = "Bitcoin Solo Miner Monitor", version: str = "1.0.0"):
+    def __init__(self, app_name: str = "Bitcoin Solo Miner Monitor", version: str = "0.1.0"):
         self.app_name = app_name
         self.version = version
         self.bundle_identifier = "com.bitcoinsolominormonitor.app"
@@ -543,7 +543,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="Create macOS application bundle")
     parser.add_argument("--output", "-o", required=True, help="Output directory for .app bundle")
-    parser.add_argument("--version", "-v", default="1.0.0", help="Application version")
+    parser.add_argument("--version", "-v", default="0.1.0", help="Application version")
     parser.add_argument("--name", "-n", default="Bitcoin Solo Miner Monitor", help="Application name")
     
     args = parser.parse_args()

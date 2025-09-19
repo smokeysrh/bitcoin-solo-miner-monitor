@@ -5,7 +5,7 @@
 set -e  # Exit on any error
 
 # Parse command line arguments
-VERSION="${1:-1.0.0}"
+VERSION="${1:-0.1.0}"
 OUTPUT_DIR="${2:-../../dist}"
 APP_NAME="${3:-Bitcoin Solo Miner Monitor}"
 

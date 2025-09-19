@@ -4,6 +4,10 @@
       v-if="!isSetupRoute"
       v-model="drawer"
       app
+      temporary
+      :scrim="true"
+      class="sidebar-below-header"
+      @click:outside="drawer = false"
     >
       <v-list-item>
         <template v-slot:prepend>
@@ -33,7 +37,7 @@
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
-          :to="item.to"
+          @click="navigateToPage(item.to)"
           link
         >
           <template v-slot:prepend>
@@ -57,7 +61,7 @@
       </template>
     </v-navigation-drawer>
 
-    <v-app-bar v-if="!isSetupRoute" app>
+    <v-app-bar v-if="!isSetupRoute" app class="app-header-fixed">
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
       <BitcoinLogo 
         size="sm" 
@@ -371,6 +375,11 @@ export default {
     // Methods
     const navigateToMinersPage = () => {
       router.push('/miners')
+    }
+    
+    const navigateToPage = (path) => {
+      drawer.value = false // Close the drawer first
+      router.push(path)
     }
     
     const openSettingsDialog = () => {
@@ -788,6 +797,7 @@ export default {
       refreshing,
       snackbar,
       navigateToMinersPage,
+      navigateToPage,
       openSettingsDialog,
       saveSettings,
       refreshData,
@@ -806,6 +816,59 @@ export default {
 </script>
 
 <style scoped>
+/* App bar fixed positioning */
+.app-header-fixed {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+/* Ensure app bar stays above all content */
+:deep(.v-app-bar.app-header-fixed) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+/* Force sticky positioning for Vuetify app bar */
+:deep(.v-app-bar) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+}
+
+/* Ensure navigation drawer stays below header but above content */
+:deep(.v-navigation-drawer) {
+  z-index: 1005 !important;
+}
+
+/* Ensure navigation drawer overlay works properly */
+:deep(.v-overlay--active) {
+  z-index: 1004 !important;
+}
+
+/* Position sidebar below the sticky header */
+:deep(.sidebar-below-header) {
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
+  z-index: 1005 !important;
+}
+
+/* Ensure sidebar content starts below header */
+:deep(.sidebar-below-header .v-navigation-drawer__content) {
+  padding-top: 0 !important;
+}
+
+/* Ensure drawer is accessible from any scroll position */
+:deep(.v-navigation-drawer.v-navigation-drawer--temporary) {
+  position: fixed !important;
+  z-index: 1005 !important;
+}
+
 /* Setup route styling - remove all padding and margins for fullscreen wizard */
 .setup-main {
   padding: 0 !important;
@@ -872,6 +935,11 @@ export default {
 /* Main content area */
 :deep(.v-main) {
   background-color: var(--color-background) !important;
+}
+
+/* Override padding for setup route */
+:deep(.v-main.setup-main) {
+  padding-top: 0 !important;
 }
 
 :deep(.v-container) {

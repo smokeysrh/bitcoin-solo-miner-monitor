@@ -191,7 +191,7 @@ bitcoin-solo-miner-monitor/
 ```bash
 # Maintainer: Your Name <your.email@example.com>
 pkgname=bitcoin-solo-miner-monitor
-pkgver=1.0.0
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="Open-source Bitcoin solo mining monitor and management tool"
 arch=('x86_64')
@@ -274,7 +274,7 @@ StartupNotify=true
 #### Package Structure
 ```bash
 # Debian package structure
-bitcoin-solo-miner-monitor-1.0.0/
+bitcoin-solo-miner-monitor-0.1.0/
 ├── debian/
 │   ├── control
 │   ├── rules
@@ -352,7 +352,7 @@ override_dh_auto_install:
 debuild -us -uc
 
 # Test installation
-sudo dpkg -i ../bitcoin-solo-miner-monitor_1.0.0-1_all.deb
+sudo dpkg -i ../bitcoin-solo-miner-monitor_0.1.0-1_all.deb
 
 # Test functionality
 bitcoin-solo-miner-monitor --help
@@ -369,7 +369,7 @@ sudo apt remove bitcoin-solo-miner-monitor
 class BitcoinSoloMinerMonitor < Formula
   desc "Open-source Bitcoin solo mining monitor and management tool"
   homepage "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
-  url "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/archive/v1.0.0.tar.gz"
+  url "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/archive/v0.1.0.tar.gz"
   sha256 "your-sha256-checksum-here"
   license "MIT"
 
@@ -444,7 +444,7 @@ bitcoin-solo-miner-monitor/
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>bitcoin-solo-miner-monitor</id>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
     <packageSourceUrl>https://github.com/smokeysrh/bitcoin-solo-miner-monitor</packageSourceUrl>
     <owners>YourName</owners>
     <title>Bitcoin Solo Miner Monitor</title>
@@ -470,7 +470,7 @@ Features:
 * Comprehensive logging and reporting
 * Cross-platform compatibility
     </description>
-    <releaseNotes>https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v1.0.0</releaseNotes>
+    <releaseNotes>https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v0.1.0</releaseNotes>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
@@ -485,7 +485,7 @@ $ErrorActionPreference = 'Stop'
 
 $packageName = 'bitcoin-solo-miner-monitor'
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
-$url64 = 'https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/BitcoinSoloMinerMonitor-1.0.0-Setup.exe'
+$url64 = 'https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/BitcoinSoloMinerMonitor-0.1.0-Setup.exe'
 $checksum64 = 'your-sha256-checksum-here'
 
 $packageArgs = @{

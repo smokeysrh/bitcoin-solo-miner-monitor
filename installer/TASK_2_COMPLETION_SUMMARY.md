@@ -72,7 +72,7 @@ Task 2 has been successfully completed with all remaining dependencies resolved.
 
 Task 2 is now **COMPLETE**. The project is ready to:
 
-1. **Test the build system**: Run `python scripts/create-distribution.py --version 1.0.0`
+1. **Test the build system**: Run `python scripts/create-distribution.py --version 0.1.0`
 2. **Trigger CI/CD**: Push a tag to automatically build and release
 3. **Move to Task 3**: Begin community trust and transparency systems
 4. **Production Release**: All infrastructure is ready for professional distribution

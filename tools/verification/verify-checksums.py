@@ -7,7 +7,7 @@ Bitcoin Solo Miner Monitor release files using SHA256 checksums.
 
 Usage:
     python3 verify-checksums.py SHA256SUMS
-    python3 verify-checksums.py --download v1.0.0
+    python3 verify-checksums.py --download v0.1.0
 """
 
 import argparse
@@ -191,7 +191,7 @@ Examples:
   python3 verify-checksums.py SHA256SUMS
   
   # Download and verify a specific release
-  python3 verify-checksums.py --download v1.0.0
+  python3 verify-checksums.py --download v0.1.0
   
   # Verify specific files
   python3 verify-checksums.py --files installer.exe installer.dmg
@@ -207,7 +207,7 @@ Examples:
     group.add_argument(
         "--download",
         metavar="VERSION",
-        help="Download and verify specific version (e.g., v1.0.0)"
+        help="Download and verify specific version (e.g., v0.1.0)"
     )
     
     parser.add_argument(

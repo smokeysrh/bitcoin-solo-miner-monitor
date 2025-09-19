@@ -35,7 +35,7 @@ assignees: ''
 
 **System Information**:
 - **Operating System**: (e.g., Windows 11, macOS 13.0, Ubuntu 22.04)
-- **Application Version**: (e.g., v1.0.0)
+- **Application Version**: (e.g., v0.1.0)
 - **Installation Method**: (Installer/Built from source/Portable)
 
 **Mining Configuration**:

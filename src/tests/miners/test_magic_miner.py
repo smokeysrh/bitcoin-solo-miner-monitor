@@ -59,7 +59,7 @@ class TestMagicMiner(BaseMinerTest):
         <body>
             <div class="header">
                 <h1>BG02 Bitcoin Miner</h1>
-                <p>Firmware Version: 1.0.0</p>
+                <p>Firmware Version: 0.1.0</p>
             </div>
         </body>
         </html>
@@ -246,7 +246,7 @@ class TestMagicMiner(BaseMinerTest):
                 </div>
                 <div class="info-item">
                     <span class="label">Firmware Version:</span>
-                    <span class="value">1.0.0</span>
+                    <span class="value">0.1.0</span>
                 </div>
                 <div class="info-item">
                     <span class="label">Serial Number:</span>
@@ -271,7 +271,7 @@ class TestMagicMiner(BaseMinerTest):
         # Verify results
         self.assertEqual(device_info["type"], "Magic Miner")
         self.assertEqual(device_info["model"], "BG02")
-        self.assertEqual(device_info["firmware_version"], "1.0.0")
+        self.assertEqual(device_info["firmware_version"], "0.1.0")
         self.assertEqual(device_info["serial_number"], "BG02123456")
         self.assertEqual(device_info["mac_address"], "AA:BB:CC:DD:EE:FF")
         mock_get.assert_called_once()

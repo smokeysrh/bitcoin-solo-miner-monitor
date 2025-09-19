@@ -24,7 +24,7 @@ KEYWORDS="bitcoin;mining;monitor;cryptocurrency;solo;miner;hardware;network;bloc
 CATEGORIES="Utility;Network;System;Monitor;HardwareSettings"
 MIME_TYPES="application/x-bitcoin-miner-config;application/x-mining-pool-config"
 WEBSITE="https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
-VERSION="1.0.0"
+VERSION="0.1.0"
 
 # Installation paths
 INSTALL_PREFIX="/opt/$APP_NAME"

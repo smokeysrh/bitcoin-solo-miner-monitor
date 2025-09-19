@@ -57,10 +57,10 @@ def main():
         epilog="""
 Examples:
   # Verify a specific version
-  python3 verify.py verify --version v1.0.0
+  python3 verify.py verify --version v0.1.0
 
   # Compare local build with community
-  python3 verify.py compare --local SHA256SUMS --version v1.0.0
+  python3 verify.py compare --local SHA256SUMS --version v0.1.0
 
   # Generate verification dashboard
   python3 verify.py dashboard --format html --output dashboard.html
@@ -77,7 +77,7 @@ https://github.com/smokeysrh/bitcoin-solo-miner-monitor/blob/main/verification/C
     
     # Verify command
     verify_parser = subparsers.add_parser('verify', help='Verify a release')
-    verify_parser.add_argument('--version', '-v', required=True, help='Version to verify (e.g., v1.0.0)')
+    verify_parser.add_argument('--version', '-v', required=True, help='Version to verify (e.g., v0.1.0)')
     verify_parser.add_argument('--method', '-m', choices=['checksum', 'reproducible', 'community', 'all'], 
                               default='all', help='Verification method')
     verify_parser.add_argument('--output', '-o', type=Path, help='Output file for report')
@@ -317,10 +317,10 @@ Verify the authenticity and integrity of a Bitcoin Solo Miner Monitor release
 using multiple verification methods.
 
 Usage:
-  python3 verify.py verify --version v1.0.0 [options]
+  python3 verify.py verify --version v0.1.0 [options]
 
 Options:
-  --version, -v    Version to verify (required, e.g., v1.0.0)
+  --version, -v    Version to verify (required, e.g., v0.1.0)
   --method, -m     Verification method: checksum, reproducible, community, all (default: all)
   --output, -o     Output file for verification report
   --repo           GitHub repository (default: smokeysrh/bitcoin-solo-miner-monitor)
@@ -328,13 +328,13 @@ Options:
 
 Examples:
   # Verify latest release with all methods
-  python3 verify.py verify --version v1.0.0
+  python3 verify.py verify --version v0.1.0
 
   # Only verify checksums
-  python3 verify.py verify --version v1.0.0 --method checksum
+  python3 verify.py verify --version v0.1.0 --method checksum
 
   # Save report to file
-  python3 verify.py verify --version v1.0.0 --output verification-report.md
+  python3 verify.py verify --version v0.1.0 --output verification-report.md
             """,
             'compare': """
 🔍 Compare Command
@@ -343,7 +343,7 @@ Compare your local build results with community-verified builds to detect
 any inconsistencies or potential security issues.
 
 Usage:
-  python3 verify.py compare --local SHA256SUMS --version v1.0.0 [options]
+  python3 verify.py compare --local SHA256SUMS --version v0.1.0 [options]
 
 Options:
   --local, -l      Path to local SHA256SUMS file (required)
@@ -354,10 +354,10 @@ Options:
 
 Examples:
   # Compare local build with community
-  python3 verify.py compare --local distribution/SHA256SUMS --version v1.0.0
+  python3 verify.py compare --local distribution/SHA256SUMS --version v0.1.0
 
   # Save comparison report
-  python3 verify.py compare --local SHA256SUMS --version v1.0.0 --output comparison.md
+  python3 verify.py compare --local SHA256SUMS --version v0.1.0 --output comparison.md
             """,
             'dashboard': """
 📊 Dashboard Command
@@ -424,7 +424,7 @@ Examples:
   python3 verify.py status
 
   # Show status for specific version
-  python3 verify.py status --version v1.0.0
+  python3 verify.py status --version v0.1.0
 
   # Use custom verification directory
   python3 verify.py status --verification-dir /path/to/verification

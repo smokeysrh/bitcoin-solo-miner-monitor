@@ -21,25 +21,25 @@ def create_mock_installer_files(temp_dir: Path) -> list:
     mock_files = []
     
     # Create mock Windows installer
-    windows_installer = temp_dir / "BitcoinSoloMinerMonitor-1.0.0-Setup.exe"
+    windows_installer = temp_dir / "BitcoinSoloMinerMonitor-0.1.0-Setup.exe"
     with open(windows_installer, 'wb') as f:
         f.write(b'MZ' + b'\x00' * 1024 * 1024)  # 1MB mock PE file
     mock_files.append(windows_installer)
     
     # Create mock macOS installer
-    macos_installer = temp_dir / "BitcoinSoloMinerMonitor-1.0.0.dmg"
+    macos_installer = temp_dir / "BitcoinSoloMinerMonitor-0.1.0.dmg"
     with open(macos_installer, 'wb') as f:
         f.write(b'\x00' * 10 * 1024 * 1024)  # 10MB mock DMG
     mock_files.append(macos_installer)
     
     # Create mock Linux DEB package
-    linux_deb = temp_dir / "bitcoin-solo-miner-monitor_1.0.0_amd64.deb"
+    linux_deb = temp_dir / "bitcoin-solo-miner-monitor_0.1.0_amd64.deb"
     with open(linux_deb, 'wb') as f:
         f.write(b'!<arch>\n' + b'\x00' * 2 * 1024 * 1024)  # 2MB mock DEB
     mock_files.append(linux_deb)
     
     # Create mock AppImage
-    appimage = temp_dir / "BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage"
+    appimage = temp_dir / "BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage"
     with open(appimage, 'wb') as f:
         f.write(b'\x7fELF' + b'\x00' * 5 * 1024 * 1024)  # 5MB mock ELF
     os.chmod(appimage, 0o755)

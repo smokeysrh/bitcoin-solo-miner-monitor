@@ -9,7 +9,7 @@ assignees: ''
 
 ## Verification Success Report
 
-**Version Verified**: (e.g., v1.0.0)
+**Version Verified**: (e.g., v0.1.0)
 **Verification Date**: (YYYY-MM-DD)
 **Verifier**: (Your GitHub username or identifier)
 

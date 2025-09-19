@@ -12,7 +12,7 @@ PYTHON_VERSION="${4:-3.11.7}"  # Default Python version
 
 if [ -z "$APP_DIR" ] || [ -z "$DMG_PATH" ] || [ -z "$VERSION" ]; then
     echo "Usage: $0 <app_dir> <dmg_path> <version> [python_version]"
-    echo "Example: $0 ./dist ./BitcoinSoloMinerMonitor-1.0.0.dmg 1.0.0 3.11.7"
+    echo "Example: $0 ./dist ./BitcoinSoloMinerMonitor-0.1.0.dmg 0.1.0 3.11.7"
     exit 1
 fi
 

@@ -103,16 +103,16 @@ python verification/community-audit/audit-participation-guide.py --skill-level I
 python verification/community-audit/community-security-verifier.py --verify-checksums
 
 # Verify specific version
-python verification/community-audit/community-security-verifier.py --verify-checksums --version 1.0.0
+python verification/community-audit/community-security-verifier.py --verify-checksums --version 0.1.0
 
 # Verify reproducible build
-python verification/community-audit/community-security-verifier.py --verify-build --version 1.0.0
+python verification/community-audit/community-security-verifier.py --verify-build --version 0.1.0
 
 # Run security scans
 python verification/community-audit/community-security-verifier.py --verify-security
 
 # Run all verifications
-python verification/community-audit/community-security-verifier.py --verify-all --version 1.0.0
+python verification/community-audit/community-security-verifier.py --verify-all --version 0.1.0
 ```
 
 ### Audit Coordination

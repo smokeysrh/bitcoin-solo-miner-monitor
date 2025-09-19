@@ -9,7 +9,7 @@ This directory contains the automated build and deployment workflows for Bitcoin
 **Purpose**: Creates platform-specific installers for Windows, macOS, and Linux.
 
 **Triggers**:
-- Git tags starting with `v*` (e.g., `v1.0.0`)
+- Git tags starting with `v*` (e.g., `v0.1.0`)
 - Pull requests to `main` or `develop` branches
 - Manual workflow dispatch
 
@@ -65,13 +65,13 @@ This directory contains the automated build and deployment workflows for Bitcoin
    # Update CHANGELOG.md
    # Commit changes
    git add .
-   git commit -m "Prepare release v1.0.0"
+   git commit -m "Prepare release v0.1.0"
    ```
 
 2. **Create and push tag**:
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   git tag v0.1.0
+   git push origin v0.1.0
    ```
 
 3. **Monitor the build**:
@@ -125,11 +125,11 @@ The security scan workflow runs automatically and:
 
 ### Release Artifacts
 ```
-BitcoinSoloMinerMonitor-1.0.0-Setup.exe          # Windows installer
-BitcoinSoloMinerMonitor-1.0.0.dmg                # macOS disk image
-bitcoin-solo-miner-monitor_1.0.0_amd64.deb       # Debian package
-bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm    # RPM package
-BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage     # Universal Linux
+BitcoinSoloMinerMonitor-0.1.0-Setup.exe          # Windows installer
+BitcoinSoloMinerMonitor-0.1.0.dmg                # macOS disk image
+bitcoin-solo-miner-monitor_0.1.0_amd64.deb       # Debian package
+bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm    # RPM package
+BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage     # Universal Linux
 SHA256SUMS                                        # Checksums file
 ```
 

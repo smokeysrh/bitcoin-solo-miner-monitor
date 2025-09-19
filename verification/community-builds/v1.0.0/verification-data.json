@@ -1,5 +1,5 @@
 {
-  "version": "v1.0.0",
+  "version": "v0.1.0",
   "release_date": "2024-01-15T10:30:00Z",
   "verification_status": "verified",
   "verification_count": 5,
@@ -102,23 +102,23 @@
       "verified": true,
       "verifications": 2,
       "files": [
-        "BitcoinSoloMinerMonitor-1.0.0-Setup.exe"
+        "BitcoinSoloMinerMonitor-0.1.0-Setup.exe"
       ]
     },
     "macos": {
       "verified": true,
       "verifications": 1,
       "files": [
-        "BitcoinSoloMinerMonitor-1.0.0.dmg"
+        "BitcoinSoloMinerMonitor-0.1.0.dmg"
       ]
     },
     "linux": {
       "verified": true,
       "verifications": 3,
       "files": [
-        "bitcoin-solo-miner-monitor_1.0.0_amd64.deb",
-        "bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm",
-        "BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage"
+        "bitcoin-solo-miner-monitor_0.1.0_amd64.deb",
+        "bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm",
+        "BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage"
       ]
     }
   },
