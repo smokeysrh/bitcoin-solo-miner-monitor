@@ -148,72 +148,53 @@
   - _Requirements: 7.1, 7.2, 7.3_
 
 - [x] 8. Fix Setup Wizard Visual Feedback
-
-
-
-
-  - Debug highlight/dehighlight behavior for dashboard widget selection
-  - Implement proper highlight/dehighlight behavior for dashboard widget selection
-  - Ensure clear visual distinction between selected and unselected states
-  - Ensure widget selections are preserved throughout setup wizard process
+  - Remove non-functional dashboard widget selection from setup wizard
+  - Clean up related code, CSS, and data structures
+  - Simplify user preferences screen to focus on working features
   - Audit the code created/changed during tasks 8.1-8.2 to verify that your code is correct and error free
   - Stage all pending changes for commit
   - Provide message for commit summarizing the changes made in this task
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [x] 8.1 Implement widget selection visual feedback
-
-
-  - Locate setup wizard dashboard widget selection component
-  - Add click handlers for highlight/dehighlight toggle behavior on widget options
-  - Implement distinct visual styling for selected (highlighted) and unselected (dark) states
+- [x] 8.1 Remove widget selection interface
+  - Located setup wizard dashboard widget selection component in UserPreferencesScreen.vue
+  - Removed non-functional widget selection UI elements and related data structures
+  - Cleaned up CSS styling for widget cards that are no longer needed
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [x] 8.2 Ensure widget selection persistence
-
-
-  - Implement proper state management for widget selections throughout setup wizard
-  - Verify that final widget selections are properly applied to user configuration
+- [x] 8.2 Clean up widget-related code
+  - Removed widget arrays, validation logic, and experience-level widget defaults
+  - Simplified preferences data structure to remove unused widget selections
+  - Maintained other functional preferences like dashboard layout and notifications
   - _Requirements: 8.5_
 
-- [ ] 9. Fix Setup Wizard Help Links
-  - Update Documentation button to link to GitHub repository documentation
-  - Update Community Forum button to link to Discord community
-  - Ensure links open in new tabs to preserve setup wizard progress
+- [x] 9. Fix Setup Wizard Help Links
+  - Update Documentation button to link to GitHub repository documentation (if you cant find this ask me to get if for you)
+  - Update Community Forum button to link to Discord community (found throughout the application and docs)
   - Audit the code created/changed during tasks 9.1-9.2 to verify that your code is correct and error free
   - Stage all pending changes for commit
   - Provide message for commit summarizing the changes made in this task
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-- [ ] 9.1 Update help link destinations
+- [x] 9.1 Update help link destinations
   - Locate setup wizard help section with Documentation and Community Forum buttons
   - Update Documentation button to link to GitHub repository docs section
   - Update Community Forum button to use Discord invite link from project documentation
+  - Ensure help links open in new tab/window to preserve setup wizard state
   - _Requirements: 9.1, 9.2_
 
-- [ ] 9.2 Implement proper link behavior
-  - Ensure help links open in new tab/window to preserve setup wizard state
-  - Test that links are functional and point to correct destinations
-  - Verify that setup wizard remains accessible after clicking help links
-  - _Requirements: 9.3, 9.4_
-
-- [ ] 10. Fix Simple Mode Toggle Styling
-  - Update Simple Mode toggle to use orange color when ON
+- [x] 10. Fix All Toggle Styling
+  - Update All toggles to use orange color when ON
   - Ensure toggle styling matches setup wizard toggle appearance
   - Implement smooth color transitions for toggle state changes
-  - Audit the code created/changed during tasks 10.1-10.2 to verify that your code is correct and error free
+  - Audit the code created/changed during tasks 10.1-10.1 to verify that your code is correct and error free
   - Stage all pending changes for commit
   - Provide message for commit summarizing the changes made in this task
   - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 10.1 Update Simple Mode toggle styling
-  - Locate Simple Mode toggle component in main application interface
+- [x] 10.1 Update Simple Mode toggle styling
+  - Locate All toggle components in main application interface
   - Implement orange color styling for ON state to match setup wizard toggles
   - Ensure OFF state uses consistent standard color scheme
-  - _Requirements: 10.1, 10.2_
-
-- [ ] 10.2 Ensure consistent toggle behavior across application
-  - Test toggle color consistency between setup wizard and main application
   - Implement smooth CSS transitions for toggle state changes
-  - Verify toggle styling works correctly across different themes and screen sizes
-  - _Requirements: 10.3, 10.4_
+  - _Requirements: 10.1, 10.2_

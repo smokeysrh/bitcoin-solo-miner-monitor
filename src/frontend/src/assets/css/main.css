@@ -32,6 +32,9 @@
 /* Import keyboard navigation styles */
 @import './keyboard-navigation.css';
 
+/* Import global toggle styling */
+@import './toggle-styling.css';
+
 /* Base styles and resets */
 * {
   box-sizing: border-box;

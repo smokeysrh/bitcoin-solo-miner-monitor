@@ -140,6 +140,9 @@
                       variant="outlined"
                       block
                       class="mb-2"
+                      href="https://github.com/smokeysrh/bitcoin-solo-miner-monitor/tree/main/docs"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <v-icon start>mdi-book-open-variant</v-icon>
                       Documentation
@@ -152,6 +155,9 @@
                       variant="outlined"
                       block
                       class="mb-2"
+                      href="https://discord.gg/GzNsNnh4yT"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <v-icon start>mdi-forum</v-icon>
                       Community Forum
