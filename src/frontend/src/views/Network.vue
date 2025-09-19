@@ -17,6 +17,8 @@
                 <v-select
                   v-model="layoutType"
                   :items="layoutOptions"
+                  item-title="text"
+                  item-value="value"
                   label="Layout Type"
                   @change="updateNetworkLayout"
                 ></v-select>

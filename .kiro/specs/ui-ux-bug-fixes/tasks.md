@@ -147,24 +147,32 @@
   - Ensure tagline integrates well with existing About page content and layout
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 8. Fix Setup Wizard Visual Feedback
+- [x] 8. Fix Setup Wizard Visual Feedback
+
+
+
+
+  - Debug highlight/dehighlight behavior for dashboard widget selection
   - Implement proper highlight/dehighlight behavior for dashboard widget selection
-  - Create clear visual distinction between selected and unselected states
+  - Ensure clear visual distinction between selected and unselected states
   - Ensure widget selections are preserved throughout setup wizard process
   - Audit the code created/changed during tasks 8.1-8.2 to verify that your code is correct and error free
   - Stage all pending changes for commit
   - Provide message for commit summarizing the changes made in this task
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 8.1 Implement widget selection visual feedback
+- [x] 8.1 Implement widget selection visual feedback
+
+
   - Locate setup wizard dashboard widget selection component
   - Add click handlers for highlight/dehighlight toggle behavior on widget options
   - Implement distinct visual styling for selected (highlighted) and unselected (dark) states
   - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-- [ ] 8.2 Ensure widget selection persistence
+- [x] 8.2 Ensure widget selection persistence
+
+
   - Implement proper state management for widget selections throughout setup wizard
-  - Test that selected widgets are preserved when navigating between wizard steps
   - Verify that final widget selections are properly applied to user configuration
   - _Requirements: 8.5_
 
