@@ -7,9 +7,9 @@ through multiple verification methods including checksum verification, reproduci
 builds, and security scanning.
 
 Usage:
-    python3 comprehensive-build-verification.py --version v1.0.0 --method all
-    python3 comprehensive-build-verification.py --version v1.0.0 --method checksum
-    python3 comprehensive-build-verification.py --version v1.0.0 --method reproducible
+    python3 comprehensive-build-verification.py --version v0.1.0 --method all
+    python3 comprehensive-build-verification.py --version v0.1.0 --method checksum
+    python3 comprehensive-build-verification.py --version v0.1.0 --method reproducible
 """
 
 import argparse
@@ -646,7 +646,7 @@ def main():
     parser.add_argument(
         "--version", 
         required=True,
-        help="Version to verify (e.g., v1.0.0)"
+        help="Version to verify (e.g., v0.1.0)"
     )
     parser.add_argument(
         "--method",

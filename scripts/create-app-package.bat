@@ -35,7 +35,7 @@ if exist "%PACKAGE_DIR%\package-lock.json" del "%PACKAGE_DIR%\package-lock.json"
 if exist "%PACKAGE_DIR%\node_modules" rmdir /s /q "%PACKAGE_DIR%\node_modules"
 
 echo [INFO] Creating version info...
-echo 1.0.0 > "%PACKAGE_DIR%\VERSION"
+echo 0.1.0 > "%PACKAGE_DIR%\VERSION"
 
 echo [INFO] Package created successfully at: %PACKAGE_DIR%
 echo [SUCCESS] Application package ready for installer build

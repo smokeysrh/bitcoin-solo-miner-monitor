@@ -64,20 +64,20 @@ echo ## Support >> "%APP_DIR%\QUICK_START.md"
 echo If you encounter any issues, please report them back for fixing. >> "%APP_DIR%\QUICK_START.md"
 
 echo [INFO] Creating version info...
-echo 1.0.0-testing > "%APP_DIR%\VERSION"
+echo 0.1.0-testing > "%APP_DIR%\VERSION"
 
 echo [INFO] Creating ZIP package...
-powershell -Command "Compress-Archive -Path '%APP_DIR%' -DestinationPath '%DIST_DIR%\BitcoinSoloMinerMonitor-v1.0.0-TestBuild.zip' -Force"
+powershell -Command "Compress-Archive -Path '%APP_DIR%' -DestinationPath '%DIST_DIR%\BitcoinSoloMinerMonitor-v0.1.0-TestBuild.zip' -Force"
 
 echo.
 echo [SUCCESS] Distribution package created successfully!
 echo.
-echo Package location: %DIST_DIR%\BitcoinSoloMinerMonitor-v1.0.0-TestBuild.zip
+echo Package location: %DIST_DIR%\BitcoinSoloMinerMonitor-v0.1.0-TestBuild.zip
 echo Package size: 
-dir "%DIST_DIR%\BitcoinSoloMinerMonitor-v1.0.0-TestBuild.zip" | find "BitcoinSoloMinerMonitor"
+dir "%DIST_DIR%\BitcoinSoloMinerMonitor-v0.1.0-TestBuild.zip" | find "BitcoinSoloMinerMonitor"
 echo.
 echo === Instructions for Your Buddy ===
-echo 1. Send him the ZIP file: BitcoinSoloMinerMonitor-v1.0.0-TestBuild.zip
+echo 1. Send him the ZIP file: BitcoinSoloMinerMonitor-v0.1.0-TestBuild.zip
 echo 2. He extracts it to any folder
 echo 3. He double-clicks START_APP.bat
 echo 4. He opens http://localhost:8000 in his browser

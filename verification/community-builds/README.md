@@ -6,7 +6,7 @@ This directory contains community-verified build results and verification data f
 
 ```
 community-builds/
-├── v1.0.0/
+├── v0.1.0/
 │   ├── SHA256SUMS                 # Community-verified checksums
 │   ├── verification-data.json     # Verification metadata
 │   ├── build-reports/             # Individual build reports
@@ -53,16 +53,16 @@ Each version directory contains:
 #### SHA256SUMS
 Standard format checksum file with community-verified hashes:
 ```
-a1b2c3d4e5f6... BitcoinSoloMinerMonitor-1.0.0-Setup.exe
-f6e5d4c3b2a1... BitcoinSoloMinerMonitor-1.0.0.dmg
-9876543210ab... bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+a1b2c3d4e5f6... BitcoinSoloMinerMonitor-0.1.0-Setup.exe
+f6e5d4c3b2a1... BitcoinSoloMinerMonitor-0.1.0.dmg
+9876543210ab... bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 ```
 
 #### verification-data.json
 Metadata about community verification:
 ```json
 {
-  "version": "v1.0.0",
+  "version": "v0.1.0",
   "release_date": "2024-01-15T10:30:00Z",
   "verification_status": "verified",
   "verification_count": 5,
@@ -113,10 +113,10 @@ Our verification tools automatically check this directory:
 
 ```bash
 # Verify against community data
-python3 verification/tools/community-verify.py --version v1.0.0
+python3 verification/tools/community-verify.py --version v0.1.0
 
 # Compare your build with community builds
-python3 verification/tools/compare-builds.py --local SHA256SUMS --version v1.0.0
+python3 verification/tools/compare-builds.py --local SHA256SUMS --version v0.1.0
 ```
 
 ### Manual Verification
@@ -158,7 +158,7 @@ Community verification **cannot** protect against:
 
 | Version | Status | Verifications | Last Updated |
 |---------|--------|---------------|--------------|
-| v1.0.0  | 🟢 Verified | 5 | 2024-01-16 |
+| v0.1.0  | 🟢 Verified | 5 | 2024-01-16 |
 | v0.9.0  | 🟡 Pending | 2 | 2024-01-10 |
 | v0.8.0  | 🟢 Verified | 7 | 2024-01-05 |
 

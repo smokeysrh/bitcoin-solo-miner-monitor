@@ -5,7 +5,7 @@
 set -e  # Exit on any error
 
 # Configuration
-VERSION="${1:-1.0.0}"
+VERSION="${1:-0.1.0}"
 APP_NAME="Bitcoin Solo Miner Monitor"
 TEST_DIR="$(mktemp -d)"
 

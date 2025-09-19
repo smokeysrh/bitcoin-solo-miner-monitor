@@ -74,12 +74,12 @@ fi
 ### 3. Build Installers
 ```bash
 # Build for current platform
-python scripts/create-distribution.py --version 1.0.0
+python scripts/create-distribution.py --version 0.1.0
 
 # Build for specific platform
-python scripts/create-distribution.py --platform windows --version 1.0.0
-python scripts/create-distribution.py --platform macos --version 1.0.0
-python scripts/create-distribution.py --platform linux --version 1.0.0
+python scripts/create-distribution.py --platform windows --version 0.1.0
+python scripts/create-distribution.py --platform macos --version 0.1.0
+python scripts/create-distribution.py --platform linux --version 0.1.0
 ```
 
 ## Detailed Build Process
@@ -116,7 +116,7 @@ The Windows installer uses NSIS (Nullsoft Scriptable Install System):
 **Manual Build:**
 ```bash
 # Ensure NSIS is in PATH
-makensis /DVERSION=1.0.0 installer/windows/installer.nsi
+makensis /DVERSION=0.1.0 installer/windows/installer.nsi
 ```
 
 **Features:**
@@ -126,7 +126,7 @@ makensis /DVERSION=1.0.0 installer/windows/installer.nsi
 - Professional installer UI with branding
 - Automatic dependency installation
 
-**Output:** `distribution/windows/BitcoinSoloMinerMonitor-1.0.0-Setup.exe`
+**Output:** `distribution/windows/BitcoinSoloMinerMonitor-0.1.0-Setup.exe`
 
 #### macOS DMG Package
 
@@ -134,7 +134,7 @@ The macOS installer creates a disk image with drag-to-install interface:
 
 **Manual Build:**
 ```bash
-bash installer/macos/create_dmg.sh /path/to/app/bundle output.dmg 1.0.0
+bash installer/macos/create_dmg.sh /path/to/app/bundle output.dmg 0.1.0
 ```
 
 **Features:**
@@ -144,7 +144,7 @@ bash installer/macos/create_dmg.sh /path/to/app/bundle output.dmg 1.0.0
 - Embedded Python dependencies
 - macOS system integration
 
-**Output:** `distribution/macos/BitcoinSoloMinerMonitor-1.0.0.dmg`
+**Output:** `distribution/macos/BitcoinSoloMinerMonitor-0.1.0.dmg`
 
 #### Linux Packages
 
@@ -152,17 +152,17 @@ Linux builds create multiple package formats:
 
 **DEB Package (Ubuntu/Debian):**
 ```bash
-bash installer/linux/build_deb.sh /path/to/app/files /output/dir 1.0.0
+bash installer/linux/build_deb.sh /path/to/app/files /output/dir 0.1.0
 ```
 
 **RPM Package (Fedora/CentOS):**
 ```bash
-bash installer/linux/build_rpm.sh /path/to/app/files /output/dir 1.0.0
+bash installer/linux/build_rpm.sh /path/to/app/files /output/dir 0.1.0
 ```
 
 **AppImage (Universal):**
 ```bash
-bash installer/linux/build_appimage.sh /path/to/app/files /output/dir 1.0.0
+bash installer/linux/build_appimage.sh /path/to/app/files /output/dir 0.1.0
 ```
 
 **Features:**
@@ -172,9 +172,9 @@ bash installer/linux/build_appimage.sh /path/to/app/files /output/dir 1.0.0
 - Dependency resolution through package managers
 
 **Outputs:**
-- `distribution/linux/bitcoin-solo-miner-monitor_1.0.0_amd64.deb`
-- `distribution/linux/bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm`
-- `distribution/linux/BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage`
+- `distribution/linux/bitcoin-solo-miner-monitor_0.1.0_amd64.deb`
+- `distribution/linux/bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm`
+- `distribution/linux/BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage`
 
 ## Automated Builds with GitHub Actions
 
@@ -184,8 +184,8 @@ The project includes GitHub Actions workflows for automated building:
 
 **Release Build (creates GitHub release):**
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 **Development Build:**
@@ -234,12 +234,12 @@ node --version    # Should be 18.x.x
 ### 3. Verify Reproducibility
 ```bash
 # Build twice and compare checksums
-python scripts/create-distribution.py --version 1.0.0
+python scripts/create-distribution.py --version 0.1.0
 sha256sum distribution/windows/*.exe > checksums1.txt
 
 # Clean and rebuild
 rm -rf distribution/
-python scripts/create-distribution.py --version 1.0.0
+python scripts/create-distribution.py --version 0.1.0
 sha256sum distribution/windows/*.exe > checksums2.txt
 
 # Compare

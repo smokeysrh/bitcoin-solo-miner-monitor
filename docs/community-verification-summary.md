@@ -37,7 +37,7 @@
 
 | Version | Status | Verifications | Methods | Security | Last Updated |
 |---------|--------|---------------|---------|----------|--------------|
-| **v1.0.0** | 🟢 Verified | 5 | checksum, reproducible_build, source_audit | ✅ | 2024-01-16 |
+| **v0.1.0** | 🟢 Verified | 5 | checksum, reproducible_build, source_audit | ✅ | 2024-01-16 |
 
 ## 🤝 How to Contribute
 
@@ -48,7 +48,7 @@
 
 ## 📈 Verification Trends
 
-- **Latest Version**: v1.0.0
+- **Latest Version**: v0.1.0
 - **Oldest Verification**: 2024-01-15
 - **Newest Verification**: 2024-01-16
 

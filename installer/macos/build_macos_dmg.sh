@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build/macos"
 DIST_DIR="${PROJECT_ROOT}/dist"
-VERSION="${1:-1.0.0}"
+VERSION="${1:-0.1.0}"
 
 echo "🏗️  Building macOS DMG installer for version ${VERSION}..."
 

@@ -62,7 +62,7 @@ This guide helps community members verify the authenticity and integrity of Bitc
    # Download and run verification
    curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/tools/build/verify-reproducible-build.sh
    chmod +x verify-reproducible-build.sh
-   ./verify-reproducible-build.sh v1.0.0 SHA256SUMS
+   ./verify-reproducible-build.sh v0.1.0 SHA256SUMS
    ```
 
 2. **Manual reproducible build**:
@@ -72,10 +72,10 @@ This guide helps community members verify the authenticity and integrity of Bitc
    cd bitcoin-solo-miner-monitor
    
    # Checkout the specific version
-   git checkout v1.0.0
+   git checkout v0.1.0
    
    # Run reproducible build
-   ./tools/build/build-reproducible.sh 1.0.0
+   ./tools/build/build-reproducible.sh 0.1.0
    
    # Compare checksums
    diff SHA256SUMS distribution/SHA256SUMS
@@ -95,7 +95,7 @@ This guide helps community members verify the authenticity and integrity of Bitc
    ```bash
    git clone https://github.com/smokeysrh/bitcoin-solo-miner-monitor.git
    cd bitcoin-solo-miner-monitor
-   git checkout v1.0.0
+   git checkout v0.1.0
    ```
 
 2. **Review key security areas**:
@@ -161,7 +161,7 @@ We provide a comprehensive verification tool that automates the entire process:
 ```bash
 # Download and run the community verification tool
 curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/verification/tools/community-verify.py
-python3 community-verify.py --version v1.0.0 --method all
+python3 community-verify.py --version v0.1.0 --method all
 ```
 
 ### Build Comparison Tool
@@ -171,7 +171,7 @@ Compare your build results with community-verified builds:
 ```bash
 # Download the build comparison tool
 curl -O https://raw.githubusercontent.com/smokeysrh/bitcoin-solo-miner-monitor/main/verification/tools/compare-builds.py
-python3 compare-builds.py --local distribution/SHA256SUMS --community v1.0.0
+python3 compare-builds.py --local distribution/SHA256SUMS --community v0.1.0
 ```
 
 ## Community Verification Database

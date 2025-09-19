@@ -395,7 +395,7 @@ class SecurityScanner:
             report_data = {
                 "scan_metadata": {
                     "timestamp": datetime.now().isoformat(),
-                    "scanner_version": "1.0.0",
+                    "scanner_version": "0.1.0",
                     "total_files_scanned": len(scan_results)
                 },
                 "scan_results": scan_results,

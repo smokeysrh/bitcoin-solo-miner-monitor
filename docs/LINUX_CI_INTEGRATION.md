@@ -130,9 +130,9 @@ bash installer/linux/test_package_creation.sh --type appimage
 
 ### Naming Convention
 Packages are named with distribution suffixes to avoid conflicts:
-- `bitcoin-solo-miner-monitor-1.0.0-Ubuntu-20.04.deb`
-- `bitcoin-solo-miner-monitor-1.0.0-Fedora-38.rpm`
-- `bitcoin-solo-miner-monitor-1.0.0.AppImage` (universal)
+- `bitcoin-solo-miner-monitor-0.1.0-Ubuntu-20.04.deb`
+- `bitcoin-solo-miner-monitor-0.1.0-Fedora-38.rpm`
+- `bitcoin-solo-miner-monitor-0.1.0.AppImage` (universal)
 
 ### Checksum Files
 Each build generates comprehensive checksum files:
@@ -191,7 +191,7 @@ Enable verbose output for detailed debugging:
 
 ```bash
 # Enable verbose mode in build scripts
-bash installer/linux/build_deb.sh /path/to/app /path/to/dist 1.0.0 --verbose
+bash installer/linux/build_deb.sh /path/to/app /path/to/dist 0.1.0 --verbose
 
 # Run integration tests with debug output
 bash installer/linux/test_ci_integration.sh --debug

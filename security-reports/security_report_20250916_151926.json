@@ -1,7 +1,7 @@
 {
   "scan_metadata": {
     "timestamp": "2025-09-16T15:19:26.547946",
-    "scanner_version": "1.0.0",
+    "scanner_version": "0.1.0",
     "total_files_scanned": 1
   },
   "scan_results": [

@@ -1417,7 +1417,7 @@ class APIService:
                     "overall_status": overall_status,
                     "checks": health_checks,
                     "timestamp": datetime.now().isoformat(),
-                    "version": "1.0.0"  # TODO: Get from config
+                    "version": "0.1.0"  # TODO: Get from config
                 }
             }
         except Exception as e:

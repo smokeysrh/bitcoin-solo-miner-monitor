@@ -99,7 +99,7 @@ class WebSocketManager:
                 "available_topics": ["miners", "alerts", "system", "metrics"],
                 "heartbeat_interval": self._heartbeat_interval,
                 "server_info": {
-                    "version": "1.0.0",
+                    "version": "0.1.0",
                     "features": ["real_time_updates", "multi_topic_subscription", "heartbeat"]
                 }
             })

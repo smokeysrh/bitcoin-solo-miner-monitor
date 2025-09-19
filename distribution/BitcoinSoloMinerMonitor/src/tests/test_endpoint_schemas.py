@@ -483,7 +483,7 @@ class TestHealthCheckSchemas:
         """Test health check response creation."""
         response = HealthCheckResponse(
             status=ResponseStatus.SUCCESS,
-            data={"uptime": 3600, "version": "1.0.0"},
+            data={"uptime": 3600, "version": "0.1.0"},
             overall_status="healthy",
             checks={
                 "database": {"status": "healthy", "response_time": 5},

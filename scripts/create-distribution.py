@@ -348,7 +348,7 @@ def main():
     parser = argparse.ArgumentParser(description="Build Bitcoin Solo Miner Monitor installers")
     parser.add_argument("--platform", choices=["windows", "macos", "linux", "all"], 
                        default="all", help="Platform to build for")
-    parser.add_argument("--version", required=True, help="Version string (e.g., 1.0.0)")
+    parser.add_argument("--version", required=True, help="Version string (e.g., 0.1.0)")
     parser.add_argument("--project-root", help="Project root directory")
     
     args = parser.parse_args()

@@ -30,7 +30,7 @@ class TestFeedbackService(unittest.TestCase):
             'category': 'installation',
             'message': 'Test feedback message for installation issues',
             'user_id': 'test_user_123',
-            'installer_version': '1.0.0',
+            'installer_version': '0.1.0',
             'system_info': {'os': 'Windows 10', 'arch': 'x64'},
             'severity': 'medium'
         }

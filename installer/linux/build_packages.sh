@@ -17,7 +17,7 @@ CONFIG_FILE="${PROJECT_ROOT}/installer/common/installer_config.json"
 # Default values (will be overridden by config file)
 APP_NAME="bitcoin-solo-miner-monitor"
 DISPLAY_NAME="Bitcoin Solo Miner Monitor"
-VERSION="1.0.0"
+VERSION="0.1.0"
 DESCRIPTION="A unified monitoring and management solution for Bitcoin mining hardware"
 MAINTAINER="bitcoin-solo-miner-monitor@example.com"
 WEBSITE="https://github.com/smokeysrh/bitcoin-solo-miner-monitor"

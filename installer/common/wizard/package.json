@@ -1,6 +1,6 @@
 {
   "name": "bitcoin-solo-miner-monitor-installer",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Installer wizard for Bitcoin Solo Miner Monitor",
   "main": "main.js",
   "scripts": {

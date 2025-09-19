@@ -27,8 +27,8 @@ def test_release_notes_generator():
     
     # Test basic functionality
     success, stdout, stderr = run_command([
-        sys.executable, str(script_path), "1.0.0-test",
-        "--tag-name", "v1.0.0-test"
+        sys.executable, str(script_path), "0.1.0-test",
+        "--tag-name", "v0.1.0-test"
     ], cwd=project_root)
     
     if not success:
@@ -37,7 +37,7 @@ def test_release_notes_generator():
     
     # Check if output contains expected sections
     expected_sections = [
-        "# Bitcoin Solo Miner Monitor 1.0.0-test",
+        "# Bitcoin Solo Miner Monitor 0.1.0-test",
         "## Downloads",
         "## Verification", 
         "## Installation Instructions",
@@ -87,8 +87,8 @@ Version 0.9.0 is available.
         
         # Test the updater (dry run style - just check it doesn't crash)
         success, stdout, stderr = run_command([
-            sys.executable, str(temp_script), "1.0.0-test",
-            "--tag-name", "v1.0.0-test",
+            sys.executable, str(temp_script), "0.1.0-test",
+            "--tag-name", "v0.1.0-test",
             "--project-root", str(temp_project)
         ])
         
@@ -108,7 +108,7 @@ def test_create_release_dry_run():
     
     # Test dry run
     success, stdout, stderr = run_command([
-        sys.executable, str(script_path), "1.0.0-test",
+        sys.executable, str(script_path), "0.1.0-test",
         "--dry-run"
     ], cwd=project_root)
     

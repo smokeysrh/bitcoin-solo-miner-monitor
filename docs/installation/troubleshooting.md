@@ -78,10 +78,10 @@ python3 --version
 4. **Alternative Download Methods**:
    ```bash
    # Using curl
-   curl -L -O https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/BitcoinSoloMinerMonitor-Setup.exe
+   curl -L -O https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/BitcoinSoloMinerMonitor-Setup.exe
    
    # Using wget
-   wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/BitcoinSoloMinerMonitor-Setup.exe
+   wget https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/BitcoinSoloMinerMonitor-Setup.exe
    ```
 
 ### Corrupted Downloads
@@ -100,7 +100,7 @@ python3 --version
    
    # macOS/Linux
    shasum -a 256 BitcoinSoloMinerMonitor.dmg
-   sha256sum bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+   sha256sum bitcoin-solo-miner-monitor_0.1.0_amd64.deb
    ```
 
 2. **Re-download from Different Location**:
@@ -170,10 +170,10 @@ Set-MpPreference -EnableNetworkProtection Enabled
 **Safe Resolution**:
 ```bash
 # Ubuntu/Debian - install anyway
-sudo dpkg -i --force-depends bitcoin-solo-miner-monitor_1.0.0_amd64.deb
+sudo dpkg -i --force-depends bitcoin-solo-miner-monitor_0.1.0_amd64.deb
 
 # Fedora/CentOS - skip signature check
-sudo rpm -i --nosignature bitcoin-solo-miner-monitor-1.0.0-1.x86_64.rpm
+sudo rpm -i --nosignature bitcoin-solo-miner-monitor-0.1.0-1.x86_64.rpm
 
 # Or verify checksums manually first
 sha256sum -c SHA256SUMS --ignore-missing
@@ -302,13 +302,13 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 2. **Verify Permissions**:
    ```bash
-   chmod +x BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
-   ls -la BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage
+   chmod +x BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
+   ls -la BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage
    ```
 
 3. **Run with Debug Output**:
    ```bash
-   ./BitcoinSoloMinerMonitor-1.0.0-x86_64.AppImage --appimage-debug
+   ./BitcoinSoloMinerMonitor-0.1.0-x86_64.AppImage --appimage-debug
    ```
 
 ## Runtime Issues

@@ -107,21 +107,21 @@ if %ERRORLEVEL% neq 0 (
 
 REM Move installer to distribution directory
 echo [INFO] Moving installer to distribution directory...
-move "BitcoinSoloMinerMonitor-1.0.0-Setup.exe" "%DIST_DIR%\"
+move "BitcoinSoloMinerMonitor-0.1.0-Setup.exe" "%DIST_DIR%\"
 
 REM Generate checksums
 echo [INFO] Generating checksums...
 cd "%DIST_DIR%"
-certutil -hashfile "BitcoinSoloMinerMonitor-1.0.0-Setup.exe" SHA256 > "BitcoinSoloMinerMonitor-1.0.0-Setup.exe.sha256"
+certutil -hashfile "BitcoinSoloMinerMonitor-0.1.0-Setup.exe" SHA256 > "BitcoinSoloMinerMonitor-0.1.0-Setup.exe.sha256"
 
 REM Display results
 echo.
 echo [SUCCESS] Windows installer built successfully!
 echo.
-echo Installer: %DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe
-echo Checksum: %DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe.sha256
+echo Installer: %DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe
+echo Checksum: %DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe.sha256
 echo.
-dir "%DIST_DIR%\BitcoinSoloMinerMonitor-1.0.0-Setup.exe"
+dir "%DIST_DIR%\BitcoinSoloMinerMonitor-0.1.0-Setup.exe"
 echo.
 echo === Build Complete ===
 

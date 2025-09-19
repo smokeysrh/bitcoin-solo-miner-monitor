@@ -10,15 +10,11 @@
       "disabled": false,
       "autoApprove": [
         "read_file",
-        "write_file",
         "create_directory",
         "list_directory",
         "read_text_file",
-        "directory_tree",
         "read_multiple_files",
-        "search_files",
-        "edit_file",
-        "edit_file"
+        "search_files"
       ]
     },
     "duckduckgo-search": {
@@ -30,22 +26,6 @@
       "autoApprove": [
         "duckduckgo_search",
         "fetch_content"
-      ]
-    },
-    "puppeteer": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-puppeteer"
-      ],
-      "disabled": false,
-      "autoApprove": [
-        "puppeteer_screenshot",
-        "puppeteer_click",
-        "puppeteer_type",
-        "puppeteer_navigate",
-        "puppeteer_evaluate",
-        "puppeteer_fill"
       ]
     }
   }

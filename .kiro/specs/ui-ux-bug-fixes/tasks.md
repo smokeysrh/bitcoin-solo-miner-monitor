@@ -58,7 +58,7 @@
   - Provide message for commit summarizing the changes made in this task
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 3.1 Fix header positioning and scroll behavior
+- [x] 3.1 Fix header positioning and scroll behavior
   - Implement sticky positioning for application header component
   - Set proper z-index values to ensure header stays above page content
   - Test header behavior across different page lengths and scroll positions
@@ -66,7 +66,8 @@
 
 - [ ] 3.2 Ensure sidebar menu accessibility from any scroll position
   - Verify menu button remains accessible in fixed header during scrolling
-  - Test sidebar open/close functionality from various scroll positions
+  - Sidebar should be locked to the header with the hamburger button
+  - The sidebar manu should scroll with the screen
   - Implement proper overlay behavior for sidebar drawer component
   - _Requirements: 3.2, 3.3, 3.4_
 

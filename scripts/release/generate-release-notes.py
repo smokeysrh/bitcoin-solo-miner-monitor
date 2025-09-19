@@ -437,7 +437,7 @@ class ReleaseNotesGenerator:
 
 All notable changes to Bitcoin Solo Miner Monitor will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 {changelog_entry}"""
@@ -452,7 +452,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Generate release notes for Bitcoin Solo Miner Monitor")
-    parser.add_argument("version", help="Version string (e.g., 1.0.0)")
+    parser.add_argument("version", help="Version string (e.g., 0.1.0)")
     parser.add_argument("--tag-name", help="Git tag name (defaults to v{version})")
     parser.add_argument("--output", help="Output file (defaults to stdout)")
     parser.add_argument("--update-changelog", action="store_true", help="Update CHANGELOG.md")

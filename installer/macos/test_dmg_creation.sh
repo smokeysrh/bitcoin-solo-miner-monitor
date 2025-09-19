@@ -7,7 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TEST_DIR="${PROJECT_ROOT}/test_build"
-VERSION="1.0.0-test"
+VERSION="0.1.0-test"
 
 echo "🧪 Testing macOS DMG creation process..."
 

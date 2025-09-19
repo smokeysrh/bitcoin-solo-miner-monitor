@@ -44,7 +44,7 @@ This guide provides comprehensive instructions for submitting Bitcoin Solo Miner
 **Required Information for All Platforms**
 ```yaml
 name: bitcoin-solo-miner-monitor
-version: 1.0.0
+version: 0.1.0
 description: "Open-source Bitcoin solo mining monitor and management tool"
 homepage: "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
 license: "MIT"
@@ -97,7 +97,7 @@ bitcoin-solo-miner-monitor/
 ```bash
 # Maintainer: Your Name <your.email@example.com>
 pkgname=bitcoin-solo-miner-monitor
-pkgver=1.0.0
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="Open-source Bitcoin solo mining monitor and management tool"
 arch=('x86_64')
@@ -218,7 +218,7 @@ git push origin master
 
 **Package Structure**
 ```
-bitcoin-solo-miner-monitor-1.0.0/
+bitcoin-solo-miner-monitor-0.1.0/
 ├── debian/
 │   ├── control
 │   ├── rules
@@ -334,7 +334,7 @@ override_dh_installsystemd:
 debuild -S -sa
 
 # 2. Upload to PPA
-dput ppa:yourusername/bitcoin-mining ../bitcoin-solo-miner-monitor_1.0.0-1_source.changes
+dput ppa:yourusername/bitcoin-mining ../bitcoin-solo-miner-monitor_0.1.0-1_source.changes
 
 # 3. Monitor build status
 # Check Launchpad for build results and fix any issues
@@ -356,7 +356,7 @@ dput ppa:yourusername/bitcoin-mining ../bitcoin-solo-miner-monitor_1.0.0-1_sourc
 class BitcoinSoloMinerMonitor < Formula
   desc "Open-source Bitcoin solo mining monitor and management tool"
   homepage "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
-  url "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/archive/v1.0.0.tar.gz"
+  url "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/archive/v0.1.0.tar.gz"
   sha256 "your-sha256-checksum-here"
   license "MIT"
   head "https://github.com/smokeysrh/bitcoin-solo-miner-monitor.git", branch: "main"
@@ -487,7 +487,7 @@ bitcoin-solo-miner-monitor/
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>bitcoin-solo-miner-monitor</id>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
     <packageSourceUrl>https://github.com/smokeysrh/bitcoin-solo-miner-monitor</packageSourceUrl>
     <owners>YourChocolateyUsername</owners>
     <title>Bitcoin Solo Miner Monitor</title>
@@ -527,7 +527,7 @@ After installation, the application can be started from the Start Menu or by run
 
 For support and documentation, visit the project repository or join our Discord community at https://discord.gg/GzNsNnh4yT.
     ]]></description>
-    <releaseNotes>https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v1.0.0</releaseNotes>
+    <releaseNotes>https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v0.1.0</releaseNotes>
     <dependencies>
       <dependency id="python3" version="3.8.0" />
       <dependency id="nodejs" version="16.0.0" />
@@ -546,7 +546,7 @@ $ErrorActionPreference = 'Stop'
 
 $packageName = 'bitcoin-solo-miner-monitor'
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
-$url64 = 'https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.0.0/BitcoinSoloMinerMonitor-1.0.0-Setup.exe'
+$url64 = 'https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v0.1.0/BitcoinSoloMinerMonitor-0.1.0-Setup.exe'
 $checksum64 = 'your-sha256-checksum-here'
 
 $packageArgs = @{
@@ -582,7 +582,7 @@ choco install bitcoin-solo-miner-monitor -s . -f
 bitcoin-solo-miner-monitor --help
 
 # 3. Submit to Chocolatey Community Repository
-choco push bitcoin-solo-miner-monitor.1.0.0.nupkg --source https://push.chocolatey.org/
+choco push bitcoin-solo-miner-monitor.0.1.0.nupkg --source https://push.chocolatey.org/
 
 # 4. Monitor moderation process
 # Check https://chocolatey.org/packages/bitcoin-solo-miner-monitor for status
@@ -842,7 +842,7 @@ find . -type d -exec chmod 755 {} \;
 # Issue: PKGBUILD validation errors
 # Solution: Use namcap for validation
 namcap PKGBUILD
-namcap bitcoin-solo-miner-monitor-1.0.0-1-x86_64.pkg.tar.xz
+namcap bitcoin-solo-miner-monitor-0.1.0-1-x86_64.pkg.tar.xz
 
 # Issue: Orphaned dependencies
 # Solution: Review and update dependency lists
@@ -853,7 +853,7 @@ pactree bitcoin-solo-miner-monitor
 ```bash
 # Issue: Lintian warnings
 # Solution: Fix package policy violations
-lintian bitcoin-solo-miner-monitor_1.0.0-1_all.deb
+lintian bitcoin-solo-miner-monitor_0.1.0-1_all.deb
 
 # Issue: Build dependencies not found
 # Solution: Update build environment

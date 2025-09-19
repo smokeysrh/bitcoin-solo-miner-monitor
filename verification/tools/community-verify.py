@@ -380,7 +380,7 @@ def main():
     parser.add_argument(
         "--version", "-v",
         required=True,
-        help="Version to verify (e.g., v1.0.0)"
+        help="Version to verify (e.g., v0.1.0)"
     )
     parser.add_argument(
         "--method", "-m",
