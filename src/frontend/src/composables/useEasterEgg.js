@@ -37,13 +37,19 @@ const ANIMATION_CONFIG = {
   // PacMan animation config
   pacmanSize: 35, // 35% of viewport size
   pacmanDuration: 8000, // 8 seconds for PacMan animation
+  // Spiral vortex config
+  spiralCount: 20, // Number of logos in spiral
+  spiralDuration: 14000, // 14 seconds total animation (slower)
+  spiralInDuration: 6000, // 6 seconds spiraling in (slower)
+  explosionDuration: 3000, // 3 seconds explosion out (slower)
 };
 
 // Available animation types
 const ANIMATION_TYPES = {
   FALLING_COINS: 'falling_coins',
   PACMAN: 'pacman',
-  BUGS_KING: 'bugs_king'
+  BUGS_KING: 'bugs_king',
+  SPIRAL_VORTEX: 'spiral_vortex'
 };
 
 // Get easter egg hints
@@ -81,16 +87,16 @@ export function useEasterEgg() {
     const fallDuration =
       ANIMATION_CONFIG.fallSpeed.min +
       Math.random() *
-        (ANIMATION_CONFIG.fallSpeed.max - ANIMATION_CONFIG.fallSpeed.min);
+      (ANIMATION_CONFIG.fallSpeed.max - ANIMATION_CONFIG.fallSpeed.min);
     const rotationSpeed =
       ANIMATION_CONFIG.rotationSpeed.min +
       Math.random() *
-        (ANIMATION_CONFIG.rotationSpeed.max -
-          ANIMATION_CONFIG.rotationSpeed.min);
+      (ANIMATION_CONFIG.rotationSpeed.max -
+        ANIMATION_CONFIG.rotationSpeed.min);
     const delay = Math.random() * 1000; // Stagger the start times
 
-    // Use the Bitcoin SVG directly
-    const logoUrl = "/bitcoin-symbol.svg";
+    // Use the Bitcoin PNG directly
+    const logoUrl = "/bitcoin-symbol.png";
 
     // Set initial styles
     Object.assign(logo.style, {
@@ -211,7 +217,7 @@ export function useEasterEgg() {
     setTimeout(() => {
       pacman.style.opacity = "0";
       pacman.style.transform = "scale(0.8)";
-      
+
       setTimeout(() => {
         if (pacman.parentNode) {
           pacman.parentNode.removeChild(pacman);
@@ -272,7 +278,7 @@ export function useEasterEgg() {
     setTimeout(() => {
       bugsKing.style.opacity = "0";
       bugsKing.style.transform = "scale(0.8)";
-      
+
       setTimeout(() => {
         if (bugsKing.parentNode) {
           bugsKing.parentNode.removeChild(bugsKing);
@@ -286,6 +292,128 @@ export function useEasterEgg() {
     }, ANIMATION_CONFIG.pacmanDuration);
 
     return bugsKing;
+  };
+
+  // Create spiral vortex animation
+  const createSpiralVortexAnimation = () => {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const maxRadius = Math.min(window.innerWidth, window.innerHeight) * 0.4;
+    const spiralLogos = [];
+
+    // Create multiple logos for the spiral
+    for (let i = 0; i < ANIMATION_CONFIG.spiralCount; i++) {
+      const logo = document.createElement("div");
+      logo.className = "bitcoin-easter-egg-spiral-logo";
+
+      // Calculate starting position (outer spiral)
+      const angle = (i / ANIMATION_CONFIG.spiralCount) * Math.PI * 4; // 2 full rotations
+      const radius = maxRadius;
+      const startX = centerX + Math.cos(angle) * radius;
+      const startY = centerY + Math.sin(angle) * radius;
+
+      // Set initial styles
+      Object.assign(logo.style, {
+        position: "fixed",
+        left: `${startX}px`,
+        top: `${startY}px`,
+        width: `${ANIMATION_CONFIG.logoSize}px`,
+        height: `${ANIMATION_CONFIG.logoSize}px`,
+        backgroundImage: `url(/bitcoin-symbol.png)`,
+        backgroundSize: "contain",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        zIndex: ANIMATION_CONFIG.zIndex,
+        pointerEvents: "none",
+        opacity: "0",
+        transform: "scale(0.5) rotate(0deg)",
+        transition: "opacity 0.5s ease-out",
+      });
+
+      document.body.appendChild(logo);
+      animationElements.value.push(logo);
+      spiralLogos.push({ element: logo, angle, radius, startDelay: i * 150 });
+
+      // Fade in with stagger (slower)
+      setTimeout(() => {
+        logo.style.opacity = "1";
+        logo.style.transform = "scale(1) rotate(0deg)";
+      }, i * 75);
+    }
+
+    // Phase 1: Spiral inward
+    spiralLogos.forEach(({ element, angle: initialAngle, startDelay }) => {
+      setTimeout(() => {
+        let startTime = performance.now();
+        const spiralIn = (currentTime) => {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / ANIMATION_CONFIG.spiralInDuration, 1);
+
+          // Easing function for smooth spiral
+          const easeInOut = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+          // Calculate current position
+          const currentRadius = maxRadius * (1 - easeInOut);
+          const rotations = easeInOut * 4; // 4 full rotations while spiraling in (slower)
+          const currentAngle = initialAngle + rotations * Math.PI * 2;
+
+          const x = centerX + Math.cos(currentAngle) * currentRadius;
+          const y = centerY + Math.sin(currentAngle) * currentRadius;
+          const rotation = rotations * 360;
+          const scale = 0.5 + (easeInOut * 0.5); // Scale from 0.5 to 1
+
+          element.style.left = `${x}px`;
+          element.style.top = `${y}px`;
+          element.style.transform = `scale(${scale}) rotate(${rotation}deg)`;
+
+          if (progress < 1) {
+            requestAnimationFrame(spiralIn);
+          }
+        };
+        requestAnimationFrame(spiralIn);
+      }, startDelay);
+    });
+
+    // Phase 2: Explosion outward
+    setTimeout(() => {
+      spiralLogos.forEach(({ element }, index) => {
+        // Ensure even distribution around full circle with slight randomness
+        const baseAngle = (index / ANIMATION_CONFIG.spiralCount) * Math.PI * 2;
+        const randomOffset = (Math.random() - 0.5) * 0.3; // Small random offset
+        const explosionAngle = baseAngle + randomOffset;
+
+        // Variable explosion distance for more natural effect
+        const baseDistance = maxRadius * 2.5;
+        const randomDistance = baseDistance + (Math.random() - 0.5) * maxRadius * 0.5;
+
+        const finalX = centerX + Math.cos(explosionAngle) * randomDistance;
+        const finalY = centerY + Math.sin(explosionAngle) * randomDistance;
+
+        // Slower, more dramatic transition
+        element.style.transition = `all ${ANIMATION_CONFIG.explosionDuration}ms cubic-bezier(0.15, 0.25, 0.25, 0.95)`;
+        element.style.left = `${finalX}px`;
+        element.style.top = `${finalY}px`;
+        element.style.transform = `scale(0.1) rotate(900deg)`; // More rotation, smaller final scale
+        element.style.opacity = "0";
+      });
+    }, ANIMATION_CONFIG.spiralInDuration + 800); // Slightly longer pause before explosion
+
+    // Cleanup
+    setTimeout(() => {
+      spiralLogos.forEach(({ element }) => {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+        const index = animationElements.value.indexOf(element);
+        if (index > -1) {
+          animationElements.value.splice(index, 1);
+        }
+      });
+    }, ANIMATION_CONFIG.spiralDuration);
+
+    return spiralLogos;
   };
 
   // Randomly select and start an animation
@@ -304,26 +432,35 @@ export function useEasterEgg() {
     if (randomType === ANIMATION_TYPES.PACMAN) {
       // PacMan animation
       createPacManAnimation();
-      
+
       // Auto-cleanup after PacMan duration
       setTimeout(() => {
         stopAnimation();
       }, ANIMATION_CONFIG.pacmanDuration + 1000); // Extra time for fade out
-      
+
     } else if (randomType === ANIMATION_TYPES.BUGS_KING) {
       // Bugs King animation
       createBugsKingAnimation();
-      
+
       // Auto-cleanup after Bugs King duration
       setTimeout(() => {
         stopAnimation();
       }, ANIMATION_CONFIG.pacmanDuration + 1000); // Extra time for fade out
-      
+
+    } else if (randomType === ANIMATION_TYPES.SPIRAL_VORTEX) {
+      // Spiral Vortex animation
+      createSpiralVortexAnimation();
+
+      // Auto-cleanup after spiral duration
+      setTimeout(() => {
+        stopAnimation();
+      }, ANIMATION_CONFIG.spiralDuration + 1000); // Extra time for cleanup
+
     } else {
       // Falling coins animation (default)
       const createWave = () => {
         if (!isActive.value) return;
-        
+
         // Create a wave of logos with quick staggered timing
         for (let i = 0; i < ANIMATION_CONFIG.logoCount; i++) {
           setTimeout(() => {
