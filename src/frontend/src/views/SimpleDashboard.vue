@@ -372,21 +372,9 @@ export default {
       }
     };
 
-    const scanNetwork = async () => {
-      scanning.value = true;
-      try {
-        // Use default network range for simple dashboard
-        const defaultNetwork = "192.168.1.0/24";
-        await minersStore.startDiscovery(defaultNetwork);
-        
-        showInfo("Network scan initiated");
-        console.log("Network scan initiated");
-      } catch (error) {
-        console.error("Error scanning network:", error);
-        showError("Failed to start network scan");
-      } finally {
-        scanning.value = false;
-      }
+    const scanNetwork = () => {
+      // QuickActions component handles the dialog
+      // No action needed here - dialog is managed by QuickActions
     };
 
     const viewAnalytics = () => {

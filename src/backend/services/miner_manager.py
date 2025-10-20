@@ -48,6 +48,12 @@ class MinerManager:
         self._miners_lock = asyncio.Lock()
         # WebSocket manager for real-time updates (will be set by API service)
         self.websocket_manager = None
+        # TimeSeriesStorage for metrics persistence (will be set by API service)
+        self.timeseries_storage = None
+        # Metrics saving configuration - decoupled from polling interval
+        # Fixed at 60 seconds to align with Analytics minimum timeframe (1 minute)
+        self.metrics_save_interval = 60  # seconds
+        self.last_metrics_save: Dict[str, datetime] = {}  # Track last save time per miner
     
     async def start(self):
         """
@@ -129,44 +135,61 @@ class MinerManager:
             if not miner:
                 return None
             
-            # Generate miner ID
+            # Get device info to determine actual type and model
+            device_info = await miner.get_device_info()
+            
+            # Determine the actual device type from device_info
+            # This allows proper differentiation between Bitaxe and NerdQaxe variants
+            actual_type = miner_type  # Default to the factory type
+            if device_info and "type" in device_info:
+                actual_type = device_info["type"]
+                logger.debug(f"Device type from device_info: {actual_type}")
+            
+            # Generate miner ID using the factory type (for consistency)
             miner_id = f"{miner_type}_{ip_address}".replace(".", "_")
             
             # Generate name if not provided
             if not name:
-                device_info = await miner.get_device_info()
                 if device_info and "model" in device_info:
-                    name = f"{device_info['model']} ({ip_address})"
+                    # Clean up model name by removing trailing underscores
+                    model_name = str(device_info['model']).strip().rstrip('_')
+                    name = f"{model_name} - {ip_address}"
                 else:
-                    name = f"{miner_type.capitalize()} ({ip_address})"
+                    name = f"{miner_type.capitalize()} - {ip_address}"
+            else:
+                # Clean up provided name by removing trailing underscores
+                name = str(name).strip().rstrip('_')
             
             # Add miner to manager with thread safety
             async with self._miners_lock:
                 self.miners[miner_id] = miner
             
             # Use thread-safe miner data manager
+            # Store the actual device type (e.g., "NerdQaxe++" or "Bitaxe")
             await self.miner_data_manager.set_miner(miner_id, {
                 "id": miner_id,
                 "name": name,
-                "type": miner_type,
+                "type": actual_type,  # Use actual type from device_info
                 "ip_address": ip_address,
                 "port": port,
                 "added_at": datetime.now().isoformat(),
                 "status": "connected",
                 "last_updated": None,
-                "metrics": {}
+                "metrics": {},
+                "device_info": device_info  # Store full device_info for reference
             })
             
             # Start polling for this miner if manager is running
             if self.is_running:
                 await self.start_polling(miner_id)
             
-            logger.info(f"Added miner {miner_id} ({name})", {
+            logger.info(f"Added miner {miner_id} ({name}) with type {actual_type}", {
                 'miner_id': miner_id,
-                'miner_type': miner_type,
+                'miner_type': actual_type,
+                'factory_type': miner_type,
                 'ip_address': ip_address,
                 'port': port,
-                'name': name
+                'miner_name': name
             })
             return miner_id
         except MinerError as e:
@@ -227,6 +250,10 @@ class MinerManager:
             
             # Remove miner data using thread-safe manager
             await self.miner_data_manager.remove_miner(miner_id)
+            
+            # Clean up metrics save tracking
+            if miner_id in self.last_metrics_save:
+                del self.last_metrics_save[miner_id]
             
             logger.info(f"Removed miner {miner_id}", {
                 'miner_id': miner_id
@@ -371,18 +398,50 @@ class MinerManager:
         Returns:
             bool: True if discovery started successfully, False otherwise
         """
+        logger.info(f"=== MINER MANAGER START_DISCOVERY CALLED ===")
+        logger.info(f"Network: {network}")
+        logger.info(f"Ports: {ports}")
+        logger.info(f"Timeout: {timeout}")
+        logger.info(f"Current discovery task: {self.discovery_task}")
+        logger.info(f"Discovery task done: {self.discovery_task.done() if self.discovery_task else 'N/A'}")
+        logger.info(f"WebSocket manager available: {self.websocket_manager is not None}")
+        if self.websocket_manager:
+            connection_count = await self.websocket_manager._thread_safe_manager.get_connection_count("all")
+            logger.info(f"WebSocket connections: {connection_count}")
+        
         if self.discovery_task and not self.discovery_task.done():
             logger.warning("Discovery already in progress")
             return False
         
         try:
-            # Initialize discovery state
+            # PRE-CALCULATE total_hosts before initializing state
+            logger.info("Pre-calculating total hosts from network range...")
+            total_hosts = 0
+            try:
+                if '-' in network:
+                    # Handle IP range format: "192.168.1.1-192.168.1.254"
+                    start_ip, end_ip = network.split('-')
+                    start_addr = ipaddress.ip_address(start_ip.strip())
+                    end_addr = ipaddress.ip_address(end_ip.strip())
+                    total_hosts = int(end_addr) - int(start_addr) + 1
+                    logger.info(f"IP range format: {total_hosts} hosts from {start_ip} to {end_ip}")
+                else:
+                    # Handle CIDR notation: "192.168.1.0/24"
+                    network_obj = ipaddress.ip_network(network)
+                    total_hosts = len(list(network_obj.hosts()))
+                    logger.info(f"CIDR format: {total_hosts} hosts in {network}")
+            except (ValueError, ipaddress.AddressValueError) as e:
+                logger.error(f"Invalid network format: {network} - {str(e)}")
+                total_hosts = 0
+            
+            logger.info("Initializing discovery state...")
+            # Initialize discovery state with correct total_hosts
             self.discovery_state = {
                 "status": "starting",
                 "network": network,
                 "ports": ports or [80, 4028],
                 "timeout": timeout,
-                "total_hosts": 0,
+                "total_hosts": total_hosts,  # Now has correct value!
                 "scanned_hosts": 0,
                 "current_ip": None,
                 "found_miners": [],
@@ -390,18 +449,36 @@ class MinerManager:
                 "end_time": None,
                 "error": None
             }
+            logger.info(f"Discovery state initialized with {total_hosts} total hosts")
             
+            # Broadcast initial state immediately
+            if self.websocket_manager:
+                logger.info("Broadcasting initial discovery state...")
+                await self.websocket_manager.broadcast_to_topic("discovery", {
+                    "type": "discovery_update",
+                    "data": self.discovery_state
+                })
+                logger.info("Initial discovery state broadcasted successfully")
+            else:
+                logger.warning("WebSocket manager not available - no real-time updates will be sent")
+            
+            logger.info("Creating discovery task...")
             self.discovery_task = asyncio.create_task(self._discover_miners(network, ports, timeout))
+            logger.info(f"Discovery task created: {self.discovery_task}")
+            
             self.last_discovery = datetime.now()
+            logger.info("=== MINER MANAGER START_DISCOVERY COMPLETED SUCCESSFULLY ===")
             return True
         except DiscoveryError as e:
             logger.error(f"Discovery error starting discovery", {
-                'error_type': 'discovery_error'
+                'error_type': 'discovery_error',
+                'error': str(e)
             })
             return False
         except NetworkError as e:
             logger.error(f"Network error starting discovery", {
-                'error_type': 'network_error'
+                'error_type': 'network_error',
+                'error': str(e)
             })
             return False
         except (RuntimeError, MemoryError) as e:
@@ -409,6 +486,14 @@ class MinerManager:
                 'error_type': 'system_error',
                 'error': str(e)
             })
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error starting discovery", {
+                'error_type': 'unexpected_error',
+                'error': str(e)
+            })
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False
     
     async def get_discovery_status(self) -> Dict[str, Any]:
@@ -515,6 +600,15 @@ class MinerManager:
         """
         self.websocket_manager = websocket_manager
     
+    def set_timeseries_storage(self, timeseries_storage):
+        """
+        Set the timeseries storage instance for metrics persistence.
+        
+        Args:
+            timeseries_storage: TimeSeriesStorage instance
+        """
+        self.timeseries_storage = timeseries_storage
+    
     async def set_polling_interval(self, interval: int) -> bool:
         """
         Set the polling interval for all miners.
@@ -610,6 +704,37 @@ class MinerManager:
             })
             return False
     
+    def _extract_metrics(self, status: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract relevant metrics from miner status for storage.
+        Returns a flat dictionary of metric_name: value pairs.
+        
+        Args:
+            status: Miner status dictionary
+            
+        Returns:
+            Dict[str, Any]: Flat dictionary of metrics
+        """
+        metrics = {}
+        
+        # Extract common metrics
+        if 'hashrate' in status:
+            metrics['hashrate'] = status['hashrate']
+        if 'temperature' in status:
+            metrics['temperature'] = status['temperature']
+        if 'power' in status:
+            metrics['power'] = status['power']
+        if 'fan_speed' in status:
+            metrics['fan_speed'] = status['fan_speed']
+        if 'shares_accepted' in status:
+            metrics['shares_accepted'] = status['shares_accepted']
+        if 'shares_rejected' in status:
+            metrics['shares_rejected'] = status['shares_rejected']
+        if 'uptime' in status:
+            metrics['uptime'] = status['uptime']
+        
+        return metrics
+    
     async def _poll_miner(self, miner_id: str):
         """
         Poll a miner for status and metrics.
@@ -633,12 +758,16 @@ class MinerManager:
                 # Get pool info
                 pool_info = await miner.get_pool_info()
                 
+                # Get device info to keep type and model updated
+                device_info = await miner.get_device_info()
+                
                 # Prepare update data
                 update_data = {
                     "status": "online" if status.get("online", False) else "offline",
                     "last_updated": datetime.now().isoformat(),
                     "metrics": metrics,
-                    "pool_info": pool_info
+                    "pool_info": pool_info,
+                    "device_info": device_info
                 }
                 
                 # Add status data (excluding 'online' as we already set it)
@@ -648,6 +777,47 @@ class MinerManager:
                 
                 # Update miner data using thread-safe manager
                 await self.miner_data_manager.update_miner(miner_id, update_data)
+                
+                # Save metrics to timeseries storage (throttled to metrics_save_interval)
+                # This is decoupled from polling_interval to reduce storage usage
+                # while maintaining responsive UI updates
+                if self.timeseries_storage and status:
+                    current_time = datetime.now()
+                    last_save = self.last_metrics_save.get(miner_id)
+                    
+                    # Check if enough time has passed since last save
+                    should_save = (
+                        last_save is None or 
+                        (current_time - last_save).total_seconds() >= self.metrics_save_interval
+                    )
+                    
+                    if should_save:
+                        try:
+                            # Extract metrics from status
+                            extracted_metrics = self._extract_metrics(status)
+                            # Also include metrics from the metrics dict
+                            if metrics:
+                                extracted_metrics.update(metrics)
+                            
+                            # Save to timeseries storage
+                            await self.timeseries_storage.save_metrics(
+                                miner_id, 
+                                extracted_metrics, 
+                                current_time
+                            )
+                            
+                            # Update last save time
+                            self.last_metrics_save[miner_id] = current_time
+                            
+                            logger.debug(f"Saved metrics for miner {miner_id} to timeseries storage "
+                                       f"(interval: {self.metrics_save_interval}s)")
+                        except Exception as e:
+                            logger.error(f"Failed to save metrics for {miner_id}: {e}")
+                            # Don't fail the polling cycle - just log the error
+                    else:
+                        elapsed = (current_time - last_save).total_seconds()
+                        logger.debug(f"Skipping metrics save for {miner_id} "
+                                   f"(elapsed: {elapsed:.1f}s, interval: {self.metrics_save_interval}s)")
             except MinerConnectionError as e:
                 logger.error(f"Connection error polling miner {miner_id}", {
                     'miner_id': miner_id,
@@ -693,17 +863,40 @@ class MinerManager:
             List[Dict[str, Any]]: List of discovered miners
         """
         if ports is None:
-            # Default ports to check
-            ports = [80, 4028]
+            # Default ports to check - include Bitcoin node ports
+            ports = [80, 4028, 8332, 18332, 8333, 18333, 8080]
         
         discovered_miners = []
         
         try:
-            # Parse network
-            network_obj = ipaddress.ip_network(network)
-            
-            # Get list of hosts to scan
-            hosts = list(network_obj.hosts())
+            # Parse network - handle both CIDR notation and IP ranges
+            if '-' in network:
+                # Handle IP range format: "192.168.1.83-192.168.1.88"
+                logger.info(f"Parsing IP range: {network}")
+                start_ip, end_ip = network.split('-')
+                start_ip = start_ip.strip()
+                end_ip = end_ip.strip()
+                
+                # Convert to IP address objects
+                start_addr = ipaddress.ip_address(start_ip)
+                end_addr = ipaddress.ip_address(end_ip)
+                
+                # Generate list of IPs in the range
+                hosts = []
+                current = int(start_addr)
+                end = int(end_addr)
+                
+                while current <= end:
+                    hosts.append(ipaddress.ip_address(current))
+                    current += 1
+                
+                logger.info(f"Generated {len(hosts)} hosts from range {start_ip} to {end_ip}")
+            else:
+                # Handle CIDR notation: "192.168.1.0/24"
+                logger.info(f"Parsing CIDR network: {network}")
+                network_obj = ipaddress.ip_network(network)
+                hosts = list(network_obj.hosts())
+                logger.info(f"Generated {len(hosts)} hosts from CIDR {network}")
             
             # Update discovery state
             if self.discovery_state:
@@ -718,9 +911,9 @@ class MinerManager:
                         "data": self.discovery_state
                     })
             
-            # Scan hosts sequentially for better progress tracking
-            # Use semaphore to limit concurrent scans for better control
-            semaphore = asyncio.Semaphore(10)  # Limit to 10 concurrent scans
+            # Scan hosts with optimized concurrency for better performance
+            # Increased from 3 to 15 for faster scanning while maintaining stability
+            semaphore = asyncio.Semaphore(15)  # Allow 15 concurrent scans for better performance
             
             async def scan_with_progress(host_ip: str) -> Optional[Dict[str, Any]]:
                 async with semaphore:
@@ -729,13 +922,30 @@ class MinerManager:
                         if self.discovery_state:
                             self.discovery_state["current_ip"] = host_ip
                             
-                            # Broadcast progress update every 5 hosts or for first/last host
-                            if (self.discovery_state["scanned_hosts"] % 5 == 0 or 
-                                self.discovery_state["scanned_hosts"] == 0 or
-                                self.discovery_state["scanned_hosts"] == self.discovery_state["total_hosts"] - 1):
-                                if self.websocket_manager:
-                                    await self.websocket_manager.broadcast_to_topic("discovery", {
-                                        "type": "discovery_update",
+                            # Improved update frequency for better UX
+                            # Small networks (<=20): Update every host
+                            # Medium networks (21-100): Update every 5 hosts
+                            # Large networks (>100): Update every 10 hosts
+                            total = self.discovery_state["total_hosts"]
+                            scanned = self.discovery_state["scanned_hosts"]
+                            
+                            if total <= 20:
+                                update_frequency = 1
+                            elif total <= 100:
+                                update_frequency = 5
+                            else:
+                                update_frequency = 10
+                            
+                            should_update = (
+                                scanned % update_frequency == 0 or 
+                                scanned == 0 or
+                                scanned == total - 1
+                            )
+                            
+                            if should_update and self.websocket_manager:
+                                logger.debug(f"Broadcasting progress: {scanned}/{total} hosts scanned, current IP: {host_ip}")
+                                await self.websocket_manager.broadcast_to_topic("discovery", {
+                                    "type": "discovery_update",
                                         "data": self.discovery_state
                                     })
                         
@@ -747,6 +957,13 @@ class MinerManager:
                             self.discovery_state["scanned_hosts"] += 1
                             if result:
                                 self.discovery_state["found_miners"].append(result)
+                                # Broadcast immediately when a miner is found
+                                if self.websocket_manager:
+                                    logger.info(f"Miner found at {host_ip}! Broadcasting update...")
+                                    await self.websocket_manager.broadcast_to_topic("discovery", {
+                                        "type": "discovery_update",
+                                        "data": self.discovery_state
+                                    })
                         
                         return result
                     except asyncio.CancelledError:
@@ -787,10 +1004,14 @@ class MinerManager:
                 
                 # Broadcast final status
                 if self.websocket_manager:
+                    logger.info(f"Broadcasting final discovery status: {len(discovered_miners)} miners found")
                     await self.websocket_manager.broadcast_to_topic("discovery", {
                         "type": "discovery_update",
                         "data": self.discovery_state
                     })
+                    logger.info("Final discovery status broadcasted successfully")
+                else:
+                    logger.warning("WebSocket manager not available for final broadcast")
             
             logger.info(f"Discovery completed. Found {len(discovered_miners)} miners on network {network}")
             return discovered_miners
@@ -843,17 +1064,35 @@ class MinerManager:
         Returns:
             Optional[Dict[str, Any]]: Discovered miner information or None if no miner found
         """
-        # First check if ports are open
-        open_ports = await self._check_open_ports(ip_address, ports, timeout)
-        if not open_ports:
+        try:
+            # First check if ports are open (this is fast)
+            open_ports = await self._check_open_ports(ip_address, ports, timeout)
+            if not open_ports:
+                return None
+            
+            # Try to detect miner type with a reasonable timeout
+            # Use 6x the connection timeout for full miner detection (allows time for sequential Bitcoin port checks)
+            detection_timeout = timeout * 6
+            
+            try:
+                logger.info(f"Starting miner type detection for {ip_address} with open ports: {open_ports}")
+                result = await asyncio.wait_for(
+                    MinerFactory.detect_miner_type(ip_address, open_ports),
+                    timeout=detection_timeout
+                )
+                if result:
+                    logger.info(f"Miner detected on {ip_address}: {result}")
+                    return result
+                else:
+                    logger.info(f"No miner detected on {ip_address}")
+            except asyncio.TimeoutError:
+                logger.info(f"Miner detection timed out for {ip_address} after {detection_timeout}s")
+                return None
+            
             return None
-        
-        # Try to detect miner type
-        result = await MinerFactory.detect_miner_type(ip_address, open_ports)
-        if result:
-            return result
-        
-        return None
+        except Exception as e:
+            logger.debug(f"Error scanning host {ip_address}: {str(e)}")
+            return None
     
     async def _check_open_ports(self, ip_address: str, ports: List[int], timeout: int = 5) -> List[int]:
         """
@@ -871,11 +1110,14 @@ class MinerManager:
         
         async def check_port(port: int) -> Optional[int]:
             try:
+                # Use a shorter timeout for initial port checking (1/3 of the main timeout)
+                port_timeout = max(1, timeout // 3)
+                
                 # Use asyncio to create connection with timeout
                 future = asyncio.open_connection(ip_address, port)
-                reader, writer = await asyncio.wait_for(future, timeout=timeout)
+                reader, writer = await asyncio.wait_for(future, timeout=port_timeout)
                 
-                # Close connection
+                # Close connection immediately
                 writer.close()
                 await writer.wait_closed()
                 

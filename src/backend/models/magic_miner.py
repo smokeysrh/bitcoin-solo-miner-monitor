@@ -230,39 +230,95 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
         """
         if not self.device_info:
             try:
-                html = await self._http_get_text("/system")
-                if html:
-                    self.device_info = await self._extract_device_info(html)
+                logger.debug(f"Attempting Magic Miner validation at {self.ip_address}")
+                
+                # First, try to get the main page to see if it's a web interface
+                main_html = await self._http_get_text("/")
+                if not main_html:
+                    logger.debug(f"No response from main page at {self.ip_address}")
+                    return {}
+                
+                # Check if this responds like a JSON API (which would indicate it's not a Magic Miner)
+                main_html_lower = main_html.lower().strip()
+                if main_html_lower.startswith('{') or main_html_lower.startswith('['):
+                    logger.debug(f"Device at {self.ip_address} returns JSON, not a Magic Miner web interface")
+                    return {}
+                
+                # Try to get the system page to validate this is a Magic Miner
+                system_html = await self._http_get_text("/system")
+                if not system_html:
+                    # If /system doesn't exist, try other common Magic Miner pages
+                    system_html = await self._http_get_text("/status")
+                    if not system_html:
+                        system_html = main_html  # Fall back to main page
+                
+                # Require HTML content
+                if "<html" not in main_html_lower:
+                    logger.debug(f"Device at {self.ip_address} does not return HTML")
+                    return {}
+                
+                combined_html = (main_html + " " + system_html).lower()
+                
+                # Check for BG02-specific indicators (REQUIRED)
+                bg02_specific = [
+                    "bg02",
+                    "magic miner",
+                    "magicminer"
+                ]
+                
+                has_bg02_indicator = any(indicator in combined_html for indicator in bg02_specific)
+                
+                if not has_bg02_indicator:
+                    logger.debug(f"No BG02-specific indicators found at {self.ip_address}")
+                    return {}
+                
+                # Check for generic mining indicators (need 2+)
+                generic_indicators = [
+                    "mining",
+                    "hashrate",
+                    "pool",
+                    "bitcoin",
+                    "7 th/s",  # BG02-specific hashrate
+                    "150w"     # BG02-specific power
+                ]
+                
+                found_generic = sum(1 for indicator in generic_indicators if indicator in combined_html)
+                
+                if found_generic >= 2:
+                    logger.info(f"Magic Miner BG02 detected at {self.ip_address} (BG02 indicator + {found_generic} generic indicators)")
+                    self.device_info = {
+                        "validated": True,
+                        "found_bg02_indicator": True,
+                        "found_generic_count": found_generic
+                    }
+                else:
+                    logger.debug(f"Insufficient indicators for Magic Miner at {self.ip_address} (found {found_generic} generic, need 2+)")
+                    return {}
+                    
             except MinerConnectionError as e:
-                logger.error(f"Connection error getting device info from Magic Miner", {
-                    'ip_address': self.ip_address,
-                    'error_type': 'connection_error'
-                })
+                logger.debug(f"Connection error getting device info from Magic Miner at {self.ip_address}: {str(e)}")
                 return {}
             except MinerDataError as e:
-                logger.error(f"Data parsing error getting device info from Magic Miner", {
-                    'ip_address': self.ip_address,
-                    'error_type': 'data_error'
-                })
+                logger.debug(f"Data parsing error getting device info from Magic Miner at {self.ip_address}: {str(e)}")
                 return {}
             except (RuntimeError, MemoryError) as e:
-                logger.error(f"System error getting device info from Magic Miner", {
-                    'ip_address': self.ip_address,
-                    'error_type': 'system_error',
-                    'error': str(e)
-                })
+                logger.debug(f"System error getting device info from Magic Miner at {self.ip_address}: {str(e)}")
                 return {}
         
-        # Add basic device type information
-        device_info = {
-            "type": "Magic Miner",
-            "model": "BG02",  # Default model, will be updated if available in device details
-        }
+        # Only return device info if validation passed
+        if self.device_info and self.device_info.get("validated"):
+            device_info = {
+                "type": "Magic Miner",
+                "model": "BG02",  # Default model, will be updated if available in device details
+            }
+            
+            # Add any additional details from device_info (excluding the validation flag)
+            additional_info = {k: v for k, v in self.device_info.items() if k != "validated"}
+            device_info.update(additional_info)
+            
+            return device_info
         
-        # Add any additional details from device_info
-        device_info.update(self.device_info)
-        
-        return device_info
+        return {}
     
     async def get_pool_info(self) -> List[Dict[str, Any]]:
         """

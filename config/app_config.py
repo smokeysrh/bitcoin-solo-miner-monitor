@@ -32,7 +32,7 @@ RETRY_ATTEMPTS = 3
 RETRY_DELAY = 2  # seconds - reduced for faster recovery
 
 # Logging settings
-LOG_LEVEL = "WARNING"
+LOG_LEVEL = "INFO"
 LOG_FILE = "logs/app.log"  # Relative path, will be resolved by AppPaths
 
 # UI settings

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings localStorage Test</title>
+</head>
+<body>
+    <h1>Settings localStorage Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Test localStorage functionality
+        function testLocalStorage() {
+            const output = document.getElementById('output');
+            
+            // Test 1: Check if localStorage is available
+            output.innerHTML += '<h2>Test 1: localStorage availability</h2>';
+            if (typeof(Storage) !== "undefined") {
+                output.innerHTML += '<p style="color: green;">✓ localStorage is supported</p>';
+            } else {
+                output.innerHTML += '<p style="color: red;">✗ localStorage is not supported</p>';
+                return;
+            }
+            
+            // Test 2: Save test settings
+            output.innerHTML += '<h2>Test 2: Save test settings</h2>';
+            const testSettings = {
+                polling_interval: 45,
+                theme: "light",
+                chart_retention_days: 60,
+                refresh_interval: 15,
+                temperature_unit: "fahrenheit",
+                default_view: "miners",
+                simple_mode: true
+            };
+            
+            try {
+                localStorage.setItem('appSettings', JSON.stringify(testSettings));
+                output.innerHTML += '<p style="color: green;">✓ Test settings saved to localStorage</p>';
+                output.innerHTML += '<pre>' + JSON.stringify(testSettings, null, 2) + '</pre>';
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">✗ Failed to save to localStorage: ' + error.message + '</p>';
+                return;
+            }
+            
+            // Test 3: Read test settings
+            output.innerHTML += '<h2>Test 3: Read test settings</h2>';
+            try {
+                const stored = localStorage.getItem('appSettings');
+                if (stored) {
+                    const parsedSettings = JSON.parse(stored);
+                    output.innerHTML += '<p style="color: green;">✓ Test settings loaded from localStorage</p>';
+                    output.innerHTML += '<pre>' + JSON.stringify(parsedSettings, null, 2) + '</pre>';
+                    
+                    // Verify data integrity
+                    if (JSON.stringify(parsedSettings) === JSON.stringify(testSettings)) {
+                        output.innerHTML += '<p style="color: green;">✓ Data integrity verified</p>';
+                    } else {
+                        output.innerHTML += '<p style="color: red;">✗ Data integrity check failed</p>';
+                    }
+                } else {
+                    output.innerHTML += '<p style="color: red;">✗ No settings found in localStorage</p>';
+                }
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">✗ Failed to read from localStorage: ' + error.message + '</p>';
+            }
+            
+            // Test 4: Check current app settings
+            output.innerHTML += '<h2>Test 4: Current app settings in localStorage</h2>';
+            try {
+                const currentSettings = localStorage.getItem('appSettings');
+                if (currentSettings) {
+                    output.innerHTML += '<p style="color: blue;">Current app settings:</p>';
+                    output.innerHTML += '<pre>' + currentSettings + '</pre>';
+                } else {
+                    output.innerHTML += '<p style="color: orange;">No current app settings found</p>';
+                }
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">✗ Error checking current settings: ' + error.message + '</p>';
+            }
+            
+            // Test 5: List all localStorage keys
+            output.innerHTML += '<h2>Test 5: All localStorage keys</h2>';
+            try {
+                const keys = Object.keys(localStorage);
+                output.innerHTML += '<p>Found ' + keys.length + ' localStorage keys:</p>';
+                output.innerHTML += '<ul>';
+                keys.forEach(key => {
+                    output.innerHTML += '<li><strong>' + key + '</strong>: ' + localStorage.getItem(key).substring(0, 100) + (localStorage.getItem(key).length > 100 ? '...' : '') + '</li>';
+                });
+                output.innerHTML += '</ul>';
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">✗ Error listing localStorage keys: ' + error.message + '</p>';
+            }
+        }
+        
+        // Run tests when page loads
+        window.onload = testLocalStorage;
+    </script>
+</body>
+</html>

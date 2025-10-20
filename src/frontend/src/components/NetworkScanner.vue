@@ -38,12 +38,12 @@
             <v-text-field
               v-model="portsInput"
               label="Ports to Scan"
-              placeholder="80, 4028"
+              :placeholder="formatPortList(DEFAULT_SCAN_PORTS)"
               :rules="portsRules"
               outlined
               dense
               prepend-inner-icon="mdi-ethernet"
-              hint="Comma-separated list of ports (default: 80, 4028)"
+              :hint="`Comma-separated list of ports (default: ${formatPortList(DEFAULT_SCAN_PORTS)})`"
               persistent-hint
               :disabled="isScanning"
             ></v-text-field>
@@ -107,19 +107,71 @@
       </v-row>
 
       <!-- Scan Progress -->
-      <div v-if="scanStatus && scanStatus.status !== 'not_started'" class="mt-6">
-        <ScanProgress 
-          :scan-status="scanStatus"
-          :is-scanning="isScanning"
-        />
+      <div v-if="scanProgress.visible" class="mt-6">
+        <v-card outlined>
+          <v-card-text>
+            <div class="d-flex align-center mb-3">
+              <v-icon color="primary" class="mr-2">mdi-radar</v-icon>
+              <div>
+                <div class="font-weight-medium">Network Scan in Progress</div>
+                <div class="text-caption">{{ scanProgress.statusText }}</div>
+              </div>
+            </div>
+            
+            <v-progress-linear
+              :model-value="scanProgress.percentage"
+              color="primary"
+              bg-color="surface-variant"
+              height="20"
+              class="mb-2 scan-progress-bar"
+            >
+              <template v-slot:default="{ value }">
+                <strong>{{ Math.ceil(value) }}%</strong>
+              </template>
+            </v-progress-linear>
+            
+            <div class="d-flex justify-space-between text-caption">
+              <span>{{ scanProgress.scannedHosts }}/{{ scanProgress.totalHosts }} hosts scanned</span>
+              <span>{{ scanProgress.foundCount }} miners found</span>
+            </div>
+          </v-card-text>
+        </v-card>
       </div>
 
       <!-- Scan Results -->
       <div v-if="scanResults.length > 0" class="mt-6">
-        <ScanResults 
-          :results="scanResults"
-          @add-miner="handleAddMiner"
-        />
+        <v-card outlined>
+          <v-card-title class="pb-2">
+            <v-icon left color="success">mdi-check-circle</v-icon>
+            Found {{ scanResults.length }} Miner{{ scanResults.length === 1 ? '' : 's' }}
+          </v-card-title>
+          <v-card-text>
+            <v-data-table
+              :headers="resultHeaders"
+              :items="scanResults"
+              :items-per-page="10"
+              class="elevation-0"
+            >
+              <template v-slot:item.type="{ item }">
+                <v-chip size="small" :color="getMinerTypeColor(item.type)">
+                  {{ item.type }}
+                </v-chip>
+              </template>
+              
+              <template v-slot:item.actions="{ item }">
+                <v-btn
+                  color="primary"
+                  size="small"
+                  @click="handleAddMiner(item)"
+                  :disabled="item.adding"
+                  :loading="item.adding"
+                >
+                  Add
+                </v-btn>
+              </template>
+            </v-data-table>
+          </v-card-text>
+        </v-card>
       </div>
 
       <!-- No Results Message -->
@@ -162,6 +214,13 @@
           </v-card-text>
         </v-card>
       </div>
+
+      <!-- Error Messages -->
+      <div v-if="errorMessage" class="mt-6">
+        <v-alert type="error" outlined>
+          {{ errorMessage }}
+        </v-alert>
+      </div>
     </v-card-text>
 
     <!-- Add Miner Dialog -->
@@ -174,19 +233,17 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useMinersStore } from '../stores/miners'
 import { useGlobalSnackbar } from '../composables/useGlobalSnackbar'
-import ScanProgress from './ScanProgress.vue'
-import ScanResults from './ScanResults.vue'
+import { useNetworkScan } from '../composables/useNetworkScan'
 import AddMinerDialog from './AddMinerDialog.vue'
+import { DEFAULT_SCAN_PORTS, formatPortList } from '../config/ports.config'
 
 export default {
   name: 'NetworkScanner',
 
   components: {
-    ScanProgress,
-    ScanResults,
     AddMinerDialog
   },
 
@@ -194,28 +251,40 @@ export default {
 
   setup() {
     const minersStore = useMinersStore()
-    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar()
+    const { showSuccess, showError, showWarning } = useGlobalSnackbar()
+    const { 
+      isScanning, 
+      scanProgress, 
+      foundMiners, 
+      scanError,
+      startScan: startNetworkScan,
+      stopScan: stopNetworkScan
+    } = useNetworkScan()
 
     // Form state
     const scanForm = ref(null)
     const formValid = ref(false)
     const networkRange = ref('192.168.1.0/24')
-    const portsInput = ref('80, 4028')
+    const portsInput = ref(formatPortList(DEFAULT_SCAN_PORTS))
     const timeout = ref(5)
 
-    // Scan state
-    const isScanning = ref(false)
+    // UI state
     const isStarting = ref(false)
     const isStopping = ref(false)
-    const scanStatus = ref(null)
-    const scanResults = ref([])
     const addMinerDialog = ref(false)
 
-    // WebSocket connection for real-time updates
-    let websocket = null
-    let reconnectTimer = null
-    let connectionAttempts = 0
-    const maxConnectionAttempts = 5
+    // Use foundMiners from composable as scanResults
+    const scanResults = foundMiners
+    const errorMessage = scanError
+
+    // Table headers for results
+    const resultHeaders = [
+      { title: 'Name', key: 'name' },
+      { title: 'IP Address', key: 'ip_address' },
+      { title: 'Port', key: 'port' },
+      { title: 'Type', key: 'type' },
+      { title: 'Actions', key: 'actions', sortable: false }
+    ]
 
     // Validation rules
     const networkRules = [
@@ -284,7 +353,7 @@ export default {
     const parsedPorts = computed(() => {
       try {
         if (!portsInput.value || portsInput.value.trim() === '') {
-          return [80, 4028] // Default ports
+          return DEFAULT_SCAN_PORTS
         }
         
         const ports = portsInput.value
@@ -294,137 +363,21 @@ export default {
           .map(p => parseInt(p))
           .filter(p => !isNaN(p) && p >= 1 && p <= 65535)
         
-        return ports.length > 0 ? ports : [80, 4028]
+        return ports.length > 0 ? ports : DEFAULT_SCAN_PORTS
       } catch (error) {
         console.error('Error parsing ports:', error)
-        return [80, 4028]
+        return DEFAULT_SCAN_PORTS
       }
     })
 
     const showNoResults = computed(() => {
-      try {
-        return scanStatus.value && 
-               scanStatus.value.status === 'completed' && 
-               (!scanResults.value || scanResults.value.length === 0)
-      } catch (error) {
-        console.error('Error computing showNoResults:', error)
-        return false
-      }
+      return !isScanning.value && 
+             !scanProgress.value.visible && 
+             scanResults.value.length === 0 && 
+             !errorMessage.value
     })
 
-    // WebSocket methods
-    const connectWebSocket = () => {
-      try {
-        // Don't attempt to connect if we've exceeded max attempts
-        if (connectionAttempts >= maxConnectionAttempts) {
-          console.warn('Max WebSocket connection attempts reached, giving up')
-          showWarning('Real-time updates unavailable. Scan will still work but progress updates may be delayed.')
-          return
-        }
-
-        connectionAttempts++
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const wsUrl = `${protocol}//${window.location.host}/ws`
-        
-        console.log(`Attempting WebSocket connection (${connectionAttempts}/${maxConnectionAttempts})`)
-        websocket = new WebSocket(wsUrl)
-
-        websocket.onopen = () => {
-          console.log('WebSocket connected for network scanner')
-          connectionAttempts = 0 // Reset on successful connection
-          
-          try {
-            // Subscribe to discovery updates
-            websocket.send(JSON.stringify({
-              type: 'subscribe',
-              topic: 'discovery'
-            }))
-            
-            if (connectionAttempts > 1) {
-              showSuccess('Real-time updates reconnected')
-            }
-          } catch (error) {
-            console.error('Error subscribing to discovery updates:', error)
-            showWarning('Connected but failed to subscribe to updates')
-          }
-        }
-
-        websocket.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data)
-            
-            if (message.type === 'discovery_update' && message.data) {
-              scanStatus.value = message.data
-              
-              // Update results if scan completed
-              if (message.data.status === 'completed') {
-                if (message.data.found_miners && message.data.found_miners.length > 0) {
-                  scanResults.value = message.data.found_miners
-                  showSuccess(`Scan completed! Found ${message.data.found_miners.length} miner${message.data.found_miners.length === 1 ? '' : 's'}`)
-                } else {
-                  showInfo('Scan completed. No miners found on the network.')
-                }
-                isScanning.value = false
-              } else if (message.data.status === 'cancelled') {
-                showWarning('Network scan was stopped')
-                isScanning.value = false
-              } else if (message.data.status === 'error') {
-                const errorMsg = message.data.error || 'Unknown scan error occurred'
-                showError(`Scan failed: ${errorMsg}`)
-                isScanning.value = false
-              }
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error)
-            showWarning('Received invalid update message')
-          }
-        }
-
-        websocket.onclose = (event) => {
-          console.log('WebSocket disconnected:', event.code, event.reason)
-          websocket = null
-          
-          // Only attempt to reconnect if it wasn't a clean close and we haven't exceeded attempts
-          if (event.code !== 1000 && connectionAttempts < maxConnectionAttempts) {
-            if (!reconnectTimer) {
-              const delay = Math.min(3000 * connectionAttempts, 15000) // Exponential backoff, max 15s
-              console.log(`Attempting to reconnect in ${delay}ms`)
-              
-              reconnectTimer = setTimeout(() => {
-                reconnectTimer = null
-                connectWebSocket()
-              }, delay)
-            }
-          } else if (connectionAttempts >= maxConnectionAttempts) {
-            showError('Real-time updates unavailable. Please refresh the page to retry.')
-          }
-        }
-
-        websocket.onerror = (error) => {
-          console.error('WebSocket error:', error)
-          if (connectionAttempts === 1) {
-            showWarning('Connection issue detected. Retrying...')
-          }
-        }
-      } catch (error) {
-        console.error('Error connecting WebSocket:', error)
-        showError('Failed to establish real-time connection')
-      }
-    }
-
-    const disconnectWebSocket = () => {
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer)
-        reconnectTimer = null
-      }
-      
-      if (websocket) {
-        websocket.close()
-        websocket = null
-      }
-    }
-
-    // Scan methods
+    // Scan methods using universal service via composable
     const startScan = async () => {
       if (!formValid.value) {
         showError('Please fix form validation errors before starting scan')
@@ -434,74 +387,17 @@ export default {
       isStarting.value = true
       
       try {
-        // Validate network range more thoroughly
-        const networkPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/
-        if (!networkPattern.test(networkRange.value)) {
-          throw new Error('Invalid network range format. Use CIDR notation (e.g., 192.168.1.0/24)')
+        const scanOptions = {
+          network: networkRange.value,
+          ports: parsedPorts.value,
+          timeout: timeout.value
         }
 
-        // Validate ports
-        if (parsedPorts.value.length === 0) {
-          throw new Error('At least one port must be specified')
-        }
-
-        const invalidPorts = parsedPorts.value.filter(port => port < 1 || port > 65535)
-        if (invalidPorts.length > 0) {
-          throw new Error(`Invalid port numbers: ${invalidPorts.join(', ')}`)
-        }
-
-        console.log(`Starting network scan: ${networkRange.value}, ports: ${parsedPorts.value.join(', ')}, timeout: ${timeout.value}s`)
-
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-        const response = await fetch('/api/discovery', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            network: networkRange.value,
-            ports: parsedPorts.value,
-            timeout: timeout.value
-          }),
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          const errorMessage = errorData.detail || errorData.message || `Server error: ${response.status}`
-          
-          if (response.status === 400) {
-            throw new Error(`Invalid request: ${errorMessage}`)
-          } else if (response.status === 422) {
-            throw new Error(`Validation error: ${errorMessage}`)
-          } else if (response.status >= 500) {
-            throw new Error(`Server error: ${errorMessage}`)
-          } else {
-            throw new Error(errorMessage)
-          }
-        }
-
-        const result = await response.json()
-
-        isScanning.value = true
-        scanResults.value = []
-        showSuccess(`Network scan started for ${networkRange.value}`)
-        console.log('Network scan started successfully:', result)
+        await startNetworkScan(scanOptions)
 
       } catch (error) {
         console.error('Error starting network scan:', error)
-        
-        if (error.name === 'AbortError') {
-          showError('Scan request timed out. Please try again.')
-        } else if (error.message.includes('fetch')) {
-          showError('Network error: Unable to connect to server. Please check your connection.')
-        } else {
-          showError(`Failed to start scan: ${error.message}`)
-        }
+        showError(`Failed to start scan: ${error.message}`)
       } finally {
         isStarting.value = false
       }
@@ -511,85 +407,12 @@ export default {
       isStopping.value = true
       
       try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-
-        const response = await fetch('/api/discovery/stop', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          const errorMessage = errorData.detail || errorData.message || `Server error: ${response.status}`
-          throw new Error(errorMessage)
-        }
-
-        const result = await response.json()
-        isScanning.value = false
-        showWarning('Network scan stopped')
-        console.log('Network scan stopped successfully:', result)
-
+        await stopNetworkScan()
       } catch (error) {
         console.error('Error stopping network scan:', error)
-        
-        if (error.name === 'AbortError') {
-          showError('Stop request timed out. Scan may still be running.')
-        } else if (error.message.includes('fetch')) {
-          showError('Network error: Unable to connect to server.')
-        } else {
-          showError(`Failed to stop scan: ${error.message}`)
-        }
-        
-        // Force stop the UI state even if server request failed
-        isScanning.value = false
+        showError(`Failed to stop scan: ${error.message}`)
       } finally {
         isStopping.value = false
-      }
-    }
-
-    const getScanStatus = async () => {
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
-
-        const response = await fetch('/api/discovery/status', {
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`Status check failed: ${response.status}`)
-        }
-
-        const result = await response.json()
-        scanStatus.value = result
-        
-        // Update scanning state based on status
-        if (result.status === 'in_progress' || result.status === 'scanning') {
-          isScanning.value = true
-        } else {
-          isScanning.value = false
-        }
-        
-        // Update results if available
-        if (result.found_miners) {
-          scanResults.value = result.found_miners
-        }
-
-        console.log('Scan status updated:', result.status)
-
-      } catch (error) {
-        if (error.name !== 'AbortError') {
-          console.error('Error getting scan status:', error)
-          // Don't show error notification for status checks as they happen in background
-        }
       }
     }
 
@@ -657,38 +480,18 @@ export default {
       showError(`Failed to add miner: ${error.message || 'Unknown error'}`)
     }
 
-    // Lifecycle hooks
-    onMounted(async () => {
-      try {
-        // Get initial scan status
-        await getScanStatus()
-        
-        // Connect WebSocket for real-time updates
-        connectWebSocket()
-        
-        console.log('Network scanner initialized successfully')
-      } catch (error) {
-        console.error('Error initializing network scanner:', error)
-        showWarning('Scanner initialized with limited functionality')
+    // Utility methods
+    const getMinerTypeColor = (type) => {
+      const colorMap = {
+        'Bitaxe': 'orange',
+        'Magic Miner': 'purple',
+        'Avalon Nano': 'green',
+        'Bitcoin Node': 'blue'
       }
-    })
+      return colorMap[type] || 'grey'
+    }
 
-    onUnmounted(() => {
-      try {
-        // Disconnect WebSocket
-        disconnectWebSocket()
-        
-        // Clear any pending timers
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer)
-          reconnectTimer = null
-        }
-        
-        console.log('Network scanner cleanup completed')
-      } catch (error) {
-        console.error('Error during network scanner cleanup:', error)
-      }
-    })
+    // Lifecycle is handled by the useNetworkScan composable
 
     return {
       // Form refs
@@ -702,9 +505,13 @@ export default {
       isScanning,
       isStarting,
       isStopping,
-      scanStatus,
+      scanProgress,
       scanResults,
       addMinerDialog,
+      errorMessage,
+
+      // Table headers
+      resultHeaders,
 
       // Validation rules
       networkRules,
@@ -714,13 +521,18 @@ export default {
       parsedPorts,
       showNoResults,
 
+      // Constants
+      DEFAULT_SCAN_PORTS,
+      formatPortList,
+
       // Methods
       startScan,
       stopScan,
       handleAddMiner,
       openAddMinerDialog,
       handleMinerAdded,
-      handleMinerError
+      handleMinerError,
+      getMinerTypeColor
     }
   }
 }
@@ -841,6 +653,28 @@ export default {
   }
 }
 
+/* Progress bar styling - ensure color fill is visible */
+.scan-progress-bar {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.scan-progress-bar :deep(.v-progress-linear__background) {
+  background-color: var(--color-surface-variant) !important;
+  opacity: 1 !important;
+}
+
+.scan-progress-bar :deep(.v-progress-linear__determinate) {
+  background-color: var(--color-primary) !important;
+  transition: width 0.3s ease !important;
+}
+
+.scan-progress-bar :deep(.v-progress-linear__content) {
+  color: var(--color-text-primary) !important;
+  z-index: 2;
+  position: relative;
+}
+
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
   :deep(.v-btn) {
@@ -850,6 +684,10 @@ export default {
 
   :deep(.v-btn:hover) {
     transform: none !important;
+  }
+  
+  .scan-progress-bar :deep(.v-progress-linear__determinate) {
+    transition: none !important;
   }
 }
 

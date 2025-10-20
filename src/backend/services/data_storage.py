@@ -358,7 +358,8 @@ class DataStorage:
                     "polling_interval": 30,
                     "theme": "dark",
                     "chart_retention_days": 30,
-                    "refresh_interval": 10
+                    "refresh_interval": 10,
+                    "electricity_cost": 0.13
                 }
         except Exception as e:
             logger.error(f"Error getting application settings: {str(e)}")
@@ -366,7 +367,8 @@ class DataStorage:
                 "polling_interval": 30,
                 "theme": "dark",
                 "chart_retention_days": 30,
-                "refresh_interval": 10
+                "refresh_interval": 10,
+                "electricity_cost": 0.13
             }
     
     @retry_database_operation(max_attempts=3, base_delay=0.5, max_delay=5.0)

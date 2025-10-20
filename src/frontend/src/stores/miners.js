@@ -10,6 +10,10 @@ import {
 // API base URL
 const API_BASE_URL = "/api";
 
+// Debug mode flag - only enable verbose logging in development
+const DEBUG_MODE =
+  import.meta.env.DEV || localStorage.getItem("debug") === "true";
+
 export const useMinersStore = defineStore("miners", () => {
   // State
   const miners = ref([]);
@@ -45,7 +49,36 @@ export const useMinersStore = defineStore("miners", () => {
 
     try {
       const response = await axios.get(`${API_BASE_URL}/miners`);
-      miners.value = response.data;
+
+      // Debug: Log raw API response
+      console.log("=== RAW API RESPONSE ===");
+      console.log("Number of miners:", response.data.length);
+      response.data.forEach((miner, index) => {
+        console.log(`\nMiner ${index + 1}:`, {
+          id: miner.id,
+          name: miner.name,
+          type: miner.type,
+          temperature: miner.temperature,
+          hasMetrics: !!miner.metrics,
+          metricsTemp: miner.metrics?.temperature || miner.metrics?.temp,
+          allKeys: Object.keys(miner),
+        });
+      });
+      console.log("=== END RAW API RESPONSE ===\n");
+
+      // Normalize all miner data to ensure consistent field structure
+      miners.value = response.data.map((miner) => normalizeMinerData(miner));
+
+      // Debug: Log normalized data
+      console.log("=== NORMALIZED DATA ===");
+      miners.value.forEach((miner, index) => {
+        console.log(`Normalized Miner ${index + 1}:`, {
+          id: miner.id,
+          name: miner.name,
+          temperature: miner.temperature,
+        });
+      });
+      console.log("=== END NORMALIZED DATA ===\n");
     } catch (err) {
       error.value = err.message || "Failed to fetch miners";
       console.error("Error fetching miners:", err);
@@ -61,15 +94,18 @@ export const useMinersStore = defineStore("miners", () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/miners/${id}`);
 
+      // Normalize miner data
+      const normalizedMiner = normalizeMinerData(response.data);
+
       // Update miner in the list
       const index = miners.value.findIndex((m) => m.id === id);
       if (index !== -1) {
-        miners.value[index] = response.data;
+        miners.value[index] = normalizedMiner;
       } else {
-        miners.value.push(response.data);
+        miners.value.push(normalizedMiner);
       }
 
-      return response.data;
+      return normalizedMiner;
     } catch (err) {
       error.value = err.message || `Failed to fetch miner ${id}`;
       console.error(`Error fetching miner ${id}:`, err);
@@ -268,21 +304,27 @@ export const useMinersStore = defineStore("miners", () => {
       connectionStatus.value === "disconnected" ||
       connectionStatus.value === "error"
     ) {
-      console.log("Miners store: Initializing WebSocket connection");
+      if (DEBUG_MODE) {
+        console.log("Miners store: Initializing WebSocket connection");
+      }
       initWebSocket();
     } else {
-      console.log(
-        "Miners store: WebSocket already connected/connecting, status:",
-        connectionStatus.value,
-      );
+      if (DEBUG_MODE) {
+        console.log(
+          "Miners store: WebSocket already connected/connecting, status:",
+          connectionStatus.value,
+        );
+      }
     }
 
     // Subscribe to miners topic when connection is ready
     const subscribeWhenReady = () => {
       if (connectionStatus.value === "connected") {
-        console.log(
-          "Miners store: WebSocket connected, subscribing to miners topic",
-        );
+        if (DEBUG_MODE) {
+          console.log(
+            "Miners store: WebSocket connected, subscribing to miners topic",
+          );
+        }
         updateSubscriptions({
           miners: true,
           alerts: false,
@@ -300,8 +342,116 @@ export const useMinersStore = defineStore("miners", () => {
   // Method to update miners from WebSocket
   const updateMiners = (data) => {
     if (Array.isArray(data)) {
-      miners.value = data;
+      // Normalize all miner data from WebSocket updates
+      miners.value = data.map((miner) => normalizeMinerData(miner));
     }
+  };
+
+  // Temperature extraction function - normalizes temperature field from various sources
+  const extractTemperature = (minerData) => {
+    if (!minerData) return 0;
+
+    // Try multiple possible temperature field locations
+    // 1. Direct temperature field
+    if (minerData.temperature !== undefined && minerData.temperature !== null) {
+      const temp =
+        typeof minerData.temperature === "number"
+          ? minerData.temperature
+          : parseFloat(minerData.temperature);
+      if (!isNaN(temp)) return temp;
+    }
+
+    // 2. In metrics object
+    if (minerData.metrics) {
+      if (
+        minerData.metrics.temperature !== undefined &&
+        minerData.metrics.temperature !== null
+      ) {
+        const temp =
+          typeof minerData.metrics.temperature === "number"
+            ? minerData.metrics.temperature
+            : parseFloat(minerData.metrics.temperature);
+        if (!isNaN(temp)) return temp;
+      }
+
+      // Try 'temp' as alternative field name
+      if (
+        minerData.metrics.temp !== undefined &&
+        minerData.metrics.temp !== null
+      ) {
+        const temp =
+          typeof minerData.metrics.temp === "number"
+            ? minerData.metrics.temp
+            : parseFloat(minerData.metrics.temp);
+        if (!isNaN(temp)) return temp;
+      }
+    }
+
+    // 3. In device_info object
+    if (minerData.device_info) {
+      if (
+        minerData.device_info.temperature !== undefined &&
+        minerData.device_info.temperature !== null
+      ) {
+        const temp =
+          typeof minerData.device_info.temperature === "number"
+            ? minerData.device_info.temperature
+            : parseFloat(minerData.device_info.temperature);
+        if (!isNaN(temp)) return temp;
+      }
+
+      if (
+        minerData.device_info.temp !== undefined &&
+        minerData.device_info.temp !== null
+      ) {
+        const temp =
+          typeof minerData.device_info.temp === "number"
+            ? minerData.device_info.temp
+            : parseFloat(minerData.device_info.temp);
+        if (!isNaN(temp)) return temp;
+      }
+    }
+
+    // Default to 0 if no temperature found
+    return 0;
+  };
+
+  // Normalize miner data - ensures all miners have consistent field structure
+  const normalizeMinerData = (minerData) => {
+    if (!minerData) return minerData;
+
+    // Debug logging to see what data we're receiving
+    if (DEBUG_MODE) {
+      console.log("Normalizing miner data:", {
+        id: minerData.id,
+        name: minerData.name,
+        rawData: minerData,
+        hasMetrics: !!minerData.metrics,
+        metricsKeys: minerData.metrics ? Object.keys(minerData.metrics) : [],
+        hasDeviceInfo: !!minerData.device_info,
+        deviceInfoKeys: minerData.device_info
+          ? Object.keys(minerData.device_info)
+          : [],
+      });
+    }
+
+    const extractedTemp = extractTemperature(minerData);
+
+    if (DEBUG_MODE) {
+      console.log(
+        `Extracted temperature for ${minerData.name}: ${extractedTemp}`,
+      );
+    }
+
+    return {
+      ...minerData,
+      // Extract and normalize temperature to top level
+      temperature: extractedTemp,
+      // Ensure other common fields are accessible
+      hashrate: minerData.hashrate || minerData.metrics?.hashrate || 0,
+      power: minerData.power || minerData.metrics?.power || 0,
+      fan_speed: minerData.fan_speed || minerData.metrics?.fan_speed || 0,
+    };
   };
 
   return {
@@ -331,5 +481,9 @@ export const useMinersStore = defineStore("miners", () => {
     getDiscoveryStatus,
     connectWebSocket,
     updateMiners,
+
+    // Utility functions
+    extractTemperature,
+    normalizeMinerData,
   };
 });

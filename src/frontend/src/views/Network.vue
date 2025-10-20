@@ -204,6 +204,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
+import { usePollingManager } from "../composables/usePollingManager";
 import { formatTemperature } from "../utils/formatters";
 import * as d3 from "d3";
 
@@ -233,8 +234,13 @@ export default {
       { text: "Tree", value: "tree" },
     ];
 
-    // Refresh interval
-    let refreshInterval = null;
+    // Set up polling manager
+    const { startPolling, stopPolling } = usePollingManager({
+      fetchFunction: refreshNetwork,
+      intervalKey: "refresh_interval",
+      componentName: "Network",
+      enabled: true,
+    });
 
     // Computed properties
     const miners = computed(() => minersStore.miners);
@@ -1128,19 +1134,11 @@ export default {
       // Create network visualization
       createNetworkVisualization();
 
-      // Set up refresh interval
-      const refreshTime = settingsStore.settings.refresh_interval * 1000 * 5; // Less frequent than dashboard
-      refreshInterval = setInterval(async () => {
-        await refreshNetwork();
-      }, refreshTime);
+      // Start polling
+      startPolling();
     });
 
     onUnmounted(() => {
-      // Clear refresh interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-
       // Stop simulation
       if (networkSimulation) {
         networkSimulation.stop();

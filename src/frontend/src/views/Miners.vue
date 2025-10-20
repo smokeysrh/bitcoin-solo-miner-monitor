@@ -188,6 +188,7 @@ import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
+import { usePollingManager } from "../composables/usePollingManager";
 import { formatTemperature } from "../utils/formatters";
 import AddMinerDialog from "../components/AddMinerDialog.vue";
 import NetworkScanner from "../components/NetworkScanner.vue";
@@ -217,12 +218,17 @@ export default {
       miner: null,
     });
 
-    // Refresh interval
-    let refreshInterval = null;
-
     // Computed properties from store
     const miners = computed(() => minersStore.miners);
     const loading = computed(() => minersStore.loading);
+
+    // Set up polling manager
+    const { startPolling, stopPolling } = usePollingManager({
+      fetchFunction: () => minersStore.fetchMiners(),
+      intervalKey: 'refresh_interval',
+      componentName: 'Miners',
+      enabled: true
+    });
 
     // Methods
     const formatHashrate = (hashrate) => {
@@ -352,22 +358,13 @@ export default {
         console.error("Error initializing miners page:", error);
       }
 
-      // Set up refresh interval
-      const refreshTime = settingsStore.settings.refresh_interval * 1000 || 10000;
-      refreshInterval = setInterval(async () => {
-        try {
-          await minersStore.fetchMiners();
-        } catch (error) {
-          console.error("Error refreshing miner data:", error);
-        }
-      }, refreshTime);
+      // Start polling with the polling manager
+      startPolling();
     });
 
     onUnmounted(() => {
-      // Clear refresh interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      // Polling cleanup is handled automatically by usePollingManager
+      stopPolling();
     });
 
     return {

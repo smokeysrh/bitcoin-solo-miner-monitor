@@ -253,6 +253,8 @@ export default {
           return 'Avalon Nano'
         case 'magic_miner':
           return 'Magic Miner'
+        case 'bitcoin_node':
+          return 'Bitcoin Node'
         default:
           return type.charAt(0).toUpperCase() + type.slice(1)
       }

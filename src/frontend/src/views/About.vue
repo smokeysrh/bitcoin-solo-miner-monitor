@@ -35,7 +35,7 @@
             <p class="text-body-1">
               A unified monitoring and management solution for diverse Bitcoin
               mining hardware, specifically targeting solo miners running Magic
-              Miner, Avalon Nano, and Bitaxe devices on a local network. BUILT BY PLEBS, FOR PLEBS.
+              Miner, Avalon Nano, Bitaxe devices, and Bitcoin nodes on a local network. BUILT BY PLEBS, FOR PLEBS.
             </p>
             <v-list-item>
               <v-list-item-icon>
@@ -229,6 +229,7 @@
               <v-tab value="bitaxe">Bitaxe</v-tab>
               <v-tab value="avalon">Avalon Nano</v-tab>
               <v-tab value="magic">Magic Miner</v-tab>
+              <v-tab value="bitcoin">Bitcoin Node</v-tab>
             </v-tabs>
 
             <v-window v-model="activeTab">
@@ -307,6 +308,32 @@
                       This application connects to Magic Miners by interfacing
                       with their web management system to retrieve data and
                       control the device.
+                    </p>
+                  </v-card-text>
+                </v-card>
+              </v-window-item>
+
+              <v-window-item value="bitcoin">
+                <v-card flat>
+                  <v-card-text>
+                    <h3 class="text-h6 mb-2">Bitcoin Node</h3>
+                    <p class="text-body-1">
+                      Bitcoin Core nodes are essential for solo mining operations.
+                      They maintain a full copy of the blockchain and validate transactions.
+                      Key features include:
+                    </p>
+                    <ul class="text-body-1 ml-4">
+                      <li>Full blockchain validation</li>
+                      <li>Transaction mempool management</li>
+                      <li>Block template generation for miners</li>
+                      <li>Network peer connections</li>
+                      <li>RPC interface for mining software</li>
+                      <li>Web interface monitoring (if enabled)</li>
+                    </ul>
+                    <p class="text-body-1">
+                      This application can detect and monitor Bitcoin nodes on your
+                      network, providing visibility into your complete solo mining
+                      infrastructure including both miners and the node they mine to.
                     </p>
                   </v-card-text>
                 </v-card>
@@ -601,7 +628,7 @@
               The Bitcoin Solo Miner Monitoring App is a unified monitoring and
               management solution for diverse Bitcoin mining hardware,
               specifically targeting solo miners running Magic Miner, Avalon
-              Nano, and Bitaxe devices on a local network.
+              Nano, Bitaxe devices, and Bitcoin nodes on a local network.
             </p>
 
             <h5 class="mt-2">What miners are supported?</h5>

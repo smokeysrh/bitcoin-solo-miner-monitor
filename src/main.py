@@ -68,9 +68,7 @@ class Application:
         """
         logger.info("Starting Bitcoin Solo Miner Monitoring App")
         
-        # Start services
-        await self.data_storage.initialize()
-        await self.miner_manager.start()
+        # Start API service (which will initialize data storage and start miner manager)
         await self.api_service.start()
         
         # Load saved miners
