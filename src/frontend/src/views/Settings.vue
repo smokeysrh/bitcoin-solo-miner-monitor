@@ -276,6 +276,54 @@
       </v-col>
     </v-row>
 
+    <!-- Power Cost Settings -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card>
+          <v-card-title>
+            Power Cost Settings
+            <v-spacer></v-spacer>
+            <v-btn
+              color="primary"
+              :loading="savingPowerCost"
+              :disabled="!powerCostChanged"
+              @click="saveElectricityCost"
+            >
+              <v-icon left>mdi-content-save</v-icon>
+              Save Cost
+            </v-btn>
+          </v-card-title>
+          <v-card-text>
+            <v-form ref="powerCostForm" v-model="powerCostFormValid">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model.number="electricityCost"
+                    label="Electricity Cost (USD per kWh)"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="10.00"
+                    prefix="$"
+                    suffix="/ kWh"
+                    hint="Enter your electricity cost for power calculations"
+                    persistent-hint
+                    :rules="[
+                      (v) => v >= 0.01 || 'Cost must be at least $0.01',
+                      (v) => v <= 10.00 || 'Cost must not exceed $10.00',
+                    ]"
+                  ></v-text-field>
+                  <div class="text-caption mt-2 grey--text">
+                    Default: $0.13/kWh (US national average)
+                  </div>
+                </v-col>
+              </v-row>
+            </v-form>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <!-- Database Settings -->
     <v-row class="mt-4">
       <v-col cols="12">
@@ -739,15 +787,18 @@ export default {
     const alertsForm = ref(null);
     const apiForm = ref(null);
     const perfForm = ref(null);
+    const powerCostForm = ref(null);
 
     // Form validation
     const formValid = ref(true);
     const alertsFormValid = ref(true);
+    const powerCostFormValid = ref(true);
 
     // Loading states
     const saving = ref(false);
     const savingAlerts = ref(false);
     const savingAdvanced = ref(false);
+    const savingPowerCost = ref(false);
     const backingUpConfig = ref(false);
     const creatingBackup = ref(false);
     const restoring = ref(false);
@@ -791,6 +842,10 @@ export default {
       request_timeout: 10,
       websocket_update_interval: 1,
     });
+
+    // Electricity cost setting
+    const originalElectricityCost = ref(0.13);
+    const electricityCost = ref(0.13);
 
     // Database info
     const dbInfo = reactive({
@@ -944,6 +999,10 @@ export default {
       return JSON.stringify(currentPerf) !== JSON.stringify(originalPerf);
     });
 
+    const powerCostChanged = computed(() => {
+      return electricityCost.value !== originalElectricityCost.value;
+    });
+
     // Handle UI mode change
     // Methods
     const loadSettings = async () => {
@@ -963,6 +1022,10 @@ export default {
         const currentUIMode = localStorage.getItem('uiMode') || 'advanced';
         settings.simple_mode = currentUIMode === 'simple';
         settings.ui_mode = currentUIMode;
+
+        // Load electricity cost setting
+        electricityCost.value = storeSettings.electricity_cost || 0.13;
+        originalElectricityCost.value = electricityCost.value;
 
         // Save original settings for comparison
         originalSettings.value = cloneDeep(settings);
@@ -1114,6 +1177,35 @@ export default {
       } catch (error) {
         console.error(`Settings view: Error saving ${section} settings:`, error);
         // Error notification is handled by the notification composable
+      }
+    };
+
+    const saveElectricityCost = async () => {
+      if (!powerCostFormValid.value) {
+        showError("Please fix the errors in the form before saving");
+        return;
+      }
+
+      savingPowerCost.value = true;
+
+      try {
+        console.log('Settings view: Saving electricity cost:', electricityCost.value);
+        
+        // Save electricity cost to settings
+        await settingsStore.updateSettings({
+          electricity_cost: electricityCost.value
+        });
+
+        // Update original value for comparison
+        originalElectricityCost.value = electricityCost.value;
+
+        showSuccess("Electricity cost saved successfully");
+        console.log('Settings view: Electricity cost saved successfully');
+      } catch (error) {
+        console.error("Settings view: Error saving electricity cost:", error);
+        showError("Failed to save electricity cost");
+      } finally {
+        savingPowerCost.value = false;
       }
     };
 
@@ -1325,13 +1417,16 @@ export default {
       alertsForm,
       apiForm,
       perfForm,
+      powerCostForm,
       formValid,
       alertsFormValid,
+      powerCostFormValid,
 
       // Loading states
       saving,
       savingAlerts,
       savingAdvanced,
+      savingPowerCost,
       backingUpConfig,
       creatingBackup,
       restoring,
@@ -1343,6 +1438,7 @@ export default {
       alertSettings,
       advancedSettings,
       dbInfo,
+      electricityCost,
 
       // Backup
       backupFile,
@@ -1377,12 +1473,14 @@ export default {
       alertsChanged,
       apiSettingsChanged,
       perfSettingsChanged,
+      powerCostChanged,
 
       // Methods
       handleModeChange,
       saveSettings,
       saveAlertSettings,
       saveAdvancedSettings,
+      saveElectricityCost,
       backupConfigDb,
       createFullBackup,
       restoreFromBackup,

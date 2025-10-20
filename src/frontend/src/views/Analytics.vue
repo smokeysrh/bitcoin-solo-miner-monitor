@@ -18,8 +18,9 @@
               color="primary"
               class="mb-4"
             >
+              <v-btn value="1m">1m</v-btn>
+              <v-btn value="15m">15m</v-btn>
               <v-btn value="1h">1h</v-btn>
-              <v-btn value="6h">6h</v-btn>
               <v-btn value="24h">24h</v-btn>
               <v-btn value="7d">7d</v-btn>
               <v-btn value="30d">30d</v-btn>
@@ -27,6 +28,12 @@
             </v-btn-toggle>
 
             <v-row v-if="selectedTimeRange === 'custom'">
+              <v-col cols="12" class="d-flex justify-end pb-0">
+                <v-btn text small @click="cancelCustomRange">
+                  <v-icon left small>mdi-close</v-icon>
+                  Cancel
+                </v-btn>
+              </v-col>
               <v-col cols="12" sm="6">
                 <v-menu
                   ref="startDateMenu"
@@ -49,6 +56,7 @@
                   <v-date-picker
                     v-model="startDate"
                     @input="startDateMenu = false"
+                    @change="startDateMenu = false"
                   ></v-date-picker>
                 </v-menu>
               </v-col>
@@ -74,6 +82,7 @@
                   <v-date-picker
                     v-model="endDate"
                     @input="endDateMenu = false"
+                    @change="endDateMenu = false"
                   ></v-date-picker>
                 </v-menu>
               </v-col>
@@ -98,7 +107,7 @@
             <v-select
               v-model="selectedMiners"
               :items="minerOptions"
-              item-text="name"
+              item-title="name"
               item-value="id"
               label="Select Miners"
               multiple
@@ -339,9 +348,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick } from "vue";
 import { useMinersStore } from "../stores/miners";
 import Chart from "chart.js/auto";
+import { format } from "date-fns";
 import { formatTemperature } from "../utils/formatters";
 
 export default {
@@ -417,12 +427,16 @@ export default {
       let start, end;
 
       switch (selectedTimeRange.value) {
-        case "1h":
-          start = new Date(now.getTime() - 60 * 60 * 1000);
+        case "1m":
+          start = new Date(now.getTime() - 60 * 1000);
           end = now;
           break;
-        case "6h":
-          start = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        case "15m":
+          start = new Date(now.getTime() - 15 * 60 * 1000);
+          end = now;
+          break;
+        case "1h":
+          start = new Date(now.getTime() - 60 * 60 * 1000);
           end = now;
           break;
         case "24h":
@@ -454,10 +468,49 @@ export default {
       const { start, end } = getTimeRange();
       const diff = end.getTime() - start.getTime();
 
-      if (diff <= 6 * 60 * 60 * 1000) return "1m"; // 1 minute for <= 6 hours
+      if (diff <= 60 * 1000) return "1m"; // 1 minute for <= 1 minute
+      if (diff <= 15 * 60 * 1000) return "1m"; // 1 minute for <= 15 minutes
+      if (diff <= 60 * 60 * 1000) return "1m"; // 1 minute for <= 1 hour
       if (diff <= 24 * 60 * 60 * 1000) return "5m"; // 5 minutes for <= 24 hours
       if (diff <= 7 * 24 * 60 * 60 * 1000) return "1h"; // 1 hour for <= 7 days
       return "1d"; // 1 day for > 7 days
+    };
+
+    const transformMetricsData = (aggregatedData) => {
+      // Transform aggregated API response into time-series format
+      // Group by time_bucket first
+      const timeSeriesMap = {};
+
+      for (const item of aggregatedData) {
+        const timestamp = item.time_bucket;
+        if (!timeSeriesMap[timestamp]) {
+          timeSeriesMap[timestamp] = { timestamp };
+        }
+
+        // Map metric_type to the expected field names
+        switch (item.metric_type) {
+          case "hashrate":
+            timeSeriesMap[timestamp].hashrate = item.avg_value;
+            break;
+          case "temperature":
+            timeSeriesMap[timestamp].temperature = item.avg_value;
+            break;
+          case "power":
+            timeSeriesMap[timestamp].power = item.avg_value;
+            break;
+          case "shares_accepted":
+            timeSeriesMap[timestamp].shares_accepted = item.avg_value;
+            break;
+          case "shares_rejected":
+            timeSeriesMap[timestamp].shares_rejected = item.avg_value;
+            break;
+        }
+      }
+
+      // Convert map to sorted array
+      return Object.values(timeSeriesMap).sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+      );
     };
 
     const fetchMetricsData = async () => {
@@ -480,7 +533,8 @@ export default {
             interval,
           );
 
-          metricsData.value[minerId] = metrics;
+          // Transform the aggregated data into time-series format
+          metricsData.value[minerId] = transformMetricsData(metrics);
         }
 
         // Check if we have data
@@ -491,6 +545,11 @@ export default {
         if (hasData.value) {
           // Calculate statistics
           calculateStats();
+
+          // Wait for DOM to update before creating charts
+          await nextTick();
+          // Wait one more tick to ensure refs are populated
+          await nextTick();
 
           // Update charts
           updateCharts();
@@ -589,6 +648,29 @@ export default {
     };
 
     const updateCharts = () => {
+      // Debug: Check if refs are available
+      console.log("Chart refs:", {
+        hashrate: hashrateChart.value,
+        temperature: temperatureChart.value,
+        shares: sharesChart.value,
+        power: powerChart.value,
+      });
+
+      // Check if all canvas refs are available
+      if (
+        !hashrateChart.value ||
+        !temperatureChart.value ||
+        !sharesChart.value ||
+        !powerChart.value
+      ) {
+        console.error("Canvas refs not available yet, retrying...");
+        // Retry after a short delay
+        setTimeout(() => {
+          updateCharts();
+        }, 100);
+        return;
+      }
+
       // Destroy previous chart instances
       if (hashrateChartInstance) hashrateChartInstance.destroy();
       if (temperatureChartInstance) temperatureChartInstance.destroy();
@@ -634,7 +716,10 @@ export default {
 
         // Extract data
         for (const metric of minerMetrics) {
-          timestamps.push(new Date(metric.timestamp));
+          // Format timestamp as string for display
+          const date = new Date(metric.timestamp);
+          const formattedTime = format(date, "MMM d, HH:mm");
+          timestamps.push(formattedTime);
           hashrateData.push(metric.hashrate || 0);
           temperatureData.push(metric.temperature || 0);
           sharesAcceptedData.push(metric.shares_accepted || 0);
@@ -697,7 +782,8 @@ export default {
       }
 
       // Create charts
-      hashrateChartInstance = new Chart(hashrateChart.value, {
+      try {
+        hashrateChartInstance = new Chart(hashrateChart.value, {
         type: "line",
         data: {
           labels,
@@ -720,10 +806,6 @@ export default {
           },
           scales: {
             x: {
-              type: "time",
-              time: {
-                unit: getTimeUnit(),
-              },
               title: {
                 display: true,
                 text: "Time",
@@ -738,8 +820,12 @@ export default {
           },
         },
       });
+      } catch (error) {
+        console.error("Failed to create hashrate chart:", error);
+      }
 
-      temperatureChartInstance = new Chart(temperatureChart.value, {
+      try {
+        temperatureChartInstance = new Chart(temperatureChart.value, {
         type: "line",
         data: {
           labels,
@@ -762,10 +848,6 @@ export default {
           },
           scales: {
             x: {
-              type: "time",
-              time: {
-                unit: getTimeUnit(),
-              },
               title: {
                 display: true,
                 text: "Time",
@@ -780,8 +862,12 @@ export default {
           },
         },
       });
+      } catch (error) {
+        console.error("Failed to create temperature chart:", error);
+      }
 
-      sharesChartInstance = new Chart(sharesChart.value, {
+      try {
+        sharesChartInstance = new Chart(sharesChart.value, {
         type: "line",
         data: {
           labels,
@@ -797,10 +883,6 @@ export default {
           },
           scales: {
             x: {
-              type: "time",
-              time: {
-                unit: getTimeUnit(),
-              },
               title: {
                 display: true,
                 text: "Time",
@@ -815,8 +897,12 @@ export default {
           },
         },
       });
+      } catch (error) {
+        console.error("Failed to create shares chart:", error);
+      }
 
-      powerChartInstance = new Chart(powerChart.value, {
+      try {
+        powerChartInstance = new Chart(powerChart.value, {
         type: "line",
         data: {
           labels,
@@ -839,10 +925,6 @@ export default {
           },
           scales: {
             x: {
-              type: "time",
-              time: {
-                unit: getTimeUnit(),
-              },
               title: {
                 display: true,
                 text: "Time",
@@ -857,13 +939,18 @@ export default {
           },
         },
       });
+      } catch (error) {
+        console.error("Failed to create power chart:", error);
+      }
     };
 
     const getTimeUnit = () => {
       const { start, end } = getTimeRange();
       const diff = end.getTime() - start.getTime();
 
-      if (diff <= 6 * 60 * 60 * 1000) return "minute"; // For <= 6 hours
+      if (diff <= 60 * 1000) return "second"; // For <= 1 minute
+      if (diff <= 15 * 60 * 1000) return "second"; // For <= 15 minutes
+      if (diff <= 60 * 60 * 1000) return "minute"; // For <= 1 hour
       if (diff <= 24 * 60 * 60 * 1000) return "hour"; // For <= 24 hours
       if (diff <= 7 * 24 * 60 * 60 * 1000) return "day"; // For <= 7 days
       return "week"; // For > 7 days
@@ -871,6 +958,14 @@ export default {
 
     const applyTimeRange = () => {
       fetchMetricsData();
+    };
+
+    const cancelCustomRange = () => {
+      // Reset to default time range (24h)
+      selectedTimeRange.value = "24h";
+      // Close any open date pickers
+      startDateMenu.value = false;
+      endDateMenu.value = false;
     };
 
     const exportData = (data, filename) => {
@@ -995,13 +1090,8 @@ export default {
       // Fetch miners
       await minersStore.fetchMiners();
 
-      // Select all miners by default
+      // Select all miners by default (this will trigger the watcher which calls fetchMetricsData)
       selectedMiners.value = miners.value.map((miner) => miner.id);
-
-      // Fetch metrics data
-      if (selectedMiners.value.length > 0) {
-        fetchMetricsData();
-      }
     });
 
     return {
@@ -1028,6 +1118,7 @@ export default {
       formatHashrate,
       formatTemperature,
       applyTimeRange,
+      cancelCustomRange,
       exportHashrateData,
       exportTemperatureData,
       exportSharesData,

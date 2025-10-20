@@ -10,6 +10,9 @@ import axios from 'axios';
 // API base URL
 const API_BASE_URL = '/api';
 
+// Debug mode flag - only enable verbose logging in development
+const DEBUG_MODE = import.meta.env.DEV || localStorage.getItem('debug') === 'true';
+
 // Error types for better error handling
 export const SettingsErrorTypes = {
   NETWORK_ERROR: 'NETWORK_ERROR',
@@ -80,11 +83,12 @@ export class SettingsService {
           // Add API key for authenticated endpoints (development mode)
           // In production, this should be handled differently
           if (this.requiresAuth(config.method, config.url)) {
-            console.log(`SettingsService: Adding API key for ${config.method} ${config.url}`);
+            if (DEBUG_MODE) {
+              console.log(`SettingsService: Adding API key for ${config.method} ${config.url}`);
+            }
             config.headers['Authorization'] = 'Bearer dev-key-12345';
-          } else {
-            console.log(`SettingsService: No auth required for ${config.method} ${config.url}`);
           }
+          // Removed "No auth required" logging - too verbose
         }
         return config;
       },
@@ -95,6 +99,15 @@ export class SettingsService {
     axios.interceptors.response.use(
       (response) => response,
       (error) => {
+        // Always log errors with status codes
+        if (error.response) {
+          console.error(`API Error: ${error.config?.method} ${error.config?.url} - Status: ${error.response.status}`);
+        } else if (error.request) {
+          console.error(`API Error: ${error.config?.method} ${error.config?.url} - No response received`);
+        } else {
+          console.error(`API Error: ${error.message}`);
+        }
+        
         const enhancedError = this.enhanceError(error);
         return Promise.reject(enhancedError);
       }
@@ -306,7 +319,9 @@ export class SettingsService {
       // Check cache first
       const cached = this.getCachedSettings();
       if (cached) {
-        console.log('SettingsService: Using cached settings');
+        if (DEBUG_MODE) {
+          console.log('SettingsService: Using cached settings');
+        }
         return {
           success: true,
           data: cached,
@@ -314,7 +329,9 @@ export class SettingsService {
         };
       }
 
-      console.log('SettingsService: Loading settings from server');
+      if (DEBUG_MODE) {
+        console.log('SettingsService: Loading settings from server');
+      }
       const response = await axios.get(`${API_BASE_URL}/settings`);
       
       const settings = response.data;
@@ -354,7 +371,9 @@ export class SettingsService {
         settingsCount: Object.keys(settings).length
       });
 
-      console.log('SettingsService: Validating settings before save:', settings);
+      if (DEBUG_MODE) {
+        console.log('SettingsService: Validating settings before save:', settings);
+      }
 
       // Client-side validation
       const validation = this.validateSettings(settings);
@@ -367,7 +386,9 @@ export class SettingsService {
         throw validationError;
       }
 
-      console.log('SettingsService: Sending settings to server');
+      if (DEBUG_MODE) {
+        console.log('SettingsService: Sending settings to server');
+      }
       const response = await axios.put(`${API_BASE_URL}/settings`, settings);
       
       const updatedSettings = response.data;
@@ -375,7 +396,8 @@ export class SettingsService {
       // Update cache with new settings
       this.cacheSettings(updatedSettings);
       
-      console.log('SettingsService: Settings saved successfully:', updatedSettings);
+      // Log settings changes at info level (not debug)
+      console.info('SettingsService: Settings saved successfully');
 
       return {
         success: true,
@@ -388,6 +410,13 @@ export class SettingsService {
       
       // Clear cache on save error to ensure fresh data on next load
       this.clearCache();
+      
+      // Also clear localStorage to prevent stale data
+      try {
+        localStorage.removeItem('appSettings');
+      } catch (e) {
+        console.warn('Failed to clear localStorage on save error:', e);
+      }
       
       return {
         success: false,
@@ -411,7 +440,9 @@ export class SettingsService {
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      console.log(`SettingsService: Save attempt ${attempt}/${maxRetries}`);
+      if (DEBUG_MODE) {
+        console.log(`SettingsService: Save attempt ${attempt}/${maxRetries}`);
+      }
       
       const result = await this.saveSettings(settings);
       
@@ -423,7 +454,9 @@ export class SettingsService {
       
       // Don't retry if error is not retryable
       if (!result.retryable) {
-        console.log('SettingsService: Error is not retryable, stopping attempts');
+        if (DEBUG_MODE) {
+          console.log('SettingsService: Error is not retryable, stopping attempts');
+        }
         break;
       }
       
@@ -434,7 +467,9 @@ export class SettingsService {
       
       // Calculate delay with exponential backoff
       const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), 10000);
-      console.log(`SettingsService: Retrying in ${delay}ms...`);
+      if (DEBUG_MODE) {
+        console.log(`SettingsService: Retrying in ${delay}ms...`);
+      }
       
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -563,7 +598,7 @@ export class SettingsService {
       const result = await this.saveSettings(importData.settings);
       
       if (result.success) {
-        console.log('SettingsService: Settings imported successfully');
+        console.info('SettingsService: Settings imported successfully');
       }
       
       return result;

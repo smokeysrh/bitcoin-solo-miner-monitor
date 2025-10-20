@@ -642,11 +642,12 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import { formatTemperature } from "../utils/formatters";
+import { usePollingManager } from "../composables/usePollingManager";
 
 export default {
   name: "MinerDetail",
@@ -700,8 +701,13 @@ export default {
     });
     const updatingSettings = ref(false);
 
-    // Refresh interval
-    let refreshInterval = null;
+    // Set up polling manager
+    const { startPolling, stopPolling } = usePollingManager({
+      fetchFunction: () => minersStore.fetchMiner(props.id),
+      intervalKey: "refresh_interval",
+      componentName: "MinerDetail",
+      enabled: true,
+    });
 
     // Computed properties
     const miner = computed(() => minersStore.getMinerById(props.id));
@@ -786,12 +792,24 @@ export default {
     };
 
     const calculateEfficiency = (hashrate, power) => {
+      // Check if miner already has efficiency calculated by backend
+      if (miner.value && miner.value.efficiency && miner.value.efficiency > 0) {
+        return `${miner.value.efficiency.toFixed(2)} W/TH`;
+      }
+
+      // Fallback: calculate efficiency if not provided by backend
       if (!hashrate || !power || power === 0) return "N/A";
 
-      // Convert to TH/s per watt
-      const efficiency = hashrate / power / 1000000000;
+      // Convert hashrate from H/s to TH/s (1 TH = 10^12 H)
+      const hashrateInTH = hashrate / 1000000000000;
 
-      return `${efficiency.toFixed(6)} TH/s/W`;
+      if (hashrateInTH === 0) return "N/A";
+
+      // Calculate efficiency as watts per terahash (W/TH)
+      // Lower values indicate better efficiency
+      const efficiency = power / hashrateInTH;
+
+      return `${efficiency.toFixed(2)} W/TH`;
     };
 
     const getDeviceInfo = (key) => {
@@ -1018,18 +1036,8 @@ export default {
         fetchMetrics();
       }
 
-      // Set up refresh interval
-      const refreshTime = settingsStore.settings.refresh_interval * 1000;
-      refreshInterval = setInterval(async () => {
-        await minersStore.fetchMiner(props.id);
-      }, refreshTime);
-    });
-
-    onUnmounted(() => {
-      // Clear refresh interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      // Start polling with usePollingManager
+      startPolling();
     });
 
     // Watch for miner changes

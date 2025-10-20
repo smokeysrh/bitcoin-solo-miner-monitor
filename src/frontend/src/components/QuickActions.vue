@@ -67,6 +67,11 @@
       @miner-added="handleMinerAdded"
       @error="handleMinerError"
     />
+
+    <!-- Network Scanner Dialog -->
+    <v-dialog v-model="networkScannerDialog" max-width="900px" persistent>
+      <NetworkScanner @close="networkScannerDialog = false" />
+    </v-dialog>
   </v-card>
 </template>
 
@@ -77,6 +82,7 @@ import { useMinersStore } from "../stores/miners";
 import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import InfoBubble from "./InfoBubble.vue";
 import AddMinerDialog from "./AddMinerDialog.vue";
+import NetworkScanner from "./NetworkScanner.vue";
 
 export default {
   name: "QuickActions",
@@ -84,6 +90,7 @@ export default {
   components: {
     InfoBubble,
     AddMinerDialog,
+    NetworkScanner,
   },
 
   props: {
@@ -125,25 +132,15 @@ export default {
     // Reactive data
     const scanning = ref(false);
     const addMinerDialog = ref(false);
+    const networkScannerDialog = ref(false);
 
     // Computed properties
     const miners = computed(() => minersStore.miners);
 
     // Methods
-    const handleScanNetwork = async () => {
-      scanning.value = true;
-      try {
-        // Emit event to parent component for handling
-        emit('scan-network', props.defaultNetwork);
-        
-        // Also handle directly if parent doesn't override
-        await minersStore.startDiscovery(props.defaultNetwork);
-        console.log("Network scan initiated");
-      } catch (error) {
-        console.error("Error scanning network:", error);
-      } finally {
-        scanning.value = false;
-      }
+    const handleScanNetwork = () => {
+      networkScannerDialog.value = true;
+      emit('scan-network', props.defaultNetwork);
     };
 
     const handleAddMiner = () => {
@@ -180,6 +177,7 @@ export default {
       // Refs
       scanning,
       addMinerDialog,
+      networkScannerDialog,
 
       // Computed
       miners,

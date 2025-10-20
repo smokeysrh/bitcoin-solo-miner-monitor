@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polling Coordination Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #f90;
+            padding-bottom: 10px;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 4px 0;
+            border-left: 3px solid #ccc;
+            background: #f9f9f9;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry.warning {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+        .log-entry.info {
+            border-left-color: #2196f3;
+            background: #e3f2fd;
+        }
+        .log-entry.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #f90;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #e68a00;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.active {
+            background: #4caf50;
+            color: white;
+        }
+        .status.inactive {
+            background: #9e9e9e;
+            color: white;
+        }
+        #console-output {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .console-line {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .console-warn {
+            color: #ffa500;
+        }
+        .console-error {
+            color: #ff6b6b;
+        }
+        .console-info {
+            color: #4fc3f7;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #f90;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 Polling Coordination Test</h1>
+    <p>This test verifies that the polling coordination logic prevents duplicate requests within a 5-second window.</p>
+
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <div>
+            <button id="start-component1">Start Component 1</button>
+            <button id="stop-component1">Stop Component 1</button>
+            <span class="status inactive" id="status1">Inactive</span>
+        </div>
+        <div>
+            <button id="start-component2">Start Component 2</button>
+            <button id="stop-component2">Stop Component 2</button>
+            <span class="status inactive" id="status2">Inactive</span>
+        </div>
+        <div>
+            <button id="start-component3">Start Component 3</button>
+            <button id="stop-component3">Stop Component 3</button>
+            <span class="status inactive" id="status3">Inactive</span>
+        </div>
+        <div style="margin-top: 15px;">
+            <button id="clear-console">Clear Console</button>
+            <button id="start-all">Start All Components</button>
+            <button id="stop-all">Stop All Components</button>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Statistics</h2>
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="total-polls">0</div>
+                <div class="stat-label">Total Polls</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="duplicate-warnings">0</div>
+                <div class="stat-label">Duplicate Warnings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-pollers">0</div>
+                <div class="stat-label">Active Pollers</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <div id="console-output"></div>
+    </div>
+
+    <script type="module">
+        // Simulate the polling manager logic
+        const activePollers = new Map();
+        let totalPolls = 0;
+        let duplicateWarnings = 0;
+
+        class MockPollingManager {
+            constructor(componentName) {
+                this.componentName = componentName;
+                this.intervalId = null;
+                this.isActive = false;
+                this.pollCount = 0;
+            }
+
+            checkDuplicatePolling() {
+                const now = Date.now();
+                const duplicateWindow = 5000; // 5 second window
+
+                for (const [key, lastPoll] of activePollers.entries()) {
+                    if (key !== this.componentName && now - lastPoll < duplicateWindow) {
+                        const timeSince = now - lastPoll;
+                        this.logWarning(`Duplicate polling detected! Component "${key}" polled ${timeSince}ms ago.`);
+                        duplicateWarnings++;
+                        updateStats();
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            async pollNow() {
+                try {
+                    // Check for duplicate polling
+                    this.checkDuplicatePolling();
+
+                    // Update tracking
+                    const now = Date.now();
+                    activePollers.set(this.componentName, now);
+                    this.pollCount++;
+                    totalPolls++;
+
+                    this.logInfo(`Poll #${this.pollCount} at ${new Date(now).toLocaleTimeString()}`);
+                    updateStats();
+
+                    // Simulate API call
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                    this.logError(`Poll error: ${error.message}`);
+                }
+            }
+
+            startPolling() {
+                if (this.isActive) {
+                    this.logInfo('Already polling');
+                    return;
+                }
+
+                this.logInfo('Starting polling with 6-second interval');
+                
+                // Execute first poll immediately
+                this.pollNow();
+
+                // Set up interval for subsequent polls
+                this.intervalId = setInterval(() => {
+                    this.pollNow();
+                }, 6000); // 6 seconds for testing
+
+                this.isActive = true;
+                updateStats();
+            }
+
+            stopPolling() {
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                    this.intervalId = null;
+                    this.logInfo('Polling stopped');
+                }
+
+                this.isActive = false;
+                activePollers.delete(this.componentName);
+                updateStats();
+            }
+
+            logInfo(message) {
+                addConsoleLog(`[${this.componentName}] ${message}`, 'info');
+            }
+
+            logWarning(message) {
+                addConsoleLog(`[${this.componentName}] ⚠️ ${message}`, 'warn');
+            }
+
+            logError(message) {
+                addConsoleLog(`[${this.componentName}] ❌ ${message}`, 'error');
+            }
+        }
+
+        // Create mock components
+        const component1 = new MockPollingManager('Dashboard');
+        const component2 = new MockPollingManager('Miners');
+        const component3 = new MockPollingManager('Network');
+
+        // Console output
+        function addConsoleLog(message, type = 'info') {
+            const consoleOutput = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = `console-line console-${type}`;
+            line.textContent = `[${timestamp}] ${message}`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('total-polls').textContent = totalPolls;
+            document.getElementById('duplicate-warnings').textContent = duplicateWarnings;
+            document.getElementById('active-pollers').textContent = activePollers.size;
+        }
+
+        function updateStatus(componentNum, isActive) {
+            const statusEl = document.getElementById(`status${componentNum}`);
+            statusEl.textContent = isActive ? 'Active' : 'Inactive';
+            statusEl.className = `status ${isActive ? 'active' : 'inactive'}`;
+        }
+
+        // Event listeners
+        document.getElementById('start-component1').addEventListener('click', () => {
+            component1.startPolling();
+            updateStatus(1, true);
+        });
+
+        document.getElementById('stop-component1').addEventListener('click', () => {
+            component1.stopPolling();
+            updateStatus(1, false);
+        });
+
+        document.getElementById('start-component2').addEventListener('click', () => {
+            component2.startPolling();
+            updateStatus(2, true);
+        });
+
+        document.getElementById('stop-component2').addEventListener('click', () => {
+            component2.stopPolling();
+            updateStatus(2, false);
+        });
+
+        document.getElementById('start-component3').addEventListener('click', () => {
+            component3.startPolling();
+            updateStatus(3, true);
+        });
+
+        document.getElementById('stop-component3').addEventListener('click', () => {
+            component3.stopPolling();
+            updateStatus(3, false);
+        });
+
+        document.getElementById('clear-console').addEventListener('click', () => {
+            document.getElementById('console-output').innerHTML = '';
+            addConsoleLog('Console cleared', 'info');
+        });
+
+        document.getElementById('start-all').addEventListener('click', () => {
+            addConsoleLog('=== Starting all components simultaneously ===', 'info');
+            component1.startPolling();
+            updateStatus(1, true);
+            
+            setTimeout(() => {
+                component2.startPolling();
+                updateStatus(2, true);
+            }, 100);
+            
+            setTimeout(() => {
+                component3.startPolling();
+                updateStatus(3, true);
+            }, 200);
+        });
+
+        document.getElementById('stop-all').addEventListener('click', () => {
+            component1.stopPolling();
+            component2.stopPolling();
+            component3.stopPolling();
+            updateStatus(1, false);
+            updateStatus(2, false);
+            updateStatus(3, false);
+            addConsoleLog('All components stopped', 'info');
+        });
+
+        // Initial log
+        addConsoleLog('Polling Coordination Test initialized', 'info');
+        addConsoleLog('Click "Start All Components" to test duplicate detection', 'info');
+    </script>
+</body>
+</html>

@@ -188,6 +188,7 @@
 <script>
 import { ref, computed, watch, nextTick } from 'vue'
 import { useMinersStore } from '../stores/miners'
+import { MINER_TYPE_PORTS, getDefaultPort } from '../config/ports.config'
 
 export default {
   name: 'AddMinerDialog',
@@ -241,21 +242,28 @@ export default {
         value: 'bitaxe',
         icon: 'mdi-pickaxe',
         description: 'Open-source Bitcoin ASIC miner',
-        defaultPort: 80
+        defaultPort: MINER_TYPE_PORTS.bitaxe
       },
       {
         title: 'Avalon Nano',
         value: 'avalon_nano',
         icon: 'mdi-chip',
         description: 'Compact USB Bitcoin miner',
-        defaultPort: 4028
+        defaultPort: MINER_TYPE_PORTS.avalon_nano
       },
       {
         title: 'Magic Miner',
         value: 'magic_miner',
         icon: 'mdi-lightning-bolt',
         description: 'High-performance Bitcoin miner',
-        defaultPort: 80
+        defaultPort: MINER_TYPE_PORTS.magic_miner
+      },
+      {
+        title: 'Bitcoin Node',
+        value: 'bitcoin_node',
+        icon: 'mdi-bitcoin',
+        description: 'Bitcoin Core node for solo mining',
+        defaultPort: MINER_TYPE_PORTS.bitcoin_node
       }
     ]
 

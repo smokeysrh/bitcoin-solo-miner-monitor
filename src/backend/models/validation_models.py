@@ -132,6 +132,7 @@ class AppSettingsRequest(BaseModel):
     theme: Optional[str] = Field(None, description="UI theme (light, dark)")
     chart_retention_days: Optional[int] = Field(None, description="Number of days to retain chart data")
     refresh_interval: Optional[int] = Field(None, description="UI refresh interval in seconds")
+    electricity_cost: Optional[float] = Field(None, description="Electricity cost per kWh in USD")
     
     @field_validator('polling_interval')
     @classmethod
@@ -168,6 +169,15 @@ class AppSettingsRequest(BaseModel):
         if v is not None:
             if not (1 <= v <= 300):  # 1 second to 5 minutes
                 raise AppValidationError("Refresh interval must be between 1 and 300 seconds")
+        return v
+    
+    @field_validator('electricity_cost')
+    @classmethod
+    def validate_electricity_cost(cls, v):
+        """Validate electricity cost."""
+        if v is not None:
+            if not (0.01 <= v <= 10.00):  # Reasonable range for electricity cost per kWh
+                raise AppValidationError("Electricity cost must be between 0.01 and 10.00 USD per kWh")
         return v
 
 
@@ -247,7 +257,8 @@ class WebSocketMessage(BaseModel):
     
     type: str = Field(..., description="Message type")
     data: Optional[Dict[str, Any]] = Field(None, description="Message data")
-    topic: Optional[str] = Field(None, description="Topic to subscribe/unsubscribe")
+    topic: Optional[str] = Field(None, description="Topic to subscribe/unsubscribe (deprecated, use topics)")
+    topics: Optional[List[str]] = Field(None, description="Topics to subscribe/unsubscribe")
     
     @field_validator('type')
     @classmethod
