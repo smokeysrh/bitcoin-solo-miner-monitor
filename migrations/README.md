@@ -36,6 +36,33 @@ Removes user authentication tables as part of the authentication system removal.
 - Removes user tables and indexes
 - Verifies migration success
 
+### `create_network_health_schema.py`
+Creates the network_health table for storing network health metrics.
+
+**What it does:**
+- Creates `network_health` table for storing latency, packet loss, uptime, and jitter metrics
+- Creates optimized indexes for network health queries
+- Includes verification of schema creation
+
+**Usage:**
+```bash
+python migrations/create_network_health_schema.py
+```
+
+### `add_pool_latency_columns.py`
+Adds pool latency tracking columns to the existing network_health table.
+
+**What it does:**
+- Adds `pool_url`, `pool_port`, `pool_latency_ms`, and `total_path_latency_ms` columns
+- Creates index on pool_url for efficient pool queries
+- Safe to run multiple times (idempotent)
+- Maintains backward compatibility with existing data
+
+**Usage:**
+```bash
+python migrations/add_pool_latency_columns.py
+```
+
 ## Schema Overview
 
 ### Time-Series Tables
@@ -58,6 +85,22 @@ Stores complete status snapshots as JSON:
 - `status_data`: JSON document with complete status
 - `created_at`: Record creation timestamp
 
+#### `network_health`
+Stores network health metrics for miners:
+- `id`: Auto-increment primary key
+- `miner_id`: References miners.id
+- `latency_ms`: Network latency to miner in milliseconds
+- `packet_loss_percent`: Packet loss percentage
+- `uptime_seconds`: Connection uptime in seconds
+- `jitter_ms`: Network jitter in milliseconds
+- `pool_url`: Mining pool or Bitcoin node URL
+- `pool_port`: Pool connection port
+- `pool_latency_ms`: Network latency to pool in milliseconds
+- `total_path_latency_ms`: Combined miner + pool latency
+- `status`: Health status (healthy, degraded, poor, unknown)
+- `measured_at`: Measurement timestamp
+- `created_at`: Record creation timestamp
+
 ### Indexes
 
 The schema includes optimized indexes for common time-series query patterns:
@@ -66,6 +109,7 @@ The schema includes optimized indexes for common time-series query patterns:
 2. **Metric-specific queries** (metric type + time)
 3. **Filtered queries** (miner + metric type + time)
 4. **Cross-miner queries** (time range across all miners)
+5. **Network health queries** (miner + time, status + time, pool + time)
 
 ## Migration Process
 
@@ -116,6 +160,50 @@ FROM miner_status
 WHERE miner_id = 'miner_001' 
 ORDER BY timestamp DESC 
 LIMIT 1;
+```
+
+### Get latest network health with pool latency:
+```sql
+SELECT 
+    miner_id,
+    latency_ms,
+    packet_loss_percent,
+    pool_url,
+    pool_port,
+    pool_latency_ms,
+    total_path_latency_ms,
+    status,
+    measured_at
+FROM network_health 
+WHERE miner_id = 'miner_001' 
+ORDER BY measured_at DESC 
+LIMIT 1;
+```
+
+### Get all miners using a specific pool:
+```sql
+SELECT 
+    miner_id,
+    pool_latency_ms,
+    total_path_latency_ms,
+    measured_at
+FROM network_health 
+WHERE pool_url = 'stratum+tcp://pool.example.com'
+ORDER BY measured_at DESC;
+```
+
+### Get network health history for a miner:
+```sql
+SELECT 
+    measured_at,
+    latency_ms,
+    packet_loss_percent,
+    pool_latency_ms,
+    status
+FROM network_health 
+WHERE miner_id = 'miner_001' 
+  AND measured_at > datetime('now', '-1 hour')
+ORDER BY measured_at DESC;
 ```
 
 ## Data Retention

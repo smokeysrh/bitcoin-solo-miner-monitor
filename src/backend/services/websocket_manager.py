@@ -406,6 +406,27 @@ class WebSocketManager:
             "data": system_data,
         })
     
+    async def broadcast_metrics(self, miner_id: str, metrics: Dict[str, Any], timestamp: Optional[str] = None):
+        """
+        Broadcast metrics update to all subscribed clients.
+        
+        Args:
+            miner_id (str): ID of the miner
+            metrics (Dict[str, Any]): Metrics data
+            timestamp (Optional[str]): ISO timestamp of the metrics
+        """
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
+        
+        await self.broadcast("metrics", {
+            "type": "metrics_update",
+            "data": {
+                "miner_id": miner_id,
+                "metrics": metrics,
+                "timestamp": timestamp
+            }
+        })
+    
     async def broadcast_to_topic(self, topic: str, message: Dict[str, Any]):
         """
         Broadcast a message to a specific topic (alias for broadcast method).

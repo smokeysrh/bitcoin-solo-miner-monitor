@@ -10,7 +10,7 @@
       @click:outside="drawer = false"
     >
       <v-list-item>
-        <template v-slot:prepend>
+        <template #prepend>
           <BitcoinLogo 
             size="md" 
             variant="default" 
@@ -37,24 +37,24 @@
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
+          :prepend-icon="item.icon"
           @click="navigateToPage(item.to)"
           link
         >
-          <template v-slot:prepend>
-            <v-icon>{{ item.icon }}</v-icon>
-          </template>
           <v-list-item-title>{{ item.title }}</v-list-item-title>
         </v-list-item>
       </v-list>
       
-      <template v-slot:append>
+      <template #append>
         <div class="pa-2">
           <v-btn
             block
             color="primary"
             @click="navigateToMinersPage"
           >
-            <v-icon left>mdi-plus</v-icon>
+            <template #prepend>
+              <v-icon>mdi-plus</v-icon>
+            </template>
             Add Miner
           </v-btn>
         </div>
@@ -198,7 +198,7 @@
       app
     >
       {{ snackbar.text }}
-      <template v-slot:actions>
+      <template #actions>
         <v-btn
           variant="text"
           @click="snackbar.show = false"
@@ -467,7 +467,8 @@ export default {
       
       try {
         refreshing.value = true
-        console.log('Starting data refresh...')
+        const currentPath = route.path
+        console.log('Starting data refresh for current page:', currentPath)
         
         // Handle WebSocket reconnection for disconnected states
         if (connectionStatus.value === 'disconnected' || connectionStatus.value === 'error') {
@@ -497,37 +498,53 @@ export default {
           }
         }
         
-        // Refresh all relevant data sources
+        // Determine what to refresh based on current route
         const refreshPromises = []
         
-        // 1. Refresh miners data
-        console.log('Refreshing miners data...')
-        refreshPromises.push(
-          minersStore.fetchMiners().catch(error => {
-            console.error('Failed to refresh miners:', error)
-            throw new Error(`Miners: ${error.message}`)
-          })
-        )
+        // Route-specific refresh logic
+        if (currentPath === '/' || currentPath === '/dashboard-simple' || 
+            currentPath === '/miners' || currentPath === '/network' || 
+            currentPath === '/analytics' || currentPath.startsWith('/miners/')) {
+          // Pages that display miner data - use the refresh endpoint
+          console.log('Refreshing miners data via refresh endpoint...')
+          refreshPromises.push(
+            minersStore.refreshMiners().catch(error => {
+              console.error('Failed to refresh miners:', error)
+              console.warn('Miners refresh failed, continuing with other data')
+            })
+          )
+        }
         
-        // 2. Refresh settings data
-        console.log('Refreshing settings data...')
-        refreshPromises.push(
-          settingsStore.fetchSettings().catch(error => {
-            console.error('Failed to refresh settings:', error)
-            // Don't throw for settings errors, just log them
-            console.warn('Settings refresh failed, continuing with other data')
-          })
-        )
+        // Settings page - refresh settings
+        if (currentPath === '/settings') {
+          console.log('Refreshing settings data...')
+          refreshPromises.push(
+            settingsStore.fetchSettings().catch(error => {
+              console.error('Failed to refresh settings:', error)
+              console.warn('Settings refresh failed')
+            })
+          )
+        }
         
-        // 3. Refresh alerts data
+        // Always refresh alerts as they may appear across pages
         console.log('Refreshing alerts data...')
         refreshPromises.push(
           alertsStore.fetchAlerts().catch(error => {
             console.error('Failed to refresh alerts:', error)
-            // Don't throw for alerts errors, just log them
-            console.warn('Alerts refresh failed, continuing with other data')
+            console.warn('Alerts refresh failed')
           })
         )
+        
+        // If no specific refresh actions were added, default to refreshing miners
+        if (refreshPromises.length === 1) { // Only alerts was added
+          console.log('No specific page refresh, defaulting to miners refresh...')
+          refreshPromises.unshift(
+            minersStore.refreshMiners().catch(error => {
+              console.error('Failed to refresh miners:', error)
+              console.warn('Miners refresh failed')
+            })
+          )
+        }
         
         // Execute all refresh operations with timeout
         const refreshTimeout = 10000 // 10 seconds timeout
@@ -546,31 +563,32 @@ export default {
           throw new Error('Refresh timed out - please try again')
         }
         
-        // Check for any critical failures (miners data is critical)
-        const minersResult = refreshResults[0]
-        if (minersResult && minersResult.status === 'rejected') {
-          console.error('Critical: Miners data refresh failed:', minersResult.reason)
-          throw new Error(`Failed to refresh miners data: ${minersResult.reason.message}`)
-        }
-        
-        // Log any non-critical failures
+        // Log results
+        let successCount = 0
+        let failureCount = 0
         refreshResults.forEach((result, index) => {
           if (result.status === 'rejected') {
-            const dataType = index === 0 ? 'miners' : index === 1 ? 'settings' : 'alerts'
-            console.warn(`Non-critical: ${dataType} refresh failed:`, result.reason)
+            console.warn(`Refresh operation ${index} failed:`, result.reason)
+            failureCount++
+          } else {
+            console.log(`Refresh operation ${index} succeeded`)
+            successCount++
           }
         })
         
-        // Check if WebSocket reconnection was successful
-        if (connectionStatus.value === 'connected') {
-          console.log('Refresh completed successfully with WebSocket connected')
-          showSnackbar('Data refreshed successfully', 'success')
-        } else if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
-          console.log('Refresh completed, WebSocket still reconnecting')
-          showSnackbar('Data refreshed, reconnecting...', 'info')
+        // Show appropriate message based on results
+        if (successCount > 0 && failureCount === 0) {
+          if (connectionStatus.value === 'connected') {
+            showSnackbar('Data refreshed successfully', 'success')
+          } else if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
+            showSnackbar('Data refreshed, reconnecting...', 'info')
+          } else {
+            showSnackbar('Data refreshed (offline mode)', 'warning')
+          }
+        } else if (successCount > 0 && failureCount > 0) {
+          showSnackbar('Data partially refreshed', 'warning')
         } else {
-          console.log('Refresh completed but WebSocket connection failed')
-          showSnackbar('Data refreshed (offline mode)', 'warning')
+          showSnackbar('Refresh failed', 'error')
         }
         
       } catch (error) {

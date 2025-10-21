@@ -6,9 +6,9 @@
       </v-col>
     </v-row>
 
-    <!-- Time Range Selector -->
+    <!-- Time Range and Increment Selectors -->
     <v-row>
-      <v-col cols="12" md="6">
+      <v-col cols="12" md="4">
         <v-card>
           <v-card-title>Time Range</v-card-title>
           <v-card-text>
@@ -16,91 +16,38 @@
               v-model="selectedTimeRange"
               mandatory
               color="primary"
-              class="mb-4"
+              @update:model-value="onTimeRangeChange"
             >
-              <v-btn value="1m">1m</v-btn>
-              <v-btn value="15m">15m</v-btn>
-              <v-btn value="1h">1h</v-btn>
-              <v-btn value="24h">24h</v-btn>
-              <v-btn value="7d">7d</v-btn>
-              <v-btn value="30d">30d</v-btn>
-              <v-btn value="custom">Custom</v-btn>
+              <v-btn value="1h">1 Hour</v-btn>
+              <v-btn value="24h">24 Hours</v-btn>
+              <v-btn value="7d">7 Days</v-btn>
+              <v-btn value="30d">30 Days</v-btn>
+              <v-btn value="all">All Time</v-btn>
             </v-btn-toggle>
-
-            <v-row v-if="selectedTimeRange === 'custom'">
-              <v-col cols="12" class="d-flex justify-end pb-0">
-                <v-btn text small @click="cancelCustomRange">
-                  <v-icon left small>mdi-close</v-icon>
-                  Cancel
-                </v-btn>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-menu
-                  ref="startDateMenu"
-                  v-model="startDateMenu"
-                  :close-on-content-click="false"
-                  transition="scale-transition"
-                  offset-y
-                  min-width="auto"
-                >
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-text-field
-                      v-model="startDate"
-                      label="Start Date"
-                      prepend-icon="mdi-calendar"
-                      readonly
-                      v-bind="attrs"
-                      v-on="on"
-                    ></v-text-field>
-                  </template>
-                  <v-date-picker
-                    v-model="startDate"
-                    @input="startDateMenu = false"
-                    @change="startDateMenu = false"
-                  ></v-date-picker>
-                </v-menu>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-menu
-                  ref="endDateMenu"
-                  v-model="endDateMenu"
-                  :close-on-content-click="false"
-                  transition="scale-transition"
-                  offset-y
-                  min-width="auto"
-                >
-                  <template v-slot:activator="{ on, attrs }">
-                    <v-text-field
-                      v-model="endDate"
-                      label="End Date"
-                      prepend-icon="mdi-calendar"
-                      readonly
-                      v-bind="attrs"
-                      v-on="on"
-                    ></v-text-field>
-                  </template>
-                  <v-date-picker
-                    v-model="endDate"
-                    @input="endDateMenu = false"
-                    @change="endDateMenu = false"
-                  ></v-date-picker>
-                </v-menu>
-              </v-col>
-            </v-row>
-
-            <v-btn
-              color="primary"
-              @click="applyTimeRange"
-              :disabled="loading"
-              class="mt-4"
-            >
-              Apply
-            </v-btn>
           </v-card-text>
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="6">
+      <v-col cols="12" md="4">
+        <v-card>
+          <v-card-title>Time Increment</v-card-title>
+          <v-card-text>
+            <v-btn-toggle
+              v-model="selectedIncrement"
+              mandatory
+              color="primary"
+              @update:model-value="onIncrementChange"
+            >
+              <v-btn value="1m" :disabled="!isIncrementValid('1m')">1 Min</v-btn>
+              <v-btn value="15m" :disabled="!isIncrementValid('15m')">15 Min</v-btn>
+              <v-btn value="1h" :disabled="!isIncrementValid('1h')">1 Hour</v-btn>
+              <v-btn value="1d" :disabled="!isIncrementValid('1d')">1 Day</v-btn>
+            </v-btn-toggle>
+          </v-card-text>
+        </v-card>
+      </v-col>
+
+      <v-col cols="12" md="4">
         <v-card>
           <v-card-title>Miner Selection</v-card-title>
           <v-card-text>
@@ -140,7 +87,7 @@
             <div
               v-if="loading"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <v-progress-circular
                 indeterminate
@@ -150,14 +97,14 @@
             <div
               v-else-if="!hasData"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <p class="text-subtitle-1">
                 No data available for the selected time range
               </p>
             </div>
             <div v-else>
-              <canvas ref="hashrateChart" height="300"></canvas>
+              <canvas ref="hashrateChart" height="200"></canvas>
             </div>
           </v-card-text>
         </v-card>
@@ -179,7 +126,7 @@
             <div
               v-if="loading"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <v-progress-circular
                 indeterminate
@@ -189,14 +136,14 @@
             <div
               v-else-if="!hasData"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <p class="text-subtitle-1">
                 No data available for the selected time range
               </p>
             </div>
             <div v-else>
-              <canvas ref="temperatureChart" height="300"></canvas>
+              <canvas ref="temperatureChart" height="200"></canvas>
             </div>
           </v-card-text>
         </v-card>
@@ -218,7 +165,7 @@
             <div
               v-if="loading"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <v-progress-circular
                 indeterminate
@@ -228,14 +175,14 @@
             <div
               v-else-if="!hasData"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <p class="text-subtitle-1">
                 No data available for the selected time range
               </p>
             </div>
             <div v-else>
-              <canvas ref="sharesChart" height="300"></canvas>
+              <canvas ref="sharesChart" height="200"></canvas>
             </div>
           </v-card-text>
         </v-card>
@@ -257,7 +204,7 @@
             <div
               v-if="loading"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <v-progress-circular
                 indeterminate
@@ -267,14 +214,14 @@
             <div
               v-else-if="!hasData"
               class="d-flex justify-center align-center"
-              style="height: 300px"
+              style="height: 200px"
             >
               <p class="text-subtitle-1">
                 No data available for the selected time range
               </p>
             </div>
             <div v-else>
-              <canvas ref="powerChart" height="300"></canvas>
+              <canvas ref="powerChart" height="200"></canvas>
             </div>
           </v-card-text>
         </v-card>
@@ -348,8 +295,9 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 import { useMinersStore } from "../stores/miners";
+import { addMessageHandler, removeMessageHandler, updateSubscriptions } from "../services/websocket";
 import Chart from "chart.js/auto";
 import { format } from "date-fns";
 import { formatTemperature } from "../utils/formatters";
@@ -372,14 +320,14 @@ export default {
     let sharesChartInstance = null;
     let powerChartInstance = null;
 
-    // Time range
+    // Throttling for real-time updates
+    let lastUpdateTime = 0;
+    const UPDATE_THROTTLE_MS = 1000; // Max 1 update per second
+    let pendingUpdates = new Map(); // Store pending updates by miner_id
+
+    // Time range and increment
     const selectedTimeRange = ref("24h");
-    const startDate = ref(
-      new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().substr(0, 10),
-    );
-    const endDate = ref(new Date().toISOString().substr(0, 10));
-    const startDateMenu = ref(false);
-    const endDateMenu = ref(false);
+    const selectedIncrement = ref("5m");
 
     // Miner selection
     const selectedMiners = ref([]);
@@ -427,14 +375,6 @@ export default {
       let start, end;
 
       switch (selectedTimeRange.value) {
-        case "1m":
-          start = new Date(now.getTime() - 60 * 1000);
-          end = now;
-          break;
-        case "15m":
-          start = new Date(now.getTime() - 15 * 60 * 1000);
-          end = now;
-          break;
         case "1h":
           start = new Date(now.getTime() - 60 * 60 * 1000);
           end = now;
@@ -451,10 +391,10 @@ export default {
           start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           end = now;
           break;
-        case "custom":
-          start = new Date(startDate.value);
-          end = new Date(endDate.value);
-          end.setHours(23, 59, 59, 999); // End of day
+        case "all":
+          // Get all available data (start from 90 days ago as a reasonable limit)
+          start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          end = now;
           break;
         default:
           start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -465,15 +405,73 @@ export default {
     };
 
     const getInterval = () => {
-      const { start, end } = getTimeRange();
-      const diff = end.getTime() - start.getTime();
+      // Use the selected increment directly
+      return selectedIncrement.value;
+    };
 
-      if (diff <= 60 * 1000) return "1m"; // 1 minute for <= 1 minute
-      if (diff <= 15 * 60 * 1000) return "1m"; // 1 minute for <= 15 minutes
-      if (diff <= 60 * 60 * 1000) return "1m"; // 1 minute for <= 1 hour
-      if (diff <= 24 * 60 * 60 * 1000) return "5m"; // 5 minutes for <= 24 hours
-      if (diff <= 7 * 24 * 60 * 60 * 1000) return "1h"; // 1 hour for <= 7 days
-      return "1d"; // 1 day for > 7 days
+    /**
+     * Get valid increments for the current time range
+     */
+    const getValidIncrementsForRange = () => {
+      const rangeIncrementMap = {
+        '1h': ['1m', '15m'],
+        '24h': ['15m', '1h'],
+        '7d': ['1h', '1d'],
+        '30d': ['1d'],
+        'all': ['1d']
+      };
+      
+      return rangeIncrementMap[selectedTimeRange.value] || ['1h'];
+    };
+
+    /**
+     * Check if an increment is valid for the current time range
+     */
+    const isIncrementValid = (increment) => {
+      const validIncrements = getValidIncrementsForRange();
+      return validIncrements.includes(increment);
+    };
+
+    /**
+     * Auto-adjust increment when range changes to ensure valid combination
+     */
+    const adjustIncrementForRange = () => {
+      const validIncrements = getValidIncrementsForRange();
+      
+      // If current increment is not valid for the new range, select the first valid one
+      if (!validIncrements.includes(selectedIncrement.value)) {
+        selectedIncrement.value = validIncrements[0];
+        console.log(`Auto-adjusted increment to ${selectedIncrement.value} for range ${selectedTimeRange.value}`);
+      }
+    };
+
+    /**
+     * Handle time range change - auto-adjust increment and fetch data
+     */
+    const onTimeRangeChange = async (newRange) => {
+      console.log('Time range changed to:', newRange);
+      selectedTimeRange.value = newRange;
+      
+      // Auto-adjust increment if needed
+      adjustIncrementForRange();
+      
+      // Fetch data immediately
+      if (selectedMiners.value.length > 0) {
+        await fetchMetricsData();
+      }
+    };
+
+    /**
+     * Handle increment change - fetch data immediately
+     */
+    const onIncrementChange = async (newIncrement) => {
+      console.log('Time increment changed to:', newIncrement);
+      selectedIncrement.value = newIncrement;
+      
+      // Fetch data immediately
+      if (selectedMiners.value.length > 0) {
+        await fetchMetricsData();
+      }
     };
 
     const transformMetricsData = (aggregatedData) => {
@@ -956,17 +954,7 @@ export default {
       return "week"; // For > 7 days
     };
 
-    const applyTimeRange = () => {
-      fetchMetricsData();
-    };
 
-    const cancelCustomRange = () => {
-      // Reset to default time range (24h)
-      selectedTimeRange.value = "24h";
-      // Close any open date pickers
-      startDateMenu.value = false;
-      endDateMenu.value = false;
-    };
 
     const exportData = (data, filename) => {
       // Convert data to CSV
@@ -1078,6 +1066,215 @@ export default {
       exportData(csv, "power_data.csv");
     };
 
+    /**
+     * Handle real-time metrics updates from WebSocket
+     * @param {Object} message - WebSocket message
+     */
+    const handleMetricsUpdate = (message) => {
+      // Only process metrics_update messages
+      if (message.type !== 'metrics_update') {
+        return;
+      }
+
+      const { miner_id, metrics, timestamp } = message.data || {};
+      
+      // Only update if this miner is currently selected
+      if (!selectedMiners.value.includes(miner_id)) {
+        return;
+      }
+
+      // Store the update for throttled processing
+      pendingUpdates.set(miner_id, { metrics, timestamp });
+
+      // Throttle updates to max 1 per second
+      const now = Date.now();
+      if (now - lastUpdateTime < UPDATE_THROTTLE_MS) {
+        return;
+      }
+
+      lastUpdateTime = now;
+      processPendingUpdates();
+    };
+
+    /**
+     * Process all pending metrics updates
+     */
+    const processPendingUpdates = () => {
+      if (pendingUpdates.size === 0) {
+        return;
+      }
+
+      // Process each pending update
+      for (const [minerId, update] of pendingUpdates.entries()) {
+        appendMetricsToCharts(minerId, update.metrics, update.timestamp);
+      }
+
+      // Clear pending updates
+      pendingUpdates.clear();
+    };
+
+    /**
+     * Append new metrics data to existing charts
+     * @param {string} minerId - Miner ID
+     * @param {Object} metrics - Metrics data
+     * @param {string} timestamp - ISO timestamp
+     */
+    const appendMetricsToCharts = (minerId, metrics, timestamp) => {
+      // Check if we have data for this miner
+      if (!metricsData.value[minerId]) {
+        metricsData.value[minerId] = [];
+      }
+
+      // Create new data point
+      const newDataPoint = {
+        timestamp,
+        hashrate: metrics.hashrate || 0,
+        temperature: metrics.temperature || 0,
+        power: metrics.power || 0,
+        shares_accepted: metrics.shares_accepted || 0,
+        shares_rejected: metrics.shares_rejected || 0,
+      };
+
+      // Append to metrics data
+      metricsData.value[minerId].push(newDataPoint);
+
+      // Limit data points based on time range to prevent memory issues
+      const maxDataPoints = getMaxDataPoints();
+      if (metricsData.value[minerId].length > maxDataPoints) {
+        metricsData.value[minerId].shift(); // Remove oldest data point
+      }
+
+      // Update charts with new data
+      updateChartsWithNewData(minerId, newDataPoint);
+
+      // Recalculate statistics
+      calculateStats();
+    };
+
+    /**
+     * Get maximum data points based on selected time range and increment
+     */
+    const getMaxDataPoints = () => {
+      // Calculate based on range and increment
+      const { start, end } = getTimeRange();
+      const rangeDuration = end.getTime() - start.getTime();
+      
+      // Convert increment to milliseconds
+      let incrementMs;
+      switch (selectedIncrement.value) {
+        case '1m': incrementMs = 60 * 1000; break;
+        case '15m': incrementMs = 15 * 60 * 1000; break;
+        case '1h': incrementMs = 60 * 60 * 1000; break;
+        case '1d': incrementMs = 24 * 60 * 60 * 1000; break;
+        default: incrementMs = 60 * 60 * 1000;
+      }
+      
+      // Calculate max points (add 10% buffer)
+      return Math.ceil((rangeDuration / incrementMs) * 1.1);
+    };
+
+    /**
+     * Update charts with new data point while preserving view/zoom
+     * @param {string} minerId - Miner ID
+     * @param {Object} dataPoint - New data point
+     */
+    const updateChartsWithNewData = (minerId, dataPoint) => {
+      if (!hashrateChartInstance || !temperatureChartInstance || 
+          !sharesChartInstance || !powerChartInstance) {
+        return;
+      }
+
+      // Format timestamp for display
+      const date = new Date(dataPoint.timestamp);
+      const formattedTime = format(date, 'MMM d, HH:mm');
+
+      // Find the dataset index for this miner
+      const miner = miners.value.find(m => m.id === minerId);
+      if (!miner) return;
+
+      const minerName = miner.name || `${miner.type} (${miner.ip_address})`;
+
+      // Update hashrate chart
+      const hashrateDataset = hashrateChartInstance.data.datasets.find(
+        ds => ds.label === `${minerName} - Hashrate`
+      );
+      if (hashrateDataset) {
+        hashrateChartInstance.data.labels.push(formattedTime);
+        hashrateDataset.data.push(dataPoint.hashrate);
+        
+        // Remove oldest data point if exceeding max
+        const maxPoints = getMaxDataPoints();
+        if (hashrateChartInstance.data.labels.length > maxPoints) {
+          hashrateChartInstance.data.labels.shift();
+          hashrateDataset.data.shift();
+        }
+        
+        hashrateChartInstance.update('none'); // 'none' mode preserves zoom/pan
+      }
+
+      // Update temperature chart
+      const temperatureDataset = temperatureChartInstance.data.datasets.find(
+        ds => ds.label === `${minerName} - Temperature`
+      );
+      if (temperatureDataset) {
+        temperatureChartInstance.data.labels.push(formattedTime);
+        temperatureDataset.data.push(dataPoint.temperature);
+        
+        const maxPoints = getMaxDataPoints();
+        if (temperatureChartInstance.data.labels.length > maxPoints) {
+          temperatureChartInstance.data.labels.shift();
+          temperatureDataset.data.shift();
+        }
+        
+        temperatureChartInstance.update('none');
+      }
+
+      // Update shares chart (both accepted and rejected)
+      const sharesAcceptedDataset = sharesChartInstance.data.datasets.find(
+        ds => ds.label === `${minerName} - Accepted Shares`
+      );
+      const sharesRejectedDataset = sharesChartInstance.data.datasets.find(
+        ds => ds.label === `${minerName} - Rejected Shares`
+      );
+      
+      if (sharesAcceptedDataset || sharesRejectedDataset) {
+        sharesChartInstance.data.labels.push(formattedTime);
+        
+        if (sharesAcceptedDataset) {
+          sharesAcceptedDataset.data.push(dataPoint.shares_accepted);
+        }
+        if (sharesRejectedDataset) {
+          sharesRejectedDataset.data.push(dataPoint.shares_rejected);
+        }
+        
+        const maxPoints = getMaxDataPoints();
+        if (sharesChartInstance.data.labels.length > maxPoints) {
+          sharesChartInstance.data.labels.shift();
+          if (sharesAcceptedDataset) sharesAcceptedDataset.data.shift();
+          if (sharesRejectedDataset) sharesRejectedDataset.data.shift();
+        }
+        
+        sharesChartInstance.update('none');
+      }
+
+      // Update power chart
+      const powerDataset = powerChartInstance.data.datasets.find(
+        ds => ds.label === `${minerName} - Power`
+      );
+      if (powerDataset) {
+        powerChartInstance.data.labels.push(formattedTime);
+        powerDataset.data.push(dataPoint.power);
+        
+        const maxPoints = getMaxDataPoints();
+        if (powerChartInstance.data.labels.length > maxPoints) {
+          powerChartInstance.data.labels.shift();
+          powerDataset.data.shift();
+        }
+        
+        powerChartInstance.update('none');
+      }
+    };
+
     // Watch for changes
     watch(selectedMiners, () => {
       if (selectedMiners.value.length > 0) {
@@ -1087,11 +1284,35 @@ export default {
 
     // Lifecycle hooks
     onMounted(async () => {
+      // Register WebSocket message handler for real-time updates
+      addMessageHandler(handleMetricsUpdate);
+      console.log('Analytics view: Registered WebSocket message handler for metrics updates');
+      
+      // Subscribe to metrics topic to receive real-time updates
+      updateSubscriptions({ metrics: true });
+      console.log('Analytics view: Subscribed to metrics topic');
+      
       // Fetch miners
       await minersStore.fetchMiners();
 
       // Select all miners by default (this will trigger the watcher which calls fetchMetricsData)
       selectedMiners.value = miners.value.map((miner) => miner.id);
+    });
+
+    onUnmounted(() => {
+      // Unsubscribe from metrics topic
+      updateSubscriptions({ metrics: false });
+      console.log('Analytics view: Unsubscribed from metrics topic');
+      
+      // Unregister WebSocket message handler
+      removeMessageHandler(handleMetricsUpdate);
+      console.log('Analytics view: Unregistered WebSocket message handler');
+      
+      // Destroy chart instances
+      if (hashrateChartInstance) hashrateChartInstance.destroy();
+      if (temperatureChartInstance) temperatureChartInstance.destroy();
+      if (sharesChartInstance) sharesChartInstance.destroy();
+      if (powerChartInstance) powerChartInstance.destroy();
     });
 
     return {
@@ -1101,10 +1322,7 @@ export default {
       sharesChart,
       powerChart,
       selectedTimeRange,
-      startDate,
-      endDate,
-      startDateMenu,
-      endDateMenu,
+      selectedIncrement,
       selectedMiners,
       compareMiners,
       loading,
@@ -1117,8 +1335,9 @@ export default {
       // Methods
       formatHashrate,
       formatTemperature,
-      applyTimeRange,
-      cancelCustomRange,
+      isIncrementValid,
+      onTimeRangeChange,
+      onIncrementChange,
       exportHashrateData,
       exportTemperatureData,
       exportSharesData,

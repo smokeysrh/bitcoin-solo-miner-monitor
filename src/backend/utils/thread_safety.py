@@ -213,6 +213,7 @@ class ThreadSafeWebSocketManager:
             "alerts": set(),
             "system": set(),
             "discovery": set(),
+            "metrics": set(),
         }
         self._lock = asyncio.Lock()
         self._client_topics: Dict[Any, Set[str]] = {}  # websocket -> topics

@@ -228,7 +228,7 @@ class TimeSeriesStorage:
             miner_id: ID of the miner
             start_time: Start of time range
             end_time: End of time range
-            interval: Aggregation interval ('1m', '5m', '1h', '1d')
+            interval: Aggregation interval ('1m', '5m', '15m', '1h', '1d')
             metric_types: Optional list of specific metric types to retrieve
             
         Returns:
@@ -252,6 +252,25 @@ class TimeSeriesStorage:
                             WHEN CAST(strftime('%M', timestamp) AS INTEGER) < 50 THEN strftime('%Y-%m-%d %H:', timestamp) || '45'
                             WHEN CAST(strftime('%M', timestamp) AS INTEGER) < 55 THEN strftime('%Y-%m-%d %H:', timestamp) || '50'
                             ELSE strftime('%Y-%m-%d %H:', timestamp) || '55'
+                        END as time_bucket,
+                        metric_type,
+                        AVG(value) as avg_value,
+                        MIN(value) as min_value,
+                        MAX(value) as max_value,
+                        COUNT(*) as sample_count,
+                        MAX(unit) as unit
+                    FROM miner_metrics
+                    WHERE miner_id = ? AND timestamp BETWEEN ? AND ?
+                """
+            elif interval == '15m':
+                # Special handling for 15-minute intervals
+                query = """
+                    SELECT 
+                        CASE 
+                            WHEN CAST(strftime('%M', timestamp) AS INTEGER) < 15 THEN strftime('%Y-%m-%d %H:00', timestamp)
+                            WHEN CAST(strftime('%M', timestamp) AS INTEGER) < 30 THEN strftime('%Y-%m-%d %H:15', timestamp)
+                            WHEN CAST(strftime('%M', timestamp) AS INTEGER) < 45 THEN strftime('%Y-%m-%d %H:30', timestamp)
+                            ELSE strftime('%Y-%m-%d %H:45', timestamp)
                         END as time_bucket,
                         metric_type,
                         AVG(value) as avg_value,
@@ -547,7 +566,7 @@ class TimeSeriesStorage:
         Get SQLite time format string for aggregation interval.
         
         Args:
-            interval: Interval string ('1m', '5m', '1h', '1d')
+            interval: Interval string ('1m', '5m', '15m', '1h', '1d')
             
         Returns:
             SQLite strftime format string
@@ -555,6 +574,7 @@ class TimeSeriesStorage:
         format_mapping = {
             '1m': '%Y-%m-%d %H:%M',
             '5m': '%Y-%m-%d %H:%M',  # Will use custom logic for 5-minute grouping
+            '15m': '%Y-%m-%d %H:%M',  # Will use custom logic for 15-minute grouping
             '1h': '%Y-%m-%d %H:00',
             '1d': '%Y-%m-%d'
         }
@@ -579,3 +599,269 @@ class TimeSeriesStorage:
             return bucket_dt.strftime('%Y-%m-%d %H:%M')
         except Exception:
             return timestamp_str
+    
+    async def save_network_health(self, miner_id: str, health_data: Dict[str, Any]) -> bool:
+        """
+        Save network health metrics to the database.
+        
+        Args:
+            miner_id: ID of the miner
+            health_data: Dictionary containing network health metrics
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            measured_at = health_data.get('last_measured') or datetime.now().isoformat()
+            
+            # Extract pool latency data if present
+            pool_latency = health_data.get('pool_latency')
+            pool_url = None
+            pool_port = None
+            pool_latency_ms = None
+            
+            if pool_latency and isinstance(pool_latency, dict):
+                pool_url = pool_latency.get('url')
+                pool_port = pool_latency.get('port')
+                pool_latency_ms = pool_latency.get('latency_ms')
+            
+            await self.conn.execute("""
+                INSERT INTO network_health (
+                    miner_id, latency_ms, packet_loss_percent, uptime_seconds,
+                    jitter_ms, pool_url, pool_port, pool_latency_ms, 
+                    total_path_latency_ms, status, measured_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                miner_id,
+                health_data.get('latency_ms'),
+                health_data.get('packet_loss_percent'),
+                health_data.get('uptime_seconds'),
+                health_data.get('jitter_ms'),
+                pool_url,
+                pool_port,
+                pool_latency_ms,
+                health_data.get('total_path_latency_ms'),
+                health_data.get('status', 'unknown'),
+                measured_at
+            ))
+            
+            await self.conn.commit()
+            logger.debug(f"Saved network health for miner {miner_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error saving network health for miner {miner_id}: {str(e)}")
+            return False
+    
+    async def get_network_health(self, miner_id: str, start_time: Optional[datetime] = None, 
+                                end_time: Optional[datetime] = None) -> List[Dict[str, Any]]:
+        """
+        Get network health metrics for a miner within a time range.
+        
+        Args:
+            miner_id: ID of the miner
+            start_time: Start of time range (optional)
+            end_time: End of time range (optional)
+            
+        Returns:
+            List of network health records
+        """
+        try:
+            query = """
+                SELECT id, miner_id, latency_ms, packet_loss_percent, uptime_seconds,
+                       jitter_ms, pool_url, pool_port, pool_latency_ms, 
+                       total_path_latency_ms, status, measured_at, created_at
+                FROM network_health
+                WHERE miner_id = ?
+            """
+            params = [miner_id]
+            
+            if start_time and end_time:
+                query += " AND measured_at BETWEEN ? AND ?"
+                params.extend([start_time.isoformat(), end_time.isoformat()])
+            elif start_time:
+                query += " AND measured_at >= ?"
+                params.append(start_time.isoformat())
+            elif end_time:
+                query += " AND measured_at <= ?"
+                params.append(end_time.isoformat())
+            
+            query += " ORDER BY measured_at DESC"
+            
+            cursor = await self.conn.execute(query, params)
+            rows = await cursor.fetchall()
+            
+            # Convert to list of dictionaries
+            results = []
+            for row in rows:
+                result = {
+                    'id': row[0],
+                    'miner_id': row[1],
+                    'latency_ms': row[2],
+                    'packet_loss_percent': row[3],
+                    'uptime_seconds': row[4],
+                    'jitter_ms': row[5],
+                    'status': row[10],
+                    'measured_at': row[11],
+                    'created_at': row[12]
+                }
+                
+                # Add pool latency data if present
+                if row[6] is not None:  # pool_url
+                    result['pool_latency'] = {
+                        'url': row[6],
+                        'port': row[7],
+                        'latency_ms': row[8]
+                    }
+                
+                if row[9] is not None:  # total_path_latency_ms
+                    result['total_path_latency_ms'] = row[9]
+                
+                results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error getting network health for miner {miner_id}: {str(e)}")
+            return []
+    
+    async def get_latest_network_health(self, miner_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the latest network health metrics for a miner.
+        
+        Args:
+            miner_id: ID of the miner
+            
+        Returns:
+            Dictionary of latest network health metrics or None
+        """
+        try:
+            cursor = await self.conn.execute("""
+                SELECT id, miner_id, latency_ms, packet_loss_percent, uptime_seconds,
+                       jitter_ms, pool_url, pool_port, pool_latency_ms, 
+                       total_path_latency_ms, status, measured_at, created_at
+                FROM network_health
+                WHERE miner_id = ?
+                ORDER BY measured_at DESC
+                LIMIT 1
+            """, (miner_id,))
+            
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            
+            result = {
+                'id': row[0],
+                'miner_id': row[1],
+                'latency_ms': row[2],
+                'packet_loss_percent': row[3],
+                'uptime_seconds': row[4],
+                'jitter_ms': row[5],
+                'status': row[10],
+                'measured_at': row[11],
+                'created_at': row[12]
+            }
+            
+            # Add pool latency data if present
+            if row[6] is not None:  # pool_url
+                result['pool_latency'] = {
+                    'url': row[6],
+                    'port': row[7],
+                    'latency_ms': row[8]
+                }
+            
+            if row[9] is not None:  # total_path_latency_ms
+                result['total_path_latency_ms'] = row[9]
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting latest network health for miner {miner_id}: {str(e)}")
+            return None
+    
+    async def get_all_latest_network_health(self) -> List[Dict[str, Any]]:
+        """
+        Get the latest network health metrics for all miners.
+        
+        Returns:
+            List of latest network health metrics for each miner
+        """
+        try:
+            cursor = await self.conn.execute("""
+                SELECT nh.id, nh.miner_id, nh.latency_ms, nh.packet_loss_percent, 
+                       nh.uptime_seconds, nh.jitter_ms, nh.pool_url, nh.pool_port,
+                       nh.pool_latency_ms, nh.total_path_latency_ms, nh.status, 
+                       nh.measured_at, nh.created_at
+                FROM network_health nh
+                INNER JOIN (
+                    SELECT miner_id, MAX(measured_at) as max_measured_at
+                    FROM network_health
+                    GROUP BY miner_id
+                ) latest ON nh.miner_id = latest.miner_id AND nh.measured_at = latest.max_measured_at
+                ORDER BY nh.miner_id
+            """)
+            
+            rows = await cursor.fetchall()
+            
+            # Convert to list of dictionaries
+            results = []
+            for row in rows:
+                result = {
+                    'id': row[0],
+                    'miner_id': row[1],
+                    'latency_ms': row[2],
+                    'packet_loss_percent': row[3],
+                    'uptime_seconds': row[4],
+                    'jitter_ms': row[5],
+                    'status': row[10],
+                    'measured_at': row[11],
+                    'created_at': row[12]
+                }
+                
+                # Add pool latency data if present
+                if row[6] is not None:  # pool_url
+                    result['pool_latency'] = {
+                        'url': row[6],
+                        'port': row[7],
+                        'latency_ms': row[8]
+                    }
+                
+                if row[9] is not None:  # total_path_latency_ms
+                    result['total_path_latency_ms'] = row[9]
+                
+                results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error getting all latest network health: {str(e)}")
+            return []
+    
+    async def cleanup_old_network_health(self, retention_days: int = 30) -> bool:
+        """
+        Clean up old network health data beyond retention period.
+        
+        Args:
+            retention_days: Number of days to retain data
+            
+        Returns:
+            bool: True if cleanup successful, False otherwise
+        """
+        try:
+            cutoff_date = datetime.now() - timedelta(days=retention_days)
+            cutoff_str = cutoff_date.isoformat()
+            
+            cursor = await self.conn.execute("""
+                DELETE FROM network_health WHERE measured_at < ?
+            """, (cutoff_str,))
+            deleted_count = cursor.rowcount
+            
+            await self.conn.commit()
+            
+            logger.info(f"Cleaned up {deleted_count} old network health records")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error cleaning up old network health data: {str(e)}")
+            return False

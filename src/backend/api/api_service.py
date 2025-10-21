@@ -22,6 +22,7 @@ from src.backend.services.system_monitor import SystemMonitor
 from src.backend.services.email_service import EmailService
 from src.backend.services.update_service import UpdateService
 from src.backend.services.feedback_service import FeedbackService
+from src.backend.services.network_health import NetworkHealthMonitor
 from src.backend.utils.app_paths import get_app_paths
 from src.backend.models.validation_models import (
     MinerAddRequest,
@@ -84,6 +85,9 @@ class APIService:
         
         # Initialize Feedback Service
         self.feedback_service = FeedbackService()
+        
+        # Initialize Network Health Monitor
+        self.network_health_monitor = NetworkHealthMonitor()
         
         # Configure CORS for production security
         # Allow specific origins for production deployment using configurable host/port
@@ -210,6 +214,17 @@ class APIService:
             response_model=Dict[str, bool],
             dependencies=[Depends(api_key_auth)]
         )(self.restart_miner)
+        
+        self.app.post(
+            "/api/miners/refresh", 
+            response_model=Dict[str, Any]
+        )(self.refresh_miners)
+        
+        # Network Health
+        self.app.get(
+            "/api/miners/{miner_id}/network-health",
+            response_model=Dict[str, Any]
+        )(self.get_miner_network_health)
         
         # Metrics
         self.app.get(
@@ -548,14 +563,25 @@ class APIService:
         if self.data_storage.timeseries_storage:
             self.miner_manager.set_timeseries_storage(self.data_storage.timeseries_storage)
             logger.info("TimeSeriesStorage wired to MinerManager for metrics persistence")
+            
+            # Wire TimeSeriesStorage to NetworkHealthMonitor for health data persistence
+            self.network_health_monitor.set_timeseries_storage(self.data_storage.timeseries_storage)
+            logger.info("TimeSeriesStorage wired to NetworkHealthMonitor for health data persistence")
         else:
             logger.warning("TimeSeriesStorage not initialized - metrics persistence will not work")
         
         # Connect WebSocket manager to miner manager for real-time updates
         self.miner_manager.set_websocket_manager(self.websocket_manager)
         
+        # Wire MinerManager to NetworkHealthMonitor for accessing miner information
+        self.network_health_monitor.set_miner_manager(self.miner_manager)
+        
         await self.miner_manager.start()
         await self.system_monitor.start()
+        
+        # Start network health polling
+        await self.network_health_monitor.start_polling()
+        logger.info("Network health monitoring started")
         
         # Start background task for broadcasting updates
         await self._broadcast_updates()
@@ -572,6 +598,10 @@ class APIService:
         await self.websocket_manager.stop()
         await self.system_monitor.stop()
         await self.update_service.close()
+        
+        # Stop network health polling
+        await self.network_health_monitor.stop_polling()
+        logger.info("Network health monitoring stopped")
         
         logger.info("API service stopped")
     
@@ -606,7 +636,16 @@ class APIService:
         Returns:
             Dict[str, Any]: Miner information
         """
+        # First try to get from active miners in manager
         miner = await self.miner_manager.get_miner(miner_id)
+        
+        # If not in manager, try to get from database
+        if not miner:
+            try:
+                miner = await self.data_storage.get_miner_config(miner_id)
+            except Exception as e:
+                logger.warning(f"Failed to get miner config from database for {miner_id}: {e}")
+        
         if not miner:
             raise HTTPException(status_code=404, detail=f"Miner {miner_id} not found")
         return miner
@@ -747,6 +786,143 @@ class APIService:
         
         return {"success": success}
     
+    async def refresh_miners(self) -> Dict[str, Any]:
+        """
+        Refresh all miners data by fetching latest status from each miner.
+        This endpoint triggers an immediate poll of all miners to get fresh data.
+        
+        Returns:
+            Dict[str, Any]: Refresh result with updated miners data
+        """
+        try:
+            logger.info("Refresh miners endpoint called")
+            
+            # Get all current miners
+            miners = await self.miner_manager.get_miners()
+            
+            if not miners:
+                logger.info("No miners to refresh")
+                return {
+                    "status": "success",
+                    "message": "No miners configured",
+                    "miners": [],
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            # Trigger immediate refresh for each miner by fetching fresh data
+            refreshed_miners = []
+            errors = []
+            
+            for miner_data in miners:
+                miner_id = miner_data.get('id')
+                if not miner_id:
+                    continue
+                
+                try:
+                    # Get the miner instance
+                    async with self.miner_manager._miners_lock:
+                        if miner_id not in self.miner_manager.miners:
+                            logger.warning(f"Miner {miner_id} not found in active miners")
+                            continue
+                        
+                        miner = self.miner_manager.miners[miner_id]
+                    
+                    # Fetch fresh data from the miner
+                    status = await miner.get_status()
+                    metrics = await miner.get_metrics()
+                    pool_info = await miner.get_pool_info()
+                    device_info = await miner.get_device_info()
+                    
+                    # Update miner data
+                    update_data = {
+                        "status": "online" if status.get("online", False) else "offline",
+                        "last_updated": datetime.now().isoformat(),
+                        "metrics": metrics,
+                        "pool_info": pool_info,
+                        "device_info": device_info
+                    }
+                    
+                    # Add status data
+                    for key, value in status.items():
+                        if key != "online":
+                            update_data[key] = value
+                    
+                    # Update using thread-safe manager
+                    await self.miner_manager.miner_data_manager.update_miner(miner_id, update_data)
+                    
+                    # Get updated miner data
+                    updated_miner = await self.miner_manager.get_miner(miner_id)
+                    refreshed_miners.append(updated_miner)
+                    
+                    logger.debug(f"Successfully refreshed miner {miner_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Error refreshing miner {miner_id}: {str(e)}")
+                    errors.append({
+                        "miner_id": miner_id,
+                        "error": str(e)
+                    })
+            
+            # Broadcast updated miners via WebSocket
+            if self.websocket_manager:
+                await self.websocket_manager.broadcast_to_topic("miners", {
+                    "type": "miners_update",
+                    "data": refreshed_miners
+                })
+            
+            result = {
+                "status": "success",
+                "message": f"Refreshed {len(refreshed_miners)} miners",
+                "miners": refreshed_miners,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if errors:
+                result["errors"] = errors
+                result["message"] += f" ({len(errors)} errors)"
+            
+            logger.info(f"Refresh completed: {len(refreshed_miners)} miners refreshed, {len(errors)} errors")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in refresh_miners endpoint: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to refresh miners: {str(e)}")
+    
+    async def get_miner_network_health(self, miner_id: str) -> Dict[str, Any]:
+        """
+        Get network health metrics for a specific miner.
+        
+        Args:
+            miner_id (str): ID of the miner
+            
+        Returns:
+            Dict[str, Any]: Network health metrics including latency, packet loss, uptime, and status
+        """
+        try:
+            # Check if miner exists
+            miner = await self.miner_manager.get_miner(miner_id)
+            if not miner:
+                raise HTTPException(status_code=404, detail=f"Miner {miner_id} not found")
+            
+            # Get miner IP address
+            ip_address = miner.get("ip_address")
+            if not ip_address:
+                raise HTTPException(status_code=400, detail=f"Miner {miner_id} has no IP address")
+            
+            logger.info(f"Getting network health for miner {miner_id} at {ip_address}")
+            
+            # Get network health metrics
+            health_data = await self.network_health_monitor.get_network_health(miner_id, ip_address)
+            
+            logger.info(f"Network health for {miner_id}: {health_data}")
+            return health_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting network health for miner {miner_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to get network health: {str(e)}")
+    
     async def get_miner_metrics(
         self,
         miner_id: str,
@@ -783,9 +959,17 @@ class APIService:
                 metric_types=parsed_metric_types
             )
             
-            # Check if miner exists
+            # Check if miner exists - try both active miners and saved configs
             miner = await self.miner_manager.get_miner(request.miner_id)
             if not miner:
+                # Try to get from database as fallback
+                try:
+                    miner = await self.data_storage.get_miner_config(request.miner_id)
+                except Exception:
+                    pass
+            
+            if not miner:
+                logger.warning(f"Miner {request.miner_id} not found in manager or database")
                 raise HTTPException(status_code=404, detail=f"Miner {request.miner_id} not found")
             
             # Parse start and end times
@@ -801,16 +985,20 @@ class APIService:
             
             logger.info(f"Getting metrics for miner {request.miner_id} from {start_time} to {end_time}")
             
-            # Get metrics
-            metrics = await self.data_storage.get_metrics(
-                request.miner_id, 
-                start_time, 
-                end_time, 
-                request.interval,
-                request.metric_types
-            )
-            
-            return metrics
+            # Get metrics - return empty list if no metrics available yet
+            try:
+                metrics = await self.data_storage.get_metrics(
+                    request.miner_id, 
+                    start_time, 
+                    end_time, 
+                    request.interval,
+                    request.metric_types
+                )
+                return metrics if metrics else []
+            except Exception as e:
+                logger.warning(f"Error fetching metrics for {request.miner_id}: {e}")
+                # Return empty list instead of failing - metrics may not exist yet
+                return []
             
         except PydanticValidationError as e:
             logger.error(f"Validation error in get_miner_metrics: {e}")
