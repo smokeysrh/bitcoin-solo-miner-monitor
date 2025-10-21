@@ -222,6 +222,34 @@ export const useMinersStore = defineStore("miners", () => {
     }
   };
 
+  const refreshMiners = async () => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      console.log("Calling refresh miners endpoint...");
+      const response = await axios.post(`${API_BASE_URL}/miners/refresh`);
+
+      console.log("Refresh response:", response.data);
+
+      // Update miners with refreshed data
+      if (response.data.miners && Array.isArray(response.data.miners)) {
+        miners.value = response.data.miners.map((miner) =>
+          normalizeMinerData(miner),
+        );
+        console.log(`Successfully refreshed ${miners.value.length} miners`);
+      }
+
+      return response.data;
+    } catch (err) {
+      error.value = err.message || "Failed to refresh miners";
+      console.error("Error refreshing miners:", err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   const fetchMinerMetrics = async (id, start, end, interval = "1m") => {
     loading.value = true;
     error.value = null;
@@ -295,6 +323,38 @@ export const useMinersStore = defineStore("miners", () => {
       throw err;
     } finally {
       loading.value = false;
+    }
+  };
+
+  const fetchNetworkHealth = async (id) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/miners/${id}/network-health`);
+      return response.data;
+    } catch (err) {
+      console.error(`Error fetching network health for miner ${id}:`, err);
+      return null;
+    }
+  };
+
+  const fetchAllNetworkHealth = async () => {
+    try {
+      const healthPromises = miners.value.map(miner => 
+        fetchNetworkHealth(miner.id)
+      );
+      const healthResults = await Promise.all(healthPromises);
+      
+      // Create a map of miner_id to health data
+      const healthMap = {};
+      healthResults.forEach((health, index) => {
+        if (health) {
+          healthMap[miners.value[index].id] = health;
+        }
+      });
+      
+      return healthMap;
+    } catch (err) {
+      console.error('Error fetching all network health:', err);
+      return {};
     }
   };
 
@@ -475,10 +535,13 @@ export const useMinersStore = defineStore("miners", () => {
     removeMiner,
     restartMiner,
     restartAllMiners,
+    refreshMiners,
     fetchMinerMetrics,
     fetchLatestMetrics,
     startDiscovery,
     getDiscoveryStatus,
+    fetchNetworkHealth,
+    fetchAllNetworkHealth,
     connectWebSocket,
     updateMiners,
 

@@ -791,6 +791,9 @@ class MinerManager:
                         (current_time - last_save).total_seconds() >= self.metrics_save_interval
                     )
                     
+                    logger.info(f"Metrics save check for {miner_id}: should_save={should_save}, "
+                               f"last_save={last_save}, interval={self.metrics_save_interval}s")
+                    
                     if should_save:
                         try:
                             # Extract metrics from status
@@ -809,8 +812,17 @@ class MinerManager:
                             # Update last save time
                             self.last_metrics_save[miner_id] = current_time
                             
-                            logger.debug(f"Saved metrics for miner {miner_id} to timeseries storage "
+                            logger.info(f"Saved metrics for miner {miner_id} to timeseries storage "
                                        f"(interval: {self.metrics_save_interval}s)")
+                            
+                            # Broadcast metrics update via WebSocket
+                            if self.websocket_manager:
+                                await self.websocket_manager.broadcast_metrics(
+                                    miner_id,
+                                    extracted_metrics,
+                                    current_time.isoformat()
+                                )
+                                logger.info(f"Broadcasted metrics update for miner {miner_id}")
                         except Exception as e:
                             logger.error(f"Failed to save metrics for {miner_id}: {e}")
                             # Don't fail the polling cycle - just log the error

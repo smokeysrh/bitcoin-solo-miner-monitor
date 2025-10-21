@@ -23,6 +23,11 @@ This specification addresses critical functionality issues in the Bitcoin Miner 
 - **Network_Latency**: The round-trip time for data packets between miners and the Bitcoin node or pool
 - **Packet_Loss**: The percentage of network packets that fail to reach their destination
 - **Network_Stability**: A measure of consistent network performance over time including uptime and connection reliability
+- **Pool_Server**: The remote mining pool server or local Bitcoin node that miners connect to for work distribution
+- **Pool_Latency**: The network latency from the monitoring server to the pool server or Bitcoin node
+- **Miner_Latency**: The network latency from the monitoring server to the miner device
+- **Total_Path_Latency**: The combined latency representing the complete network path from miner through monitoring server to pool
+- **Pool_Configuration**: The miner's configured pool settings including URL, port, and worker credentials
 
 ## Requirements
 
@@ -107,7 +112,7 @@ This specification addresses critical functionality issues in the Bitcoin Miner 
 
 #### Acceptance Criteria
 
-1. WHEN the user views the Network Topology page, THE Network_Health_Monitor SHALL display network latency measurements to the Bitcoin_Node or pool for each connected miner
+1. WHEN the user views the Network Topology page, THE Network_Health_Monitor SHALL display network latency measurements to each miner from the monitoring server
 2. WHEN the user views the Network Topology page, THE Network_Health_Monitor SHALL display packet loss percentage for each miner connection
 3. WHEN the user views the Network Topology page, THE Network_Health_Monitor SHALL display connection uptime duration for each miner
 4. THE Network_Health_Monitor SHALL visually indicate network health status on miner nodes using color coding (green for healthy, yellow for degraded, red for poor)
@@ -115,3 +120,34 @@ This specification addresses critical functionality issues in the Bitcoin Miner 
 6. THE Network_Health_Monitor SHALL update network health metrics automatically at regular intervals without requiring manual refresh
 7. WHEN a miner experiences high latency or packet loss, THE Network_Health_Monitor SHALL display a warning indicator on the affected miner node
 8. IF network health data cannot be collected for a miner, THEN THE Network_Health_Monitor SHALL display "N/A" for unavailable metrics
+
+### Requirement 8
+
+**User Story:** As a mining operator, I want to monitor the network latency from each miner to its configured mining pool or Bitcoin node, so that I can identify connectivity issues that may cause stale shares or delayed block propagation
+
+#### Acceptance Criteria
+
+1. WHEN the user views the Network Topology page, THE Network_Health_Monitor SHALL measure and display network latency from the monitoring server to each miner's configured pool or Bitcoin_Node
+2. WHEN a miner is configured to mine to a pool, THE Network_Health_Monitor SHALL extract the pool URL and port from the miner's pool configuration
+3. WHEN a miner is configured to mine to a local Bitcoin_Node, THE Network_Health_Monitor SHALL identify the node by matching the pool URL to known node IP addresses
+4. THE Network_Health_Monitor SHALL perform latency measurements to pool servers using ICMP ping or TCP connection timing
+5. THE Network_Health_Monitor SHALL display pool latency separately from miner latency in the network health metrics
+6. WHEN pool latency exceeds 100 milliseconds, THE Network_Health_Monitor SHALL display a warning indicator (yellow status)
+7. WHEN pool latency exceeds 200 milliseconds, THE Network_Health_Monitor SHALL display a critical indicator (red status)
+8. THE Network_Health_Monitor SHALL calculate and display total path latency as the sum of miner latency and pool latency
+9. IF a pool server hostname cannot be resolved or is unreachable, THEN THE Network_Health_Monitor SHALL display "Unreachable" for pool latency metrics
+
+### Requirement 9
+
+**User Story:** As a mining operator, I want to see mining pools and Bitcoin nodes as separate nodes in the network topology visualization, so that I can understand the complete network path from router to miner to pool/node
+
+#### Acceptance Criteria
+
+1. WHEN the user views the Network Topology page, THE Network_Page SHALL display pool servers and Bitcoin_Node instances as distinct nodes in the D3.js visualization
+2. WHEN the user views the Network Topology page, THE Network_Page SHALL display connection lines from each miner to its configured pool or Bitcoin_Node
+3. THE Network_Page SHALL visually distinguish pool nodes from miner nodes using different colors and icons
+4. THE Network_Page SHALL display the complete network path as Router → Miner → Pool/Node in the visualization
+5. WHEN multiple miners connect to the same pool or Bitcoin_Node, THE Network_Page SHALL display a single pool node with multiple miner connections
+6. WHEN the user clicks on a pool node in the visualization, THE Network_Page SHALL display a dialog showing pool information including URL, connected miners count, and average latency
+7. THE Network_Page SHALL color-code connection lines between miners and pools based on latency (green for healthy, yellow for degraded, red for poor)
+8. WHEN a pool or Bitcoin_Node is unreachable, THE Network_Page SHALL display the pool node with a grey color and disconnected status indicator

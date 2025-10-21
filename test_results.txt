@@ -1,0 +1,42 @@
+﻿python : Ping timeout for host 192.168.255.254
+At line:1 char:1
++ python test_edge_case_handling.py 2>&1 | Out-File -FilePath test_resu ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Ping timeout for host 192.168.255.254:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+TCP connection failed for 192.168.255.254:3333 (port may be blocked or server unreachable)
+All latency measurement methods failed for pool 192.168.255.254 - server is unreachable
+================================================================================
+COMPREHENSIVE EDGE CASE TESTING FOR POOL LATENCY MONITORING
+================================================================================
+
+================================================================================
+EDGE CASE 1: Unreachable Pool Servers
+================================================================================
+
+1.1 Testing unreachable IP address (192.168.255.254)...
+   Result: None
+Traceback (most recent call last):
+  File "C:\Users\Smoke\Downloads\BTCsoloApp\test_edge_case_handling.py", line 199, in <module>
+    asyncio.run(test_all_edge_cases())
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\asyncio\runners.py", 
+line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\asyncio\runners.py", 
+line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program 
+Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\asyncio\base_events.py", line 691, in 
+run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Smoke\Downloads\BTCsoloApp\test_edge_case_handling.py", line 37, in test_all_edge_cases
+    print(f"   Status: {'\u2713 PASS' if latency is None else '\u274c FAIL'} - Returns None for unreachable server")
+  File "C:\Program 
+Files\WindowsApps\PythonSoftwareFoundation.Python.3.12_3.12.2800.0_x64__qbz5n2kfra8p0\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2713' in position 11: character maps to <undefined>

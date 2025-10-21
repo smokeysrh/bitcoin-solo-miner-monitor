@@ -365,36 +365,76 @@ const refreshNetwork = async () => {
 
 ### Fix 7: Network Health Monitoring
 
-**Backend Component: New Network Health Service**
+**Backend Component: Enhanced Network Health Service**
 
 **File**: `src/backend/services/network_health.py`
 
 ```python
 class NetworkHealthMonitor:
-    """Monitor network health metrics for miners."""
+    """Monitor network health metrics for miners and their pool connections."""
     
-    async def measure_latency(self, host: str, port: int) -> float:
-        """Measure network latency to a host."""
-        # Implement ping/connection time measurement
+    async def measure_latency(self, host: str, count: int = 4) -> Optional[float]:
+        """Measure network latency to a host using ping."""
+        # Implement ICMP ping measurement
+        # Returns average latency in milliseconds
         pass
     
-    async def measure_packet_loss(self, host: str, count: int = 10) -> float:
+    async def measure_packet_loss(self, host: str, count: int = 10) -> Optional[float]:
         """Measure packet loss percentage."""
         # Implement packet loss measurement
+        # Returns percentage (0-100)
         pass
     
-    async def get_connection_uptime(self, miner_id: str) -> int:
+    async def get_connection_uptime(self, miner_id: str) -> Optional[int]:
         """Get connection uptime in seconds."""
-        # Query from database or miner manager
+        # Query from connection tracking
         pass
     
-    async def get_network_health(self, miner_id: str) -> Dict[str, Any]:
-        """Get comprehensive network health metrics."""
+    async def get_pool_info_from_miner(self, miner_id: str) -> List[Dict[str, Any]]:
+        """Get pool configuration from miner."""
+        # Call miner's get_pool_info() method
+        # Returns list of pool configurations with URL and port
+        pass
+    
+    async def measure_pool_latency(self, pool_url: str, pool_port: int) -> Optional[float]:
+        """Measure latency to mining pool or Bitcoin node."""
+        # Resolve hostname to IP if needed
+        # Measure latency using ping
+        # Returns latency in milliseconds
+        pass
+    
+    async def get_network_health(self, miner_id: str, host: str) -> Dict[str, Any]:
+        """Get comprehensive network health metrics including pool latency."""
+        miner_latency = await self.measure_latency(host)
+        packet_loss = await self.measure_packet_loss(host)
+        uptime = await self.get_connection_uptime(miner_id)
+        
+        # Get pool information and measure pool latency
+        pool_info = await self.get_pool_info_from_miner(miner_id)
+        pool_latency_data = None
+        
+        if pool_info:
+            active_pool = next((p for p in pool_info if p.get('is_active')), pool_info[0])
+            pool_latency = await self.measure_pool_latency(
+                active_pool['url'], 
+                active_pool.get('port', 3333)
+            )
+            
+            pool_latency_data = {
+                "url": active_pool['url'],
+                "port": active_pool.get('port'),
+                "latency_ms": pool_latency,
+                "status": self._calculate_pool_health_status(pool_latency)
+            }
+        
         return {
-            "latency_ms": await self.measure_latency(...),
-            "packet_loss_percent": await self.measure_packet_loss(...),
-            "uptime_seconds": await self.get_connection_uptime(...),
-            "status": self._calculate_health_status(...)
+            "miner_id": miner_id,
+            "miner_latency_ms": miner_latency,
+            "packet_loss_percent": packet_loss,
+            "uptime_seconds": uptime,
+            "pool_latency": pool_latency_data,
+            "total_path_latency_ms": (miner_latency or 0) + (pool_latency or 0) if miner_latency and pool_latency else None,
+            "status": self._calculate_health_status(miner_latency, packet_loss, pool_latency)
         }
 ```
 
@@ -407,7 +447,7 @@ async def get_miner_network_health(miner_id: str) -> Dict[str, Any]:
     return health
 ```
 
-**Frontend Component: Network View - Health Display**
+**Frontend Component: Network View - Enhanced Health Display**
 
 **UI Enhancement**:
 ```vue
@@ -415,17 +455,37 @@ async def get_miner_network_health(miner_id: str) -> Dict[str, Any]:
   <v-card-title>Network Health</v-card-title>
   <v-card-text>
     <v-row>
-      <v-col cols="12" md="4">
-        <div class="text-subtitle-1">Average Latency:</div>
-        <div class="text-h5">{{ averageLatency }} ms</div>
+      <v-col cols="12" md="3">
+        <div class="text-subtitle-1">Avg Miner Latency:</div>
+        <div class="text-h5">{{ averageMinerLatency }} ms</div>
       </v-col>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
+        <div class="text-subtitle-1">Avg Pool Latency:</div>
+        <div class="text-h5">{{ averagePoolLatency }} ms</div>
+      </v-col>
+      <v-col cols="12" md="3">
         <div class="text-subtitle-1">Packet Loss:</div>
         <div class="text-h5">{{ packetLoss }}%</div>
       </v-col>
-      <v-col cols="12" md="4">
+      <v-col cols="12" md="3">
         <div class="text-subtitle-1">Network Jitter:</div>
         <div class="text-h5">{{ networkJitter }} ms</div>
+      </v-col>
+    </v-row>
+    <v-row class="mt-2">
+      <v-col cols="12">
+        <div class="text-subtitle-2">Pool Connections:</div>
+        <v-chip-group>
+          <v-chip 
+            v-for="pool in uniquePools" 
+            :key="pool.url"
+            :color="getPoolHealthColor(pool.latency)"
+            text-color="white"
+            size="small"
+          >
+            {{ pool.url }}: {{ pool.latency }}ms
+          </v-chip>
+        </v-chip-group>
       </v-col>
     </v-row>
   </v-card-text>
@@ -437,7 +497,7 @@ async def get_miner_network_health(miner_id: str) -> Dict[str, Any]:
 const getNodeHealthColor = (health) => {
   if (!health) return '#9E9E9E'; // Grey for unknown
   
-  const latency = health.latency_ms;
+  const latency = health.miner_latency_ms;
   const packetLoss = health.packet_loss_percent;
   
   // Red: High latency (>200ms) or packet loss (>5%)
@@ -449,6 +509,279 @@ const getNodeHealthColor = (health) => {
   // Green: Good health
   return '#43A047';
 };
+```
+
+### Fix 8: Pool and Node Visualization in Network Topology
+
+**Frontend Component: Network View - Enhanced D3 Visualization**
+
+**Network Topology Structure**:
+```
+Current: Router → Miners
+Enhanced: Router → Miners → Pools/Nodes
+```
+
+**Node Types**:
+1. **Router Node** (existing) - Central hub
+2. **Miner Nodes** (existing) - Mining devices
+3. **Pool Nodes** (new) - Mining pool servers
+4. **Bitcoin Node** (new) - Local Bitcoin Core nodes
+
+**Implementation Strategy**:
+
+```javascript
+const buildNetworkGraph = () => {
+  const nodes = [];
+  const links = [];
+  
+  // Add router node (existing)
+  nodes.push({
+    id: 'router',
+    name: 'Network Router',
+    type: 'router',
+    status: 'online'
+  });
+  
+  // Track unique pools/nodes
+  const poolMap = new Map();
+  
+  // Add miner nodes and collect pool information
+  miners.value.forEach(miner => {
+    // Add miner node
+    nodes.push({
+      id: miner.id,
+      name: miner.name,
+      type: miner.type,
+      status: miner.status,
+      data: miner
+    });
+    
+    // Link miner to router
+    links.push({
+      source: 'router',
+      target: miner.id,
+      type: 'miner-connection',
+      latency: networkHealthData.value[miner.id]?.miner_latency_ms
+    });
+    
+    // Get pool information from network health data
+    const health = networkHealthData.value[miner.id];
+    if (health?.pool_latency) {
+      const poolKey = `${health.pool_latency.url}:${health.pool_latency.port}`;
+      
+      // Add pool node if not already added
+      if (!poolMap.has(poolKey)) {
+        const poolId = `pool_${poolKey.replace(/[.:]/g, '_')}`;
+        poolMap.set(poolKey, poolId);
+        
+        nodes.push({
+          id: poolId,
+          name: health.pool_latency.url,
+          type: miner.type === 'bitcoin_node' ? 'bitcoin_node_pool' : 'pool',
+          status: health.pool_latency.status,
+          url: health.pool_latency.url,
+          port: health.pool_latency.port,
+          latency: health.pool_latency.latency_ms,
+          connectedMiners: []
+        });
+      }
+      
+      // Link miner to pool
+      const poolId = poolMap.get(poolKey);
+      links.push({
+        source: miner.id,
+        target: poolId,
+        type: 'pool-connection',
+        latency: health.pool_latency.latency_ms,
+        status: health.pool_latency.status
+      });
+      
+      // Track connected miners for pool node
+      const poolNode = nodes.find(n => n.id === poolId);
+      if (poolNode) {
+        poolNode.connectedMiners.push(miner.id);
+      }
+    }
+  });
+  
+  return { nodes, links };
+};
+```
+
+**Visual Styling**:
+
+```javascript
+// Node colors
+const getNodeColor = (node) => {
+  if (node.type === 'router') return '#FFC107'; // Orange
+  if (node.type === 'bitcoin_node_pool') return '#F7931A'; // Bitcoin orange
+  if (node.type === 'pool') return '#2196F3'; // Blue
+  
+  // Miner nodes - use health color
+  if (node.status !== 'online') return '#9E9E9E'; // Grey
+  const health = networkHealthData.value[node.id];
+  return getNodeHealthColor(health);
+};
+
+// Node size
+const getNodeSize = (node) => {
+  if (node.type === 'router') return 25;
+  if (node.type === 'pool' || node.type === 'bitcoin_node_pool') {
+    // Size based on number of connected miners
+    return 15 + (node.connectedMiners?.length || 0) * 3;
+  }
+  return 15; // Miner nodes
+};
+
+// Link colors (based on latency)
+const getLinkColor = (link) => {
+  if (link.type === 'miner-connection') {
+    // Router to miner - use miner health color
+    if (!link.latency) return '#999';
+    if (link.latency > 50) return '#E53935'; // Red
+    if (link.latency > 25) return '#FFC107'; // Yellow
+    return '#43A047'; // Green
+  }
+  
+  if (link.type === 'pool-connection') {
+    // Miner to pool - use pool health color
+    if (!link.latency) return '#999';
+    if (link.latency > 200) return '#E53935'; // Red
+    if (link.latency > 100) return '#FFC107'; // Yellow
+    return '#43A047'; // Green
+  }
+  
+  return '#999';
+};
+
+// Link width (thicker for better connections)
+const getLinkWidth = (link) => {
+  if (!link.latency) return 1;
+  if (link.latency < 50) return 3; // Excellent
+  if (link.latency < 100) return 2; // Good
+  return 1; // Poor
+};
+```
+
+**Node Icons**:
+
+```javascript
+const addNodeIcons = (nodeSelection) => {
+  nodeSelection.each(function(d) {
+    const nodeGroup = d3.select(this);
+    
+    if (d.type === 'router') {
+      // Router icon
+      nodeGroup.append("text")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "central")
+        .attr("fill", "#fff")
+        .attr("font-size", "20px")
+        .text("🌐");
+    } else if (d.type === 'bitcoin_node_pool') {
+      // Bitcoin node icon
+      nodeGroup.append("image")
+        .attr("xlink:href", "/bitcoin-symbol.svg")
+        .attr("x", -12)
+        .attr("y", -12)
+        .attr("width", 24)
+        .attr("height", 24);
+    } else if (d.type === 'pool') {
+      // Pool server icon
+      nodeGroup.append("text")
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "central")
+        .attr("fill", "#fff")
+        .attr("font-size", "18px")
+        .text("🏊");
+    } else {
+      // Miner icons (existing logic)
+      // ... existing miner icon code
+    }
+  });
+};
+```
+
+**Pool Node Click Handler**:
+
+```javascript
+const handlePoolNodeClick = (event, poolNode) => {
+  selectedPool.value = {
+    url: poolNode.url,
+    port: poolNode.port,
+    latency: poolNode.latency,
+    status: poolNode.status,
+    connectedMiners: poolNode.connectedMiners.map(minerId => {
+      const miner = miners.value.find(m => m.id === minerId);
+      return {
+        id: minerId,
+        name: miner?.name || minerId,
+        type: miner?.type
+      };
+    })
+  };
+  showPoolDetails.value = true;
+};
+```
+
+**Pool Details Dialog**:
+
+```vue
+<v-dialog v-model="showPoolDetails" max-width="600px">
+  <v-card v-if="selectedPool">
+    <v-card-title>
+      Pool Server Details
+      <v-spacer></v-spacer>
+      <v-chip :color="getPoolStatusColor(selectedPool.status)" dark small>
+        {{ selectedPool.status }}
+      </v-chip>
+    </v-card-title>
+    <v-card-text>
+      <v-table>
+        <tbody>
+          <tr>
+            <td><strong>URL:</strong></td>
+            <td>{{ selectedPool.url }}</td>
+          </tr>
+          <tr>
+            <td><strong>Port:</strong></td>
+            <td>{{ selectedPool.port }}</td>
+          </tr>
+          <tr>
+            <td><strong>Latency:</strong></td>
+            <td :style="{ color: getLatencyColor(selectedPool.latency) }">
+              {{ selectedPool.latency ? `${selectedPool.latency.toFixed(1)} ms` : 'N/A' }}
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Connected Miners:</strong></td>
+            <td>{{ selectedPool.connectedMiners.length }}</td>
+          </tr>
+        </tbody>
+      </v-table>
+      
+      <div class="mt-4">
+        <div class="text-subtitle-2 mb-2">Miners Using This Pool:</div>
+        <v-chip-group column>
+          <v-chip 
+            v-for="miner in selectedPool.connectedMiners" 
+            :key="miner.id"
+            :color="getMinerTypeColor(miner.type)"
+            text-color="white"
+            size="small"
+            @click="navigateToMiner(miner.id)"
+          >
+            {{ miner.name }}
+          </v-chip>
+        </v-chip-group>
+      </div>
+    </v-card-text>
+    <v-card-actions>
+      <v-spacer></v-spacer>
+      <v-btn color="primary" @click="showPoolDetails = false">Close</v-btn>
+    </v-card-actions>
+  </v-card>
+</v-dialog>
 ```
 
 ## Data Models
@@ -469,15 +802,24 @@ interface MinerMetrics {
 }
 ```
 
-### Network Health Data Model (New)
+### Network Health Data Model (Enhanced)
 
 ```typescript
+interface PoolLatency {
+  url: string;
+  port: number;
+  latency_ms: number | null;
+  status: 'healthy' | 'degraded' | 'poor' | 'unreachable';
+}
+
 interface NetworkHealth {
   miner_id: string;
-  latency_ms: number;
+  miner_latency_ms: number | null;
   packet_loss_percent: number;
   uptime_seconds: number;
   jitter_ms: number;
+  pool_latency: PoolLatency | null;
+  total_path_latency_ms: number | null;
   status: 'healthy' | 'degraded' | 'poor' | 'unknown';
   last_measured: string; // ISO 8601
 }
@@ -652,15 +994,19 @@ const throttledMetricsUpdate = throttle((data) => {
 
 ### Database Migrations
 
-**New Table for Network Health**:
+**Enhanced Table for Network Health with Pool Latency**:
 ```sql
 CREATE TABLE IF NOT EXISTS network_health (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     miner_id TEXT NOT NULL,
-    latency_ms REAL,
+    miner_latency_ms REAL,
     packet_loss_percent REAL,
     uptime_seconds INTEGER,
     jitter_ms REAL,
+    pool_url TEXT,
+    pool_port INTEGER,
+    pool_latency_ms REAL,
+    total_path_latency_ms REAL,
     status TEXT,
     measured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (miner_id) REFERENCES miners(id) ON DELETE CASCADE
@@ -668,6 +1014,9 @@ CREATE TABLE IF NOT EXISTS network_health (
 
 CREATE INDEX idx_network_health_miner_time 
 ON network_health(miner_id, measured_at);
+
+CREATE INDEX idx_network_health_pool
+ON network_health(pool_url, measured_at);
 ```
 
 ### Deployment Steps

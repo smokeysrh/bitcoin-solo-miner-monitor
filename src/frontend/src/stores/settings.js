@@ -11,7 +11,7 @@ export const useSettingsStore = defineStore("settings", () => {
     polling_interval: 30,
     theme: "dark",
     chart_retention_days: 30,
-    refresh_interval: 10,
+    refresh_interval: 60,
     temperature_unit: "celsius",
     default_view: "dashboard",
     simple_mode: false,
@@ -212,7 +212,7 @@ export const useSettingsStore = defineStore("settings", () => {
     );
   };
 
-  const getCurrentInterval = (key = "refresh_interval", defaultValue = 10) => {
+  const getCurrentInterval = (key = "refresh_interval", defaultValue = 60) => {
     // Get current interval with fallback to defaults
     const value = settings.value[key];
     if (value !== undefined && value !== null) {
