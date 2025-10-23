@@ -76,3 +76,23 @@ htmlcov/
 # Distribution builds
 distribution/builds/
 installer/builds/
+
+# Development-only folders (not needed in releases)
+docs/bug-reports/
+docs/investigations/
+docs/development/
+debug/
+testing/
+verification/
+verification-results/
+bug-reports/
+community-audit-workspace/
+security-audit/
+security-reports/
+community-feedback/
+tools/verification/
+
+# IDE and editor files
+.kiro/
+.vscode/
+.idea/

@@ -723,8 +723,8 @@ export default {
 
   setup() {
     // App information
-    const appVersion = ref("0.1.0");
-    const releaseDate = ref("2025-08-25");
+    const appVersion = ref("0.9.1");
+    const releaseDate = ref("2025-10-23");
 
     // System information
     const systemInfo = ref({

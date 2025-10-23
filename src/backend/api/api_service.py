@@ -577,6 +577,12 @@ class APIService:
         self.network_health_monitor.set_miner_manager(self.miner_manager)
         
         await self.miner_manager.start()
+        logger.info("MinerManager started, now loading miners from storage...")
+        
+        # Load miners from database - this restores miners after restart
+        loaded_count = await self.miner_manager.load_miners_from_storage(self.data_storage)
+        logger.info(f"=== [API SERVICE] Loaded {loaded_count} miner(s) from storage ===")
+        
         await self.system_monitor.start()
         
         # Start network health polling

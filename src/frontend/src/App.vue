@@ -217,7 +217,7 @@
         <v-row align="center" justify="space-between">
           <v-col cols="auto">
             <span class="text-caption text-medium-emphasis">
-              Bitcoin Solo Miner Monitor v0.1.0
+              Bitcoin Solo Miner Monitor v0.9.1
             </span>
           </v-col>
           <v-col cols="auto" class="text-center">
