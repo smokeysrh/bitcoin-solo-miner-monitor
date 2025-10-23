@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Replaced problematic VSkeletonLoader with simple loading indicator
   - Improved template structure for better null safety
   - Added proper loading state handling when store is empty
+- **Critical**: Fixed Windows installer not launching app after installation
+  - Added missing ConfigureRuntimeEnvironment macro call in installer
+  - Improved launcher batch file with instance checking and browser auto-launch
+  - Added 3-second startup delay for proper server initialization
 - Resolved Vue rendering errors on component initialization
 
 ### 🧹 Code Cleanup

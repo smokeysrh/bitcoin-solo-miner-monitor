@@ -4,7 +4,7 @@
 ; Define constants
 !define APP_NAME "Bitcoin Solo Miner Monitor"
 !define PUBLISHER "Bitcoin Solo Miner Monitor"
-!define VERSION "0.1.0"
+!define VERSION "0.9.1"
 !define WEBSITE "https://github.com/bitcoin-solo-miner-monitor"
 !define REGKEY "Software\${APP_NAME}"
 !define UNINSTALL_REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
@@ -123,6 +123,9 @@ Section "!Core Application (required)" SecCore
   
   ; Write build information
   Call WriteBuildInfo
+  
+  ; Configure runtime environment and create launcher
+  !insertmacro ConfigureRuntimeEnvironment
   
   ; Write registry keys
   WriteRegStr HKLM "${REGKEY}" "InstallDir" "$INSTDIR"

@@ -43,7 +43,19 @@ Function CreateApplicationWrapper
   FileWrite $R1 "REM Bitcoin Solo Miner Monitor - Application Launcher$\r$\n"
   FileWrite $R1 "cd /d %~dp0$\r$\n"
   FileWrite $R1 "call set_environment.bat$\r$\n"
-  FileWrite $R1 "start /min python\python.exe run.py$\r$\n"
+  FileWrite $R1 "REM Check if already running$\r$\n"
+  FileWrite $R1 "tasklist /FI $\"IMAGENAME eq python.exe$\" 2>NUL | find /I /N $\"python.exe$\">NUL$\r$\n"
+  FileWrite $R1 "if $\"%ERRORLEVEL%$\"==$\"0$\" ($\r$\n"
+  FileWrite $R1 "  echo Application is already running$\r$\n"
+  FileWrite $R1 "  start http://localhost:8000$\r$\n"
+  FileWrite $R1 "  exit /b 0$\r$\n"
+  FileWrite $R1 ")$\r$\n"
+  FileWrite $R1 "REM Start the application in background$\r$\n"
+  FileWrite $R1 "start $\"Bitcoin Solo Miner Monitor$\" /MIN python\python.exe run.py$\r$\n"
+  FileWrite $R1 "REM Wait for server to start$\r$\n"
+  FileWrite $R1 "timeout /t 3 /nobreak >nul$\r$\n"
+  FileWrite $R1 "REM Open browser$\r$\n"
+  FileWrite $R1 "start http://localhost:8000$\r$\n"
   FileClose $R1
   
   ; Create console launcher for debugging
