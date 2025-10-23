@@ -98,6 +98,109 @@ class MinerManager:
         
         self.polling_tasks.clear()
         
+    async def load_miners_from_storage(self, data_storage) -> int:
+        """
+        Load saved miners from storage and start polling.
+        This should be called during application startup to restore miners from the database.
+        
+        Args:
+            data_storage: DataStorage instance to load configs from
+            
+        Returns:
+            int: Number of miners successfully loaded
+        """
+        try:
+            logger.info("=== [BACKEND] LOADING MINERS FROM STORAGE START ===")
+            logger.info(f"Manager is_running: {self.is_running}")
+            logger.info(f"Current miners count: {len(self.miners)}")
+            
+            # Get all saved miner configurations
+            saved_configs = await data_storage.get_all_miner_configs()
+            
+            logger.info(f"Retrieved {len(saved_configs) if saved_configs else 0} configs from storage")
+            
+            if not saved_configs:
+                logger.info("No saved miners found in database")
+                return 0
+            
+            logger.info(f"Found {len(saved_configs)} saved miner(s) in database")
+            
+            loaded_count = 0
+            
+            for idx, config in enumerate(saved_configs):
+                try:
+                    logger.info(f"Processing config {idx + 1}/{len(saved_configs)}: {config.keys()}")
+                    
+                    miner_id = config.get('id')
+                    # Use factory_type if available (new format), otherwise fall back to type (old format)
+                    factory_type = config.get('factory_type')
+                    display_type = config.get('type')
+                    
+                    # For backward compatibility: if no factory_type, try to infer from miner_id or type
+                    if not factory_type:
+                        # Try to extract from miner_id (e.g., "bitaxe_192_168_1_156" -> "bitaxe")
+                        if miner_id and '_' in miner_id:
+                            factory_type = miner_id.split('_')[0]
+                        else:
+                            # Fall back to type, but convert known device types to factory types
+                            factory_type = display_type
+                            if display_type and display_type.lower().startswith('nerdqaxe'):
+                                factory_type = 'bitaxe'
+                            elif display_type and display_type.lower().startswith('bitaxe'):
+                                factory_type = 'bitaxe'
+                    
+                    ip_address = config.get('ip_address')
+                    port = config.get('port')
+                    name = config.get('name')
+                    
+                    logger.info(f"Config details - ID: {miner_id}, Display Type: {display_type}, Factory Type: {factory_type}, IP: {ip_address}, Port: {port}, Name: {name}")
+                    
+                    if not all([miner_id, factory_type, ip_address]):
+                        logger.warning(f"Skipping incomplete miner config - missing required fields")
+                        continue
+                    
+                    logger.info(f"Creating miner instance for {miner_id} ({name}) - factory_type: {factory_type} at {ip_address}:{port}")
+                    
+                    # Create miner instance using factory_type
+                    miner = await MinerFactory.create_miner(factory_type, ip_address, port)
+                    
+                    if not miner:
+                        logger.error(f"MinerFactory returned None for {miner_id}")
+                        continue
+                    
+                    logger.info(f"Miner instance created successfully for {miner_id}")
+                    
+                    # Add miner to manager with thread safety
+                    async with self._miners_lock:
+                        self.miners[miner_id] = miner
+                        logger.info(f"Added {miner_id} to self.miners dict (now has {len(self.miners)} miners)")
+                    
+                    # Store miner data in thread-safe manager
+                    await self.miner_data_manager.set_miner(miner_id, config)
+                    logger.info(f"Stored {miner_id} in miner_data_manager")
+                    
+                    # Start polling if manager is running
+                    if self.is_running:
+                        await self.start_polling(miner_id)
+                        logger.info(f"Started polling for miner {miner_id}")
+                    else:
+                        logger.warning(f"Manager not running, skipping polling start for {miner_id}")
+                    
+                    loaded_count += 1
+                    logger.info(f"Successfully loaded miner {miner_id} ({loaded_count}/{len(saved_configs)})")
+                    
+                except Exception as e:
+                    logger.error(f"Error loading miner {config.get('id', 'unknown')}: {str(e)}", exc_info=True)
+                    continue
+            
+            logger.info(f"=== [BACKEND] LOADED {loaded_count}/{len(saved_configs)} MINERS FROM STORAGE ===")
+            logger.info(f"Final miners count in self.miners: {len(self.miners)}")
+            return loaded_count
+            
+        except Exception as e:
+            logger.error(f"Error in load_miners_from_storage: {str(e)}", exc_info=True)
+            return 0
+        
         # Disconnect all miners to ensure proper session cleanup
         for miner_id, miner in self.miners.items():
             try:
@@ -165,11 +268,12 @@ class MinerManager:
                 self.miners[miner_id] = miner
             
             # Use thread-safe miner data manager
-            # Store the actual device type (e.g., "NerdQaxe++" or "Bitaxe")
+            # Store both factory_type (for recreation) and actual type (for display)
             await self.miner_data_manager.set_miner(miner_id, {
                 "id": miner_id,
                 "name": name,
-                "type": actual_type,  # Use actual type from device_info
+                "type": actual_type,  # Actual device type for display (e.g., "NerdQaxe++")
+                "factory_type": miner_type,  # Factory type for recreation (e.g., "bitaxe")
                 "ip_address": ip_address,
                 "port": port,
                 "added_at": datetime.now().isoformat(),
@@ -642,15 +746,21 @@ class MinerManager:
         Returns:
             bool: True if successful, False otherwise
         """
+        logger.info(f"=== [BACKEND] START POLLING CALLED === miner_id={miner_id}, is_running={self.is_running}")
+        
         if miner_id not in self.miners:
+            logger.warning(f"=== [BACKEND] START POLLING FAILED === miner_id={miner_id} not in miners dict, available_miners={list(self.miners.keys())}")
             return False
         
         if miner_id in self.polling_tasks and not self.polling_tasks[miner_id].done():
             # Already polling
+            logger.info(f"=== [BACKEND] POLLING ALREADY RUNNING === miner_id={miner_id}")
             return True
         
         try:
+            logger.info(f"=== [BACKEND] CREATING POLLING TASK === miner_id={miner_id}, interval={self.polling_interval}s")
             self.polling_tasks[miner_id] = asyncio.create_task(self._poll_miner(miner_id))
+            logger.info(f"=== [BACKEND] POLLING TASK CREATED === miner_id={miner_id}, task_id={id(self.polling_tasks[miner_id])}")
             return True
         except MinerError as e:
             logger.error(f"Miner error starting polling for miner {miner_id}", {
@@ -742,29 +852,47 @@ class MinerManager:
         Args:
             miner_id (str): ID of the miner
         """
+        logger.info(f"=== [BACKEND] POLL MINER START === miner_id={miner_id}, is_running={self.is_running}")
+        
         if miner_id not in self.miners:
+            logger.warning(f"=== [BACKEND] POLL MINER SKIPPED === miner_id={miner_id} not in miners dict")
             return
         
         miner = self.miners[miner_id]
+        poll_count = 0
         
         while self.is_running:
+            poll_count += 1
+            poll_start_time = datetime.now()
+            
+            logger.info(f"=== [BACKEND] POLL CYCLE START === miner_id={miner_id}, poll_count={poll_count}, time={poll_start_time.isoformat()}")
+            
             try:
                 # Get status
+                logger.debug(f"=== [BACKEND] FETCHING STATUS === miner_id={miner_id}")
                 status = await miner.get_status()
+                logger.info(f"=== [BACKEND] STATUS RECEIVED === miner_id={miner_id}, online={status.get('online')}, keys={list(status.keys())}")
                 
                 # Get metrics
+                logger.debug(f"=== [BACKEND] FETCHING METRICS === miner_id={miner_id}")
                 metrics = await miner.get_metrics()
+                logger.info(f"=== [BACKEND] METRICS RECEIVED === miner_id={miner_id}, metrics_keys={list(metrics.keys()) if metrics else None}")
                 
                 # Get pool info
+                logger.debug(f"=== [BACKEND] FETCHING POOL INFO === miner_id={miner_id}")
                 pool_info = await miner.get_pool_info()
+                logger.info(f"=== [BACKEND] POOL INFO RECEIVED === miner_id={miner_id}, pool_count={len(pool_info) if pool_info else 0}")
                 
                 # Get device info to keep type and model updated
+                logger.debug(f"=== [BACKEND] FETCHING DEVICE INFO === miner_id={miner_id}")
                 device_info = await miner.get_device_info()
+                logger.info(f"=== [BACKEND] DEVICE INFO RECEIVED === miner_id={miner_id}, device_keys={list(device_info.keys()) if device_info else None}")
                 
                 # Prepare update data
+                update_timestamp = datetime.now().isoformat()
                 update_data = {
                     "status": "online" if status.get("online", False) else "offline",
-                    "last_updated": datetime.now().isoformat(),
+                    "last_updated": update_timestamp,
                     "metrics": metrics,
                     "pool_info": pool_info,
                     "device_info": device_info
@@ -775,8 +903,12 @@ class MinerManager:
                     if key != "online":
                         update_data[key] = value
                 
+                logger.info(f"=== [BACKEND] UPDATING MINER DATA === miner_id={miner_id}, last_updated={update_timestamp}, status={update_data['status']}")
+                
                 # Update miner data using thread-safe manager
                 await self.miner_data_manager.update_miner(miner_id, update_data)
+                
+                logger.info(f"=== [BACKEND] MINER DATA UPDATED === miner_id={miner_id}, poll_count={poll_count}")
                 
                 # Save metrics to timeseries storage (throttled to metrics_save_interval)
                 # This is decoupled from polling_interval to reduce storage usage

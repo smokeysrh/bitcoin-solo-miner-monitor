@@ -1,11 +1,14 @@
 <template>
-  <div>
+  <div class="miner-detail">
     <!-- Loading State -->
-    <v-skeleton-loader
-      v-if="loading && !miner"
-      type="card, list-item-three-line, card-heading, card-heading"
-      class="mx-auto"
-    ></v-skeleton-loader>
+    <div v-if="loading && !miner" class="loading-container">
+      <v-progress-circular
+        indeterminate
+        color="primary"
+        size="64"
+      ></v-progress-circular>
+      <p class="mt-4 text-center">Loading miner details...</p>
+    </div>
 
     <!-- Error State -->
     <v-alert v-else-if="error" type="error" class="mb-4">
@@ -13,12 +16,12 @@
     </v-alert>
 
     <!-- Not Found State -->
-    <v-alert v-else-if="!miner" type="warning" class="mb-4">
+    <v-alert v-else-if="!loading && !miner" type="warning" class="mb-4">
       Miner not found
     </v-alert>
 
-    <!-- Miner Details -->
-    <template v-else>
+    <!-- Miner Details - Only render when miner exists -->
+    <div v-else-if="miner">
       <!-- Header -->
       <v-row>
         <v-col cols="12" md="8">
@@ -522,7 +525,7 @@
           </v-window-item>
         </v-window>
       </v-card>
-    </template>
+    </div>
 
     <!-- Edit Miner Dialog -->
     <v-dialog v-model="editDialog" max-width="500px">
@@ -928,25 +931,48 @@ export default {
         // Process metrics data for charts
         processMetricsData(metrics);
         
-        // Render charts after data is processed - use multiple nextTick to ensure DOM is ready
-        await nextTick();
-        await nextTick();
-        
-        // Try to render charts with retry logic
-        let retries = 0;
-        const maxRetries = 5;
-        const tryRender = () => {
-          if (previewHashrateChart.value && previewTemperatureChart.value && previewPowerChart.value) {
-            renderPreviewCharts();
-          } else if (retries < maxRetries) {
-            retries++;
-            console.log(`Canvas refs not ready, retry ${retries}/${maxRetries}`);
-            setTimeout(tryRender, 100);
-          } else {
-            console.warn('Failed to render charts after max retries');
-          }
-        };
-        tryRender();
+        // Only try to render if we have data
+        if (hashrateData.value.length > 0 || temperatureData.value.length > 0 || powerData.value.length > 0) {
+          // Wait for DOM to update with the new data
+          await nextTick();
+          await nextTick();
+          
+          // Try to render charts with retry logic
+          let retries = 0;
+          const maxRetries = 5;
+          const tryRender = async () => {
+            // Check if all required refs exist and are valid DOM elements
+            const hasValidRefs = 
+              previewHashrateChart.value instanceof HTMLCanvasElement &&
+              previewTemperatureChart.value instanceof HTMLCanvasElement &&
+              previewPowerChart.value instanceof HTMLCanvasElement;
+            
+            if (hasValidRefs) {
+              // Extra safety: ensure canvases are actually in the DOM and visible
+              const allVisible = 
+                previewHashrateChart.value.offsetParent !== null &&
+                previewTemperatureChart.value.offsetParent !== null &&
+                previewPowerChart.value.offsetParent !== null;
+              
+              if (allVisible) {
+                renderPreviewCharts();
+              } else if (retries < maxRetries) {
+                retries++;
+                console.log(`Canvas elements not visible yet, retry ${retries}/${maxRetries}`);
+                setTimeout(tryRender, 150);
+              } else {
+                console.warn('Failed to render charts: canvas elements not visible after max retries');
+              }
+            } else if (retries < maxRetries) {
+              retries++;
+              console.log(`Canvas refs not ready, retry ${retries}/${maxRetries}`);
+              setTimeout(tryRender, 150);
+            } else {
+              console.warn('Failed to render charts: refs not ready after max retries');
+            }
+          };
+          tryRender();
+        }
       } catch (error) {
         console.error(
           `[fetchPreviewMetrics] Error fetching metrics for miner ${miner.value?.id}:`,
@@ -1005,29 +1031,42 @@ export default {
     
     const renderPreviewCharts = () => {
       console.log('=== renderPreviewCharts CALLED ===');
-      console.log('Call stack:', new Error().stack);
       
-      // Destroy existing chart instances
-      if (hashrateChartInstance) {
-        console.log('Destroying existing hashrate chart instance');
-        hashrateChartInstance.destroy();
-        hashrateChartInstance = null;
-      }
-      if (temperatureChartInstance) {
-        console.log('Destroying existing temperature chart instance');
-        temperatureChartInstance.destroy();
-        temperatureChartInstance = null;
-      }
-      if (powerChartInstance) {
-        console.log('Destroying existing power chart instance');
-        powerChartInstance.destroy();
-        powerChartInstance = null;
-      }
-      
-      // Check if canvas refs are available
-      if (!previewHashrateChart.value || !previewTemperatureChart.value || !previewPowerChart.value) {
-        console.warn("Canvas refs not available for preview charts");
+      // Validate canvas refs are HTMLCanvasElements before proceeding
+      if (!(previewHashrateChart.value instanceof HTMLCanvasElement) ||
+          !(previewTemperatureChart.value instanceof HTMLCanvasElement) ||
+          !(previewPowerChart.value instanceof HTMLCanvasElement)) {
+        console.warn("Canvas refs not available or not valid HTMLCanvasElements");
         return;
+      }
+      
+      // Ensure canvases are in the DOM and visible
+      if (previewHashrateChart.value.offsetParent === null ||
+          previewTemperatureChart.value.offsetParent === null ||
+          previewPowerChart.value.offsetParent === null) {
+        console.warn("Canvas elements are not visible in the DOM");
+        return;
+      }
+      
+      // Destroy existing chart instances safely
+      try {
+        if (hashrateChartInstance) {
+          console.log('Destroying existing hashrate chart instance');
+          hashrateChartInstance.destroy();
+          hashrateChartInstance = null;
+        }
+        if (temperatureChartInstance) {
+          console.log('Destroying existing temperature chart instance');
+          temperatureChartInstance.destroy();
+          temperatureChartInstance = null;
+        }
+        if (powerChartInstance) {
+          console.log('Destroying existing power chart instance');
+          powerChartInstance.destroy();
+          powerChartInstance = null;
+        }
+      } catch (error) {
+        console.error('Error destroying chart instances:', error);
       }
       
       // Log canvas dimensions before rendering
@@ -1403,3 +1442,13 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+</style>

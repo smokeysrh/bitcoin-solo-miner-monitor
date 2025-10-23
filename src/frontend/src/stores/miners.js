@@ -88,27 +88,71 @@ export const useMinersStore = defineStore("miners", () => {
   };
 
   const fetchMiner = async (id) => {
+    console.log("=== [STORE] FETCH MINER START ===", {
+      timestamp: new Date().toISOString(),
+      minerId: id,
+      currentStoreData: miners.value.find((m) => m.id === id),
+      storeSize: miners.value.length,
+    });
+
     loading.value = true;
     error.value = null;
 
     try {
+      console.log("=== [STORE] FETCH MINER API CALL ===", {
+        timestamp: new Date().toISOString(),
+        minerId: id,
+        url: `${API_BASE_URL}/miners/${id}`,
+      });
+
       const response = await axios.get(`${API_BASE_URL}/miners/${id}`);
+
+      console.log("=== [STORE] FETCH MINER API RESPONSE ===", {
+        timestamp: new Date().toISOString(),
+        minerId: id,
+        responseData: response.data,
+        dataAge: response.data.last_updated,
+        status: response.status,
+      });
 
       // Normalize miner data
       const normalizedMiner = normalizeMinerData(response.data);
+
+      console.log("=== [STORE] FETCH MINER NORMALIZED ===", {
+        timestamp: new Date().toISOString(),
+        minerId: id,
+        normalizedData: normalizedMiner,
+        beforeUpdate: miners.value.find((m) => m.id === id),
+      });
 
       // Update miner in the list
       const index = miners.value.findIndex((m) => m.id === id);
       if (index !== -1) {
         miners.value[index] = normalizedMiner;
+        console.log("=== [STORE] FETCH MINER UPDATED ===", {
+          timestamp: new Date().toISOString(),
+          minerId: id,
+          index: index,
+          afterUpdate: miners.value[index],
+        });
       } else {
         miners.value.push(normalizedMiner);
+        console.log("=== [STORE] FETCH MINER ADDED ===", {
+          timestamp: new Date().toISOString(),
+          minerId: id,
+          newIndex: miners.value.length - 1,
+        });
       }
 
       return normalizedMiner;
     } catch (err) {
       error.value = err.message || `Failed to fetch miner ${id}`;
-      console.error(`Error fetching miner ${id}:`, err);
+      console.error("=== [STORE] FETCH MINER ERROR ===", {
+        timestamp: new Date().toISOString(),
+        minerId: id,
+        error: err.message,
+        errorDetails: err,
+      });
       return null;
     } finally {
       loading.value = false;
@@ -328,7 +372,9 @@ export const useMinersStore = defineStore("miners", () => {
 
   const fetchNetworkHealth = async (id) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/miners/${id}/network-health`);
+      const response = await axios.get(
+        `${API_BASE_URL}/miners/${id}/network-health`,
+      );
       return response.data;
     } catch (err) {
       console.error(`Error fetching network health for miner ${id}:`, err);
@@ -338,11 +384,11 @@ export const useMinersStore = defineStore("miners", () => {
 
   const fetchAllNetworkHealth = async () => {
     try {
-      const healthPromises = miners.value.map(miner => 
-        fetchNetworkHealth(miner.id)
+      const healthPromises = miners.value.map((miner) =>
+        fetchNetworkHealth(miner.id),
       );
       const healthResults = await Promise.all(healthPromises);
-      
+
       // Create a map of miner_id to health data
       const healthMap = {};
       healthResults.forEach((health, index) => {
@@ -350,10 +396,10 @@ export const useMinersStore = defineStore("miners", () => {
           healthMap[miners.value[index].id] = health;
         }
       });
-      
+
       return healthMap;
     } catch (err) {
-      console.error('Error fetching all network health:', err);
+      console.error("Error fetching all network health:", err);
       return {};
     }
   };

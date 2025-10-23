@@ -172,9 +172,6 @@
 
 - [ ] 9. Add Pool and Node Visualization to Network Topology
 
-
-
-
 - [x] 9.1 Enhance network graph building logic
 
   - Modify buildNetworkGraph() to extract pool information from network health data
@@ -186,7 +183,6 @@
 
 - [x] 9.2 Implement pool node visual styling
 
-
   - Add pool node colors (blue for pools, Bitcoin Orange for local nodes)
   - Size pool nodes based on number of connected miners
   - Add pool server icon (🏊) for pool nodes
@@ -197,8 +193,6 @@
 
 - [x] 9.3 Add pool node interaction
 
-
-
   - Implement click handler for pool nodes
   - Create pool details dialog showing URL, port, latency, and connected miners
   - Add navigation from pool dialog to individual miners
@@ -207,8 +201,6 @@
   - _Requirements: 9.6, 9.8_
 
 - [x] 9.4 Update network statistics
-
-
 
   - Add pool count to network statistics card
   - Show unique pools being used across all miners
