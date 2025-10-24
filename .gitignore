@@ -77,6 +77,12 @@ htmlcov/
 distribution/builds/
 installer/builds/
 
+# Installer bundle (large, regenerated files)
+installer/windows/bundle/
+
+# Build staging directory (temporary build artifacts)
+build/windows/staging/
+
 # Development-only folders (not needed in releases)
 docs/bug-reports/
 docs/investigations/
