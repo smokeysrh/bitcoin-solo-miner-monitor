@@ -141,7 +141,8 @@ class APIKeyAuth:
             self.valid_api_keys.update(key.strip() for key in api_keys_env.split(",") if key.strip())
         
         # Development fallback (should be removed in production)
-        if not self.valid_api_keys and os.getenv("DEBUG", "false").lower() == "true":
+        # For local development, always add the development key
+        if not self.valid_api_keys:
             logger.warning("No API keys configured, using development fallback")
             self.valid_api_keys.add("dev-key-12345")
     

@@ -4,9 +4,13 @@
       v-if="!isSetupRoute"
       v-model="drawer"
       app
+      :temporary="mobile"
+      :scrim="mobile"
+      class="sidebar-below-header"
+      @click:outside="drawer = false"
     >
       <v-list-item>
-        <template v-slot:prepend>
+        <template #prepend>
           <BitcoinLogo 
             size="md" 
             variant="default" 
@@ -33,31 +37,31 @@
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
-          :to="item.to"
+          :prepend-icon="item.icon"
+          @click="navigateToPage(item.to)"
           link
         >
-          <template v-slot:prepend>
-            <v-icon>{{ item.icon }}</v-icon>
-          </template>
           <v-list-item-title>{{ item.title }}</v-list-item-title>
         </v-list-item>
       </v-list>
       
-      <template v-slot:append>
+      <template #append>
         <div class="pa-2">
           <v-btn
             block
             color="primary"
-            @click="openAddMinerDialog"
+            @click="navigateToMinersPage"
           >
-            <v-icon left>mdi-plus</v-icon>
+            <template #prepend>
+              <v-icon>mdi-plus</v-icon>
+            </template>
             Add Miner
           </v-btn>
         </div>
       </template>
     </v-navigation-drawer>
 
-    <v-app-bar v-if="!isSetupRoute" app>
+    <v-app-bar v-if="!isSetupRoute" app class="app-header-fixed">
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
       <BitcoinLogo 
         size="sm" 
@@ -89,6 +93,15 @@
       >
         <v-icon :class="{ 'refresh-spinning': refreshing }">mdi-refresh</v-icon>
       </v-btn>
+      <v-btn 
+        icon 
+        @click="checkForUpdates"
+        :loading="checkingUpdates"
+        :disabled="checkingUpdates"
+        :title="checkingUpdates ? 'Checking for updates...' : 'Check for updates'"
+      >
+        <v-icon>mdi-download</v-icon>
+      </v-btn>
       <v-btn icon @click="openSettingsDialog">
         <v-icon>mdi-cog</v-icon>
       </v-btn>
@@ -101,66 +114,7 @@
       <router-view v-else />
     </v-main>
 
-    <!-- Add Miner Dialog -->
-    <v-dialog
-      v-model="addMinerDialog"
-      max-width="500px"
-    >
-      <v-card>
-        <v-card-title>
-          Add New Miner
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="addMinerForm" v-model="addMinerFormValid">
-            <v-select
-              v-model="newMiner.type"
-              :items="minerTypes"
-              label="Miner Type"
-              required
-              :rules="[v => !!v || 'Miner type is required']"
-            ></v-select>
-            <v-text-field
-              v-model="newMiner.ip_address"
-              label="IP Address"
-              required
-              :rules="[
-                v => !!v || 'IP address is required',
-                v => /^(\d{1,3}\.){3}\d{1,3}$/.test(v) || 'Invalid IP address format'
-              ]"
-            ></v-text-field>
-            <v-text-field
-              v-model="newMiner.port"
-              label="Port (Optional)"
-              type="number"
-              hint="Leave empty for default port"
-            ></v-text-field>
-            <v-text-field
-              v-model="newMiner.name"
-              label="Name (Optional)"
-              hint="Leave empty for auto-generated name"
-            ></v-text-field>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn
-            color="blue darken-1"
-            text
-            @click="addMinerDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="blue darken-1"
-            text
-            @click="addMiner"
-            :disabled="!addMinerFormValid"
-          >
-            Add
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+
 
     <!-- Settings Dialog -->
     <v-dialog
@@ -173,7 +127,6 @@
         </v-card-title>
         <v-card-text>
           <v-form ref="settingsForm" v-model="settingsFormValid">
-
             <v-text-field
               v-model="settings.polling_interval"
               label="Polling Interval (seconds)"
@@ -216,18 +169,17 @@
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn
-            color="blue darken-1"
-            text
+            variant="text"
             @click="settingsDialog = false"
           >
             Cancel
           </v-btn>
           <v-btn
-            color="blue darken-1"
-            text
+            color="primary"
+            variant="text"
             @click="saveSettings"
             :disabled="!settingsFormValid"
-            :loading="settingsStore.loading"
+            :loading="settingsLoading"
           >
             Save
           </v-btn>
@@ -240,14 +192,15 @@
       v-model="snackbar.show"
       :color="snackbar.color"
       :timeout="snackbar.timeout"
-      location="bottom"
+      location="bottom center"
       :multi-line="false"
+      class="global-snackbar"
+      app
     >
       {{ snackbar.text }}
-      <template v-slot:action="{ attrs }">
+      <template #actions>
         <v-btn
-          text
-          v-bind="attrs"
+          variant="text"
           @click="snackbar.show = false"
         >
           Close
@@ -255,13 +208,16 @@
       </template>
     </v-snackbar>
 
+    <!-- Update Notification -->
+    <UpdateNotification />
+
     <!-- Footer with donation address -->
     <v-footer v-if="!isSetupRoute" class="pa-2 footer-fixed">
       <v-container fluid>
         <v-row align="center" justify="space-between">
           <v-col cols="auto">
             <span class="text-caption text-medium-emphasis">
-              Bitcoin Solo Miner Monitor
+              Bitcoin Solo Miner Monitor v0.9.1
             </span>
           </v-col>
           <v-col cols="auto" class="text-center">
@@ -291,19 +247,26 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { useMinersStore } from './stores/miners'
 import { useSettingsStore } from './stores/settings'
 import { useAlertsStore } from './stores/alerts'
 import { isFirstRun, getDiscoveredMiners, getInitialRoute } from './services/firstRunService'
 import { connectionStatus, forceReconnect } from './services/websocket'
 import { useEasterEgg } from './composables/useEasterEgg'
+import { useUpdateChecker } from './composables/useUpdateChecker'
+import { useClipboard } from './composables/useClipboard'
+import { useGlobalSnackbar } from './composables/useGlobalSnackbar'
 import BitcoinLogo from './components/BitcoinLogo.vue'
+import UpdateNotification from './components/UpdateNotification.vue'
+
 
 export default {
   name: 'App',
   
   components: {
-    BitcoinLogo
+    BitcoinLogo,
+    UpdateNotification
   },
   
   setup() {
@@ -312,12 +275,43 @@ export default {
     const minersStore = useMinersStore()
     const settingsStore = useSettingsStore()
     const alertsStore = useAlertsStore()
+    const { mobile } = useDisplay()
     
     // Initialize easter egg
     const easterEgg = useEasterEgg()
     
-    // Navigation drawer state
-    const drawer = ref(true)
+    // Initialize clipboard functionality
+    const clipboard = useClipboard()
+    
+    // Initialize global snackbar
+    const { snackbar, showSnackbar } = useGlobalSnackbar()
+    
+    // Initialize update checker
+    let checkUpdates, checkingUpdates
+    try {
+      const updateChecker = useUpdateChecker()
+      checkUpdates = updateChecker.checkForUpdates
+      checkingUpdates = updateChecker.isChecking
+    } catch (error) {
+      console.error('Failed to initialize update checker:', error)
+      // Provide fallback values
+      checkUpdates = async () => { console.warn('Update checker not available') }
+      checkingUpdates = ref(false)
+    }
+    
+    // Navigation drawer state - responsive behavior
+    const drawer = ref(false)
+    
+    // Watch for screen size changes and adjust drawer accordingly
+    watch(mobile, (isMobile) => {
+      if (!isMobile) {
+        // On desktop, keep drawer open by default
+        drawer.value = true
+      } else {
+        // On mobile, close drawer to save space
+        drawer.value = false
+      }
+    }, { immediate: true })
     
     // Check for UI mode preference
     const uiMode = ref(localStorage.getItem('uiMode') || 'advanced')
@@ -349,6 +343,7 @@ export default {
         { title: 'Miners', icon: 'mdi-server', to: '/miners' },
         { title: 'Analytics', icon: 'mdi-chart-line', to: '/analytics' },
         { title: 'Network', icon: 'mdi-network', to: '/network' },
+        { title: 'Settings', icon: 'mdi-cog', to: '/settings' },
         { title: 'About', icon: 'mdi-information', to: '/about' },
       ]
       
@@ -369,23 +364,7 @@ export default {
       return route.path === '/setup'
     })
     
-    // Add miner dialog
-    const addMinerDialog = ref(false)
-    const addMinerFormValid = ref(false)
-    const addMinerForm = ref(null)
-    const newMiner = ref({
-      type: 'bitaxe',
-      ip_address: '',
-      port: null,
-      name: ''
-    })
-    
-    // Miner types
-    const minerTypes = [
-      { title: 'Bitaxe', value: 'bitaxe' },
-      { title: 'Avalon Nano', value: 'avalon_nano' },
-      { title: 'Magic Miner', value: 'magic_miner' }
-    ]
+
     
     // Settings dialog
     const settingsDialog = ref(false)
@@ -397,40 +376,33 @@ export default {
       chart_retention_days: 30
     })
     
+    // Computed property for settings loading state
+    const settingsLoading = computed(() => {
+      return settingsStore?.loading || false
+    })
+    
 
     
     // Refresh state
     const refreshing = ref(false)
     
-    // Snackbar for notifications
-    const snackbar = ref({
-      show: false,
-      text: '',
-      color: 'info',
-      timeout: 3000
-    })
+    // Snackbar is now handled by the global composable
     
     // Methods
-    const openAddMinerDialog = () => {
-      // Reset form
-      newMiner.value = {
-        type: 'bitaxe',
-        ip_address: '',
-        port: null,
-        name: ''
+    const navigateToMinersPage = () => {
+      // Only close drawer on mobile devices after navigation
+      if (mobile.value) {
+        drawer.value = false
       }
-      addMinerFormValid.value = false
-      addMinerDialog.value = true
+      router.push('/miners')
     }
     
-    const addMiner = async () => {
-      try {
-        await minersStore.addMiner(newMiner.value)
-        addMinerDialog.value = false
-        showSnackbar('Miner added successfully', 'success')
-      } catch (error) {
-        showSnackbar(`Error adding miner: ${error.message}`, 'error')
+    const navigateToPage = (path) => {
+      // Only close drawer on mobile devices after navigation
+      if (mobile.value) {
+        drawer.value = false
       }
+      router.push(path)
     }
     
     const openSettingsDialog = () => {
@@ -455,16 +427,24 @@ export default {
     const saveSettings = async () => {
       console.log('saveSettings method called!')
       console.log('settingsFormValid:', settingsFormValid.value)
-      console.log('settingsStore.loading:', settingsStore.loading)
+      console.log('settingsStore.loading:', settingsStore?.loading)
       
-      if (settingsStore.loading) {
+      if (settingsStore?.loading) {
         console.log('Settings save already in progress, skipping...')
         return
       }
       
       try {
-        console.log('Saving settings:', settings.value)
-        await settingsStore.updateSettings(settings.value)
+        // Convert string values to appropriate types before saving
+        const settingsToSave = {
+          ...settings.value,
+          polling_interval: parseInt(settings.value.polling_interval) || 30,
+          refresh_interval: parseInt(settings.value.refresh_interval) || 10,
+          chart_retention_days: parseInt(settings.value.chart_retention_days) || 30
+        }
+        
+        console.log('Saving settings:', settingsToSave)
+        await settingsStore.updateSettings(settingsToSave)
         
         // Auto-close dialog on successful save
         settingsDialog.value = false
@@ -487,7 +467,8 @@ export default {
       
       try {
         refreshing.value = true
-        console.log('Starting data refresh...')
+        const currentPath = route.path
+        console.log('Starting data refresh for current page:', currentPath)
         
         // Handle WebSocket reconnection for disconnected states
         if (connectionStatus.value === 'disconnected' || connectionStatus.value === 'error') {
@@ -517,37 +498,53 @@ export default {
           }
         }
         
-        // Refresh all relevant data sources
+        // Determine what to refresh based on current route
         const refreshPromises = []
         
-        // 1. Refresh miners data
-        console.log('Refreshing miners data...')
-        refreshPromises.push(
-          minersStore.fetchMiners().catch(error => {
-            console.error('Failed to refresh miners:', error)
-            throw new Error(`Miners: ${error.message}`)
-          })
-        )
+        // Route-specific refresh logic
+        if (currentPath === '/' || currentPath === '/dashboard-simple' || 
+            currentPath === '/miners' || currentPath === '/network' || 
+            currentPath === '/analytics' || currentPath.startsWith('/miners/')) {
+          // Pages that display miner data - use the refresh endpoint
+          console.log('Refreshing miners data via refresh endpoint...')
+          refreshPromises.push(
+            minersStore.refreshMiners().catch(error => {
+              console.error('Failed to refresh miners:', error)
+              console.warn('Miners refresh failed, continuing with other data')
+            })
+          )
+        }
         
-        // 2. Refresh settings data
-        console.log('Refreshing settings data...')
-        refreshPromises.push(
-          settingsStore.fetchSettings().catch(error => {
-            console.error('Failed to refresh settings:', error)
-            // Don't throw for settings errors, just log them
-            console.warn('Settings refresh failed, continuing with other data')
-          })
-        )
+        // Settings page - refresh settings
+        if (currentPath === '/settings') {
+          console.log('Refreshing settings data...')
+          refreshPromises.push(
+            settingsStore.fetchSettings().catch(error => {
+              console.error('Failed to refresh settings:', error)
+              console.warn('Settings refresh failed')
+            })
+          )
+        }
         
-        // 3. Refresh alerts data
+        // Always refresh alerts as they may appear across pages
         console.log('Refreshing alerts data...')
         refreshPromises.push(
           alertsStore.fetchAlerts().catch(error => {
             console.error('Failed to refresh alerts:', error)
-            // Don't throw for alerts errors, just log them
-            console.warn('Alerts refresh failed, continuing with other data')
+            console.warn('Alerts refresh failed')
           })
         )
+        
+        // If no specific refresh actions were added, default to refreshing miners
+        if (refreshPromises.length === 1) { // Only alerts was added
+          console.log('No specific page refresh, defaulting to miners refresh...')
+          refreshPromises.unshift(
+            minersStore.refreshMiners().catch(error => {
+              console.error('Failed to refresh miners:', error)
+              console.warn('Miners refresh failed')
+            })
+          )
+        }
         
         // Execute all refresh operations with timeout
         const refreshTimeout = 10000 // 10 seconds timeout
@@ -566,31 +563,32 @@ export default {
           throw new Error('Refresh timed out - please try again')
         }
         
-        // Check for any critical failures (miners data is critical)
-        const minersResult = refreshResults[0]
-        if (minersResult && minersResult.status === 'rejected') {
-          console.error('Critical: Miners data refresh failed:', minersResult.reason)
-          throw new Error(`Failed to refresh miners data: ${minersResult.reason.message}`)
-        }
-        
-        // Log any non-critical failures
+        // Log results
+        let successCount = 0
+        let failureCount = 0
         refreshResults.forEach((result, index) => {
           if (result.status === 'rejected') {
-            const dataType = index === 0 ? 'miners' : index === 1 ? 'settings' : 'alerts'
-            console.warn(`Non-critical: ${dataType} refresh failed:`, result.reason)
+            console.warn(`Refresh operation ${index} failed:`, result.reason)
+            failureCount++
+          } else {
+            console.log(`Refresh operation ${index} succeeded`)
+            successCount++
           }
         })
         
-        // Check if WebSocket reconnection was successful
-        if (connectionStatus.value === 'connected') {
-          console.log('Refresh completed successfully with WebSocket connected')
-          showSnackbar('Data refreshed successfully', 'success')
-        } else if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
-          console.log('Refresh completed, WebSocket still reconnecting')
-          showSnackbar('Data refreshed, reconnecting...', 'info')
+        // Show appropriate message based on results
+        if (successCount > 0 && failureCount === 0) {
+          if (connectionStatus.value === 'connected') {
+            showSnackbar('Data refreshed successfully', 'success')
+          } else if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
+            showSnackbar('Data refreshed, reconnecting...', 'info')
+          } else {
+            showSnackbar('Data refreshed (offline mode)', 'warning')
+          }
+        } else if (successCount > 0 && failureCount > 0) {
+          showSnackbar('Data partially refreshed', 'warning')
         } else {
-          console.log('Refresh completed but WebSocket connection failed')
-          showSnackbar('Data refreshed (offline mode)', 'warning')
+          showSnackbar('Refresh failed', 'error')
         }
         
       } catch (error) {
@@ -602,29 +600,29 @@ export default {
       }
     }
     
-    const showSnackbar = (text, color = 'info') => {
-      snackbar.value = {
-        show: true,
-        text,
-        color,
-        timeout: 3000
+    // showSnackbar is now provided by the global composable
+    
+    const copyDonationAddress = async () => {
+      try {
+        const result = await clipboard.copyDonationAddress()
+        
+        if (result.success) {
+          showSnackbar(result.message, 'success')
+        } else {
+          showSnackbar(result.message, 'error')
+        }
+      } catch (error) {
+        console.error('Error copying donation address:', error)
+        showSnackbar('Failed to copy donation address. Please copy manually.', 'error')
       }
     }
     
-    const copyDonationAddress = async () => {
-      const donationAddress = 'bc1qnce06pg2gqewjvjmfavwrjt5f4zc37k5d26c6e'
+    const checkForUpdates = async () => {
       try {
-        await navigator.clipboard.writeText(donationAddress)
-        showSnackbar('Donation address copied to clipboard! Thank you for your support! 🧡', 'success')
+        await checkUpdates(true) // Force refresh
+        showSnackbar('Update check completed', 'info')
       } catch (error) {
-        // Fallback for older browsers or when clipboard API is not available
-        const textArea = document.createElement('textarea')
-        textArea.value = donationAddress
-        document.body.appendChild(textArea)
-        textArea.select()
-        document.execCommand('copy')
-        document.body.removeChild(textArea)
-        showSnackbar('Donation address copied to clipboard! Thank you for your support! 🧡', 'success')
+        showSnackbar(`Update check failed: ${error.message}`, 'error')
       }
     }
     
@@ -717,6 +715,8 @@ export default {
       } catch (error) {
         console.error('Error in first run check:', error)
       }
+      
+
       
       console.log('=== APP MOUNTED COMPLETE ===')
     })
@@ -817,29 +817,29 @@ export default {
     
     return {
       drawer,
+      mobile,
       menuItems,
       currentPageTitle,
       isSetupRoute,
-      addMinerDialog,
-      addMinerFormValid,
-      addMinerForm,
-      newMiner,
-      minerTypes,
       settingsDialog,
       settingsFormValid,
       settingsForm,
       settings,
+      settingsStore, // Add settingsStore to fix the loading state access
+      settingsLoading, // Add computed loading state
       refreshing,
       snackbar,
-      openAddMinerDialog,
-      addMiner,
+      navigateToMinersPage,
+      navigateToPage,
       openSettingsDialog,
       saveSettings,
       refreshData,
       copyDonationAddress,
+      checkForUpdates,
       connectionStatusColor,
       connectionStatusIcon,
       connectionStatusText,
+      checkingUpdates,
       
       // Easter egg (for development debugging)
       easterEgg
@@ -849,6 +849,59 @@ export default {
 </script>
 
 <style scoped>
+/* App bar fixed positioning */
+.app-header-fixed {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+/* Ensure app bar stays above all content */
+:deep(.v-app-bar.app-header-fixed) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+/* Force sticky positioning for Vuetify app bar */
+:deep(.v-app-bar) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1010 !important;
+}
+
+/* Ensure navigation drawer stays below header but above content */
+:deep(.v-navigation-drawer) {
+  z-index: 1005 !important;
+}
+
+/* Ensure navigation drawer overlay works properly */
+:deep(.v-overlay--active) {
+  z-index: 1004 !important;
+}
+
+/* Position sidebar below the sticky header */
+:deep(.sidebar-below-header) {
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
+  z-index: 1005 !important;
+}
+
+/* Ensure sidebar content starts below header */
+:deep(.sidebar-below-header .v-navigation-drawer__content) {
+  padding-top: 0 !important;
+}
+
+/* Ensure drawer is accessible from any scroll position */
+:deep(.v-navigation-drawer.v-navigation-drawer--temporary) {
+  position: fixed !important;
+  z-index: 1005 !important;
+}
+
 /* Setup route styling - remove all padding and margins for fullscreen wizard */
 .setup-main {
   padding: 0 !important;
@@ -861,6 +914,56 @@ export default {
 }
 
 /* Navigation drawer styling */
+
+/* Global snackbar positioning - force viewport bottom positioning */
+:deep(.v-overlay.v-snackbar__wrapper) {
+  position: fixed !important;
+  top: auto !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+:deep(.v-snackbar.global-snackbar) {
+  position: static !important;
+  max-width: 90vw !important;
+  margin: 0 auto !important;
+}
+
+/* Ensure snackbar success color is properly green */
+:deep(.v-snackbar--variant-elevated.bg-success) {
+  background-color: rgb(76, 175, 80) !important;
+  color: white !important;
+}
+
+:deep(.v-snackbar--variant-elevated.bg-success .v-btn) {
+  color: white !important;
+}
+
+/* Footer positioning to avoid snackbar overlap */
+.footer-fixed {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 1000 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Donation address styling */
+.donation-address {
+  color: rgb(255, 152, 0) !important;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+}
+
+.donation-address:hover {
+  color: rgb(255, 193, 7) !important;
+}
 :deep(.v-navigation-drawer) {
   background-color: var(--color-surface) !important;
   border-right: 1px solid var(--color-border-subtle);
@@ -915,6 +1018,11 @@ export default {
 /* Main content area */
 :deep(.v-main) {
   background-color: var(--color-background) !important;
+}
+
+/* Override padding for setup route */
+:deep(.v-main.setup-main) {
+  padding-top: 0 !important;
 }
 
 :deep(.v-container) {
@@ -993,13 +1101,7 @@ export default {
   border-radius: var(--radius-sm);
 }
 
-/* Snackbar styling */
-:deep(.v-snackbar .v-snackbar__wrapper) {
-  background-color: var(--color-surface-elevated) !important;
-  color: var(--color-text-primary) !important;
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-3);
-}
+/* Snackbar styling handled globally in main.css */
 
 /* Footer styling */
 :deep(.v-footer) {
@@ -1184,5 +1286,21 @@ export default {
   .donation-address:active {
     transform: none;
   }
+}
+
+/* Settings dialog actions visibility fix */
+:deep(.settings-dialog-actions) {
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  padding: 16px 24px !important;
+  min-height: 64px !important;
+  border-top: 1px solid rgba(var(--v-border-color), 0.12);
+  background-color: rgba(var(--v-theme-surface), 1) !important;
+}
+
+:deep(.settings-dialog-actions .v-btn) {
+  margin-left: 8px !important;
+  min-width: 80px !important;
 }
 </style>

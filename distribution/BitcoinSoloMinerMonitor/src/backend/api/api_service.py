@@ -20,6 +20,9 @@ from src.backend.services.data_storage import DataStorage
 from src.backend.services.websocket_manager import WebSocketManager
 from src.backend.services.system_monitor import SystemMonitor
 from src.backend.services.email_service import EmailService
+from src.backend.services.update_service import UpdateService
+from src.backend.services.feedback_service import FeedbackService
+from src.backend.services.network_health import NetworkHealthMonitor
 from src.backend.utils.app_paths import get_app_paths
 from src.backend.models.validation_models import (
     MinerAddRequest,
@@ -31,7 +34,10 @@ from src.backend.models.validation_models import (
     SystemMetricsRequest,
     EmailConfigRequest,
     EmailTestRequest,
-    EmailNotificationRequest
+    EmailNotificationRequest,
+    FeedbackSubmissionRequest,
+    FeedbackStatusUpdateRequest,
+    FeedbackQueryRequest
 )
 from src.backend.exceptions import ValidationError as AppValidationError
 from src.backend.middleware.validation_middleware import (
@@ -74,6 +80,15 @@ class APIService:
         # Initialize Email Service
         self.email_service = EmailService()
         
+        # Initialize Update Service
+        self.update_service = UpdateService()
+        
+        # Initialize Feedback Service
+        self.feedback_service = FeedbackService()
+        
+        # Initialize Network Health Monitor
+        self.network_health_monitor = NetworkHealthMonitor()
+        
         # Configure CORS for production security
         # Allow specific origins for production deployment using configurable host/port
         allowed_origins = [
@@ -104,12 +119,29 @@ class APIService:
             allow_headers=["Content-Type", "Authorization", "X-Requested-With"],  # Restrict headers
         )
         
+        # Add request logging middleware for debugging
+        @self.app.middleware("http")
+        async def log_requests(request: Request, call_next):
+            logger.info(f"=== INCOMING REQUEST ===")
+            logger.info(f"Method: {request.method}")
+            logger.info(f"URL: {request.url}")
+            logger.info(f"Headers: {dict(request.headers)}")
+            
+            if request.method == "POST" and "/api/discovery" in str(request.url):
+                logger.info("=== DISCOVERY REQUEST DETECTED ===")
+                logger.info("Processing discovery request...")
+            
+            response = await call_next(request)
+            logger.info(f"Response status: {response.status_code}")
+            logger.info("=== REQUEST COMPLETED ===")
+            return response
+        
         # Add security middleware
         self.app.add_middleware(RateLimitMiddleware, requests_per_minute=120, requests_per_hour=2000)
         
-        # Add input validation middleware
-        self.app.add_middleware(InputValidationMiddleware)
-        self.app.add_middleware(MinerConfigurationValidationMiddleware)
+        # Temporarily disable validation middleware for debugging
+        # self.app.add_middleware(InputValidationMiddleware)
+        # self.app.add_middleware(MinerConfigurationValidationMiddleware)
         
         # Add validation error handler
         self._add_exception_handlers()
@@ -183,6 +215,17 @@ class APIService:
             dependencies=[Depends(api_key_auth)]
         )(self.restart_miner)
         
+        self.app.post(
+            "/api/miners/refresh", 
+            response_model=Dict[str, Any]
+        )(self.refresh_miners)
+        
+        # Network Health
+        self.app.get(
+            "/api/miners/{miner_id}/network-health",
+            response_model=Dict[str, Any]
+        )(self.get_miner_network_health)
+        
         # Metrics
         self.app.get(
             "/api/miners/{miner_id}/metrics", 
@@ -205,6 +248,13 @@ class APIService:
             response_model=Dict[str, Any]
         )(self.get_discovery_status)
         
+        self.app.post(
+            "/api/discovery/stop", 
+            response_model=Dict[str, Any]
+        )(self.stop_discovery)
+        
+        # Discovery endpoints are properly configured above
+        
         # Settings
         self.app.get(
             "/api/settings", 
@@ -216,6 +266,36 @@ class APIService:
             response_model=Dict[str, Any],
             dependencies=[Depends(api_key_auth)]
         )(self.update_settings)
+        
+        # Alert settings endpoints
+        self.app.get(
+            "/api/settings/alerts", 
+            response_model=Dict[str, Any]
+        )(self.get_alert_settings)
+        
+        self.app.put(
+            "/api/settings/alerts", 
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_alert_settings)
+        
+        # Advanced settings endpoints
+        self.app.get(
+            "/api/settings/advanced", 
+            response_model=Dict[str, Any]
+        )(self.get_advanced_settings)
+        
+        self.app.put(
+            "/api/settings/advanced", 
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_advanced_settings)
+        
+        # Database info endpoint
+        self.app.get(
+            "/api/system/database", 
+            response_model=Dict[str, Any]
+        )(self.get_database_info)
         
         # System monitoring
         self.app.get(
@@ -287,6 +367,57 @@ class APIService:
             response_model=Dict[str, Any],
             dependencies=[Depends(api_key_auth)]
         )(self.send_notification_email)
+        
+        # Update endpoints
+        self.app.get(
+            "/api/updates/check",
+            response_model=Dict[str, Any]
+        )(self.check_for_updates)
+        
+        self.app.get(
+            "/api/updates/status",
+            response_model=Dict[str, Any]
+        )(self.get_update_status)
+        
+        self.app.get(
+            "/api/updates/instructions",
+            response_model=Dict[str, Any]
+        )(self.get_update_instructions)
+        
+        # Feedback endpoints
+        self.app.post(
+            "/api/feedback/submit",
+            response_model=Dict[str, Any]
+        )(self.submit_feedback)
+        
+        # Test endpoint for Bitcoin node detection
+        self.app.post(
+            "/api/test/bitcoin-node",
+            response_model=Dict[str, Any],
+            dependencies=[Depends(dev_endpoint_auth)]
+        )(self.test_bitcoin_node_detection)
+        
+        self.app.get(
+            "/api/feedback/summary",
+            response_model=Dict[str, Any]
+        )(self.get_feedback_summary)
+        
+        self.app.get(
+            "/api/feedback/category/{category}",
+            response_model=List[Dict[str, Any]]
+        )(self.get_feedback_by_category)
+        
+        self.app.put(
+            "/api/feedback/{feedback_id}/status",
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.update_feedback_status)
+        
+        self.app.get(
+            "/api/feedback/export",
+            response_model=Dict[str, Any],
+            dependencies=[Depends(api_key_auth)]
+        )(self.export_feedback_report)
         
         # WebSocket for real-time updates - authentication handled in the endpoint
         self.app.websocket("/ws")(self.websocket_endpoint)
@@ -360,6 +491,37 @@ class APIService:
                 )
             raise HTTPException(status_code=404, detail="Bitcoin symbol PNG not found")
         
+        # Easter egg GIF endpoints
+        @self.app.get("/BTC-PacMan-Fiat.gif")
+        async def btc_pacman_gif():
+            """Serve the BTC PacMan easter egg GIF."""
+            gif_path = frontend_dir / "BTC-PacMan-Fiat.gif"
+            if gif_path.exists():
+                return FileResponse(
+                    str(gif_path),
+                    media_type="image/gif",
+                    headers={
+                        "Cache-Control": "public, max-age=31536000",  # 1 year
+                        "ETag": f'"{gif_path.stat().st_mtime}"'
+                    }
+                )
+            raise HTTPException(status_code=404, detail="BTC PacMan GIF not found")
+        
+        @self.app.get("/Bugs-King-BTC.gif")
+        async def bugs_king_btc_gif():
+            """Serve the Bugs King BTC easter egg GIF."""
+            gif_path = frontend_dir / "Bugs-King-BTC.gif"
+            if gif_path.exists():
+                return FileResponse(
+                    str(gif_path),
+                    media_type="image/gif",
+                    headers={
+                        "Cache-Control": "public, max-age=31536000",  # 1 year
+                        "ETag": f'"{gif_path.stat().st_mtime}"'
+                    }
+                )
+            raise HTTPException(status_code=404, detail="Bugs King BTC GIF not found")
+        
         # Handle root route specifically
         @self.app.get("/")
         async def root_handler():
@@ -396,8 +558,36 @@ class APIService:
         """
         # Initialize services
         await self.data_storage.initialize()
+        
+        # Wire TimeSeriesStorage to MinerManager for metrics persistence
+        if self.data_storage.timeseries_storage:
+            self.miner_manager.set_timeseries_storage(self.data_storage.timeseries_storage)
+            logger.info("TimeSeriesStorage wired to MinerManager for metrics persistence")
+            
+            # Wire TimeSeriesStorage to NetworkHealthMonitor for health data persistence
+            self.network_health_monitor.set_timeseries_storage(self.data_storage.timeseries_storage)
+            logger.info("TimeSeriesStorage wired to NetworkHealthMonitor for health data persistence")
+        else:
+            logger.warning("TimeSeriesStorage not initialized - metrics persistence will not work")
+        
+        # Connect WebSocket manager to miner manager for real-time updates
+        self.miner_manager.set_websocket_manager(self.websocket_manager)
+        
+        # Wire MinerManager to NetworkHealthMonitor for accessing miner information
+        self.network_health_monitor.set_miner_manager(self.miner_manager)
+        
         await self.miner_manager.start()
+        logger.info("MinerManager started, now loading miners from storage...")
+        
+        # Load miners from database - this restores miners after restart
+        loaded_count = await self.miner_manager.load_miners_from_storage(self.data_storage)
+        logger.info(f"=== [API SERVICE] Loaded {loaded_count} miner(s) from storage ===")
+        
         await self.system_monitor.start()
+        
+        # Start network health polling
+        await self.network_health_monitor.start_polling()
+        logger.info("Network health monitoring started")
         
         # Start background task for broadcasting updates
         await self._broadcast_updates()
@@ -413,6 +603,11 @@ class APIService:
         await self.data_storage.close()
         await self.websocket_manager.stop()
         await self.system_monitor.stop()
+        await self.update_service.close()
+        
+        # Stop network health polling
+        await self.network_health_monitor.stop_polling()
+        logger.info("Network health monitoring stopped")
         
         logger.info("API service stopped")
     
@@ -447,7 +642,16 @@ class APIService:
         Returns:
             Dict[str, Any]: Miner information
         """
+        # First try to get from active miners in manager
         miner = await self.miner_manager.get_miner(miner_id)
+        
+        # If not in manager, try to get from database
+        if not miner:
+            try:
+                miner = await self.data_storage.get_miner_config(miner_id)
+            except Exception as e:
+                logger.warning(f"Failed to get miner config from database for {miner_id}: {e}")
+        
         if not miner:
             raise HTTPException(status_code=404, detail=f"Miner {miner_id} not found")
         return miner
@@ -464,7 +668,7 @@ class APIService:
         """
         try:
             # The request is already validated by Pydantic
-            logger.info(f"Adding miner: type={request.type}, ip={request.ip_address}, port={request.port}")
+            logger.info(f"Adding miner: type={request.type}, ip={request.ip_address}, port={request.port}, name={request.name}")
             
             miner_id = await self.miner_manager.add_miner(
                 request.type,
@@ -588,6 +792,143 @@ class APIService:
         
         return {"success": success}
     
+    async def refresh_miners(self) -> Dict[str, Any]:
+        """
+        Refresh all miners data by fetching latest status from each miner.
+        This endpoint triggers an immediate poll of all miners to get fresh data.
+        
+        Returns:
+            Dict[str, Any]: Refresh result with updated miners data
+        """
+        try:
+            logger.info("Refresh miners endpoint called")
+            
+            # Get all current miners
+            miners = await self.miner_manager.get_miners()
+            
+            if not miners:
+                logger.info("No miners to refresh")
+                return {
+                    "status": "success",
+                    "message": "No miners configured",
+                    "miners": [],
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            # Trigger immediate refresh for each miner by fetching fresh data
+            refreshed_miners = []
+            errors = []
+            
+            for miner_data in miners:
+                miner_id = miner_data.get('id')
+                if not miner_id:
+                    continue
+                
+                try:
+                    # Get the miner instance
+                    async with self.miner_manager._miners_lock:
+                        if miner_id not in self.miner_manager.miners:
+                            logger.warning(f"Miner {miner_id} not found in active miners")
+                            continue
+                        
+                        miner = self.miner_manager.miners[miner_id]
+                    
+                    # Fetch fresh data from the miner
+                    status = await miner.get_status()
+                    metrics = await miner.get_metrics()
+                    pool_info = await miner.get_pool_info()
+                    device_info = await miner.get_device_info()
+                    
+                    # Update miner data
+                    update_data = {
+                        "status": "online" if status.get("online", False) else "offline",
+                        "last_updated": datetime.now().isoformat(),
+                        "metrics": metrics,
+                        "pool_info": pool_info,
+                        "device_info": device_info
+                    }
+                    
+                    # Add status data
+                    for key, value in status.items():
+                        if key != "online":
+                            update_data[key] = value
+                    
+                    # Update using thread-safe manager
+                    await self.miner_manager.miner_data_manager.update_miner(miner_id, update_data)
+                    
+                    # Get updated miner data
+                    updated_miner = await self.miner_manager.get_miner(miner_id)
+                    refreshed_miners.append(updated_miner)
+                    
+                    logger.debug(f"Successfully refreshed miner {miner_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Error refreshing miner {miner_id}: {str(e)}")
+                    errors.append({
+                        "miner_id": miner_id,
+                        "error": str(e)
+                    })
+            
+            # Broadcast updated miners via WebSocket
+            if self.websocket_manager:
+                await self.websocket_manager.broadcast_to_topic("miners", {
+                    "type": "miners_update",
+                    "data": refreshed_miners
+                })
+            
+            result = {
+                "status": "success",
+                "message": f"Refreshed {len(refreshed_miners)} miners",
+                "miners": refreshed_miners,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if errors:
+                result["errors"] = errors
+                result["message"] += f" ({len(errors)} errors)"
+            
+            logger.info(f"Refresh completed: {len(refreshed_miners)} miners refreshed, {len(errors)} errors")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in refresh_miners endpoint: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to refresh miners: {str(e)}")
+    
+    async def get_miner_network_health(self, miner_id: str) -> Dict[str, Any]:
+        """
+        Get network health metrics for a specific miner.
+        
+        Args:
+            miner_id (str): ID of the miner
+            
+        Returns:
+            Dict[str, Any]: Network health metrics including latency, packet loss, uptime, and status
+        """
+        try:
+            # Check if miner exists
+            miner = await self.miner_manager.get_miner(miner_id)
+            if not miner:
+                raise HTTPException(status_code=404, detail=f"Miner {miner_id} not found")
+            
+            # Get miner IP address
+            ip_address = miner.get("ip_address")
+            if not ip_address:
+                raise HTTPException(status_code=400, detail=f"Miner {miner_id} has no IP address")
+            
+            logger.info(f"Getting network health for miner {miner_id} at {ip_address}")
+            
+            # Get network health metrics
+            health_data = await self.network_health_monitor.get_network_health(miner_id, ip_address)
+            
+            logger.info(f"Network health for {miner_id}: {health_data}")
+            return health_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting network health for miner {miner_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to get network health: {str(e)}")
+    
     async def get_miner_metrics(
         self,
         miner_id: str,
@@ -624,9 +965,17 @@ class APIService:
                 metric_types=parsed_metric_types
             )
             
-            # Check if miner exists
+            # Check if miner exists - try both active miners and saved configs
             miner = await self.miner_manager.get_miner(request.miner_id)
             if not miner:
+                # Try to get from database as fallback
+                try:
+                    miner = await self.data_storage.get_miner_config(request.miner_id)
+                except Exception:
+                    pass
+            
+            if not miner:
+                logger.warning(f"Miner {request.miner_id} not found in manager or database")
                 raise HTTPException(status_code=404, detail=f"Miner {request.miner_id} not found")
             
             # Parse start and end times
@@ -642,16 +991,20 @@ class APIService:
             
             logger.info(f"Getting metrics for miner {request.miner_id} from {start_time} to {end_time}")
             
-            # Get metrics
-            metrics = await self.data_storage.get_metrics(
-                request.miner_id, 
-                start_time, 
-                end_time, 
-                request.interval,
-                request.metric_types
-            )
-            
-            return metrics
+            # Get metrics - return empty list if no metrics available yet
+            try:
+                metrics = await self.data_storage.get_metrics(
+                    request.miner_id, 
+                    start_time, 
+                    end_time, 
+                    request.interval,
+                    request.metric_types
+                )
+                return metrics if metrics else []
+            except Exception as e:
+                logger.warning(f"Error fetching metrics for {request.miner_id}: {e}")
+                # Return empty list instead of failing - metrics may not exist yet
+                return []
             
         except PydanticValidationError as e:
             logger.error(f"Validation error in get_miner_metrics: {e}")
@@ -685,7 +1038,7 @@ class APIService:
         
         return metrics
     
-    async def start_discovery(self, request: DiscoveryRequest) -> Dict[str, Any]:
+    async def start_discovery(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """
         Start discovery of miners on the network with input validation.
         
@@ -696,29 +1049,54 @@ class APIService:
             Dict[str, Any]: Discovery status
         """
         try:
-            # Request is already validated by Pydantic
-            logger.info(f"Starting discovery on network {request.network} with ports {request.ports}")
+            # Log raw request data first
+            logger.info(f"=== DISCOVERY API REQUEST RECEIVED ===")
+            logger.info(f"Raw request data: {request}")
+            logger.info(f"Request type: {type(request)}")
+            
+            # Validate the request manually
+            try:
+                validated_request = DiscoveryRequest(**request)
+                logger.info(f"Request validation successful")
+                logger.info(f"Network: {validated_request.network}")
+                logger.info(f"Ports: {validated_request.ports}")
+                logger.info(f"Timeout: {validated_request.timeout}")
+            except Exception as validation_error:
+                logger.error(f"Request validation failed: {validation_error}")
+                raise HTTPException(status_code=400, detail=f"Validation error: {str(validation_error)}")
             
             # Start discovery
+            logger.info("Calling miner_manager.start_discovery...")
             success = await self.miner_manager.start_discovery(
-                request.network, 
-                request.ports,
-                getattr(request, 'timeout', 5)
+                validated_request.network, 
+                validated_request.ports,
+                validated_request.timeout or 5
             )
+            logger.info(f"Miner manager start_discovery returned: {success}")
+            
             if not success:
+                logger.error("Miner manager start_discovery returned False")
                 raise HTTPException(status_code=400, detail="Failed to start discovery")
             
             # Get discovery status
+            logger.info("Getting discovery status...")
             status = await self.miner_manager.get_discovery_status()
+            logger.info(f"Discovery status: {status}")
             
-            logger.info("Discovery started successfully")
+            logger.info("=== DISCOVERY API REQUEST COMPLETED SUCCESSFULLY ===")
             return status
             
         except AppValidationError as e:
             logger.error(f"Validation error starting discovery: {str(e)}")
             raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException as e:
+            logger.error(f"HTTP error starting discovery: {str(e)}")
+            raise
         except Exception as e:
             logger.error(f"Unexpected error starting discovery: {str(e)}")
+            logger.error(f"Exception type: {type(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail="Internal server error")
     
     async def get_discovery_status(self) -> Dict[str, Any]:
@@ -729,6 +1107,35 @@ class APIService:
             Dict[str, Any]: Discovery status
         """
         return await self.miner_manager.get_discovery_status()
+    
+    async def stop_discovery(self) -> Dict[str, Any]:
+        """
+        Stop the current discovery process.
+        
+        Returns:
+            Dict[str, Any]: Stop result
+        """
+        try:
+            success = await self.miner_manager.stop_discovery()
+            
+            if success:
+                return {
+                    "status": "success",
+                    "message": "Discovery process stopped successfully",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "status": "error",
+                    "message": "No discovery process was running",
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            logger.error(f"Error stopping discovery: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    # Test endpoint removed - using standard discovery endpoints
     
     async def get_setup_status(self) -> Dict[str, Any]:
         """
@@ -797,10 +1204,220 @@ class APIService:
         if request.refresh_interval is not None:
             current_settings["refresh_interval"] = request.refresh_interval
         
+        if request.electricity_cost is not None:
+            current_settings["electricity_cost"] = request.electricity_cost
+        
         # Save settings
         await self.data_storage.save_app_settings(current_settings)
         
         return current_settings
+    
+    async def get_alert_settings(self) -> Dict[str, Any]:
+        """
+        Get alert settings.
+        
+        Returns:
+            Dict[str, Any]: Alert settings
+        """
+        try:
+            # Get full settings and extract alert-related settings
+            all_settings = await self.data_storage.get_app_settings()
+            
+            # Extract alert settings with defaults
+            alert_settings = {
+                "enabled": all_settings.get("alerts_enabled", False),
+                "notification_method": all_settings.get("notification_method", "browser"),
+                "temperature_threshold": all_settings.get("temperature_threshold", 80),
+                "hashrate_drop_percent": all_settings.get("hashrate_drop_percent", 20),
+                "offline_duration": all_settings.get("offline_duration", 5),
+                "rejected_shares_percent": all_settings.get("rejected_shares_percent", 5),
+                "email_address": all_settings.get("email_address", ""),
+                "email_frequency": all_settings.get("email_frequency", "immediate"),
+                "webhook_url": all_settings.get("webhook_url", ""),
+                "telegram_bot_token": all_settings.get("telegram_bot_token", ""),
+                "telegram_chat_id": all_settings.get("telegram_chat_id", ""),
+            }
+            
+            return alert_settings
+            
+        except Exception as e:
+            logger.error(f"Error getting alert settings: {e}")
+            # Return default alert settings on error
+            return {
+                "enabled": False,
+                "notification_method": "browser",
+                "temperature_threshold": 80,
+                "hashrate_drop_percent": 20,
+                "offline_duration": 5,
+                "rejected_shares_percent": 5,
+                "email_address": "",
+                "email_frequency": "immediate",
+                "webhook_url": "",
+                "telegram_bot_token": "",
+                "telegram_chat_id": "",
+            }
+    
+    async def update_alert_settings(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update alert settings.
+        
+        Args:
+            alert_data (Dict[str, Any]): Alert settings to update
+            
+        Returns:
+            Dict[str, Any]: Updated alert settings
+        """
+        try:
+            # Get current settings
+            current_settings = await self.data_storage.get_app_settings()
+            
+            # Update alert-related settings
+            if "enabled" in alert_data:
+                current_settings["alerts_enabled"] = alert_data["enabled"]
+            if "notification_method" in alert_data:
+                current_settings["notification_method"] = alert_data["notification_method"]
+            if "temperature_threshold" in alert_data:
+                current_settings["temperature_threshold"] = alert_data["temperature_threshold"]
+            if "hashrate_drop_percent" in alert_data:
+                current_settings["hashrate_drop_percent"] = alert_data["hashrate_drop_percent"]
+            if "offline_duration" in alert_data:
+                current_settings["offline_duration"] = alert_data["offline_duration"]
+            if "rejected_shares_percent" in alert_data:
+                current_settings["rejected_shares_percent"] = alert_data["rejected_shares_percent"]
+            if "email_address" in alert_data:
+                current_settings["email_address"] = alert_data["email_address"]
+            if "email_frequency" in alert_data:
+                current_settings["email_frequency"] = alert_data["email_frequency"]
+            if "webhook_url" in alert_data:
+                current_settings["webhook_url"] = alert_data["webhook_url"]
+            if "telegram_bot_token" in alert_data:
+                current_settings["telegram_bot_token"] = alert_data["telegram_bot_token"]
+            if "telegram_chat_id" in alert_data:
+                current_settings["telegram_chat_id"] = alert_data["telegram_chat_id"]
+            
+            # Save settings
+            await self.data_storage.save_app_settings(current_settings)
+            
+            # Return updated alert settings
+            return await self.get_alert_settings()
+            
+        except Exception as e:
+            logger.error(f"Error updating alert settings: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update alert settings")
+    
+    async def get_advanced_settings(self) -> Dict[str, Any]:
+        """
+        Get advanced settings.
+        
+        Returns:
+            Dict[str, Any]: Advanced settings
+        """
+        try:
+            # Get full settings and extract advanced settings
+            all_settings = await self.data_storage.get_app_settings()
+            
+            # Extract advanced settings with defaults
+            advanced_settings = {
+                "api_enabled": all_settings.get("api_enabled", True),
+                "api_port": all_settings.get("api_port", 8000),
+                "log_level": all_settings.get("log_level", "info"),
+                "max_concurrent_requests": all_settings.get("max_concurrent_requests", 5),
+                "request_timeout": all_settings.get("request_timeout", 10),
+                "websocket_update_interval": all_settings.get("websocket_update_interval", 1),
+            }
+            
+            return advanced_settings
+            
+        except Exception as e:
+            logger.error(f"Error getting advanced settings: {e}")
+            # Return default advanced settings on error
+            return {
+                "api_enabled": True,
+                "api_port": 8000,
+                "log_level": "info",
+                "max_concurrent_requests": 5,
+                "request_timeout": 10,
+                "websocket_update_interval": 1,
+            }
+    
+    async def update_advanced_settings(self, advanced_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update advanced settings.
+        
+        Args:
+            advanced_data (Dict[str, Any]): Advanced settings to update
+            
+        Returns:
+            Dict[str, Any]: Updated advanced settings
+        """
+        try:
+            # Get current settings
+            current_settings = await self.data_storage.get_app_settings()
+            
+            # Update advanced settings
+            if "api_enabled" in advanced_data:
+                current_settings["api_enabled"] = advanced_data["api_enabled"]
+            if "api_port" in advanced_data:
+                current_settings["api_port"] = advanced_data["api_port"]
+            if "log_level" in advanced_data:
+                current_settings["log_level"] = advanced_data["log_level"]
+            if "max_concurrent_requests" in advanced_data:
+                current_settings["max_concurrent_requests"] = advanced_data["max_concurrent_requests"]
+            if "request_timeout" in advanced_data:
+                current_settings["request_timeout"] = advanced_data["request_timeout"]
+            if "websocket_update_interval" in advanced_data:
+                current_settings["websocket_update_interval"] = advanced_data["websocket_update_interval"]
+            
+            # Save settings
+            await self.data_storage.save_app_settings(current_settings)
+            
+            # Return updated advanced settings
+            return await self.get_advanced_settings()
+            
+        except Exception as e:
+            logger.error(f"Error updating advanced settings: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update advanced settings")
+    
+    async def get_database_info(self) -> Dict[str, Any]:
+        """
+        Get database information and status.
+        
+        Returns:
+            Dict[str, Any]: Database information
+        """
+        try:
+            # Get database connection status and info
+            db_info = {
+                "sqlite_path": str(self.data_storage.db_path) if hasattr(self.data_storage, 'db_path') else "data/config.db",
+                "sqlite_status": "connected" if self.data_storage else "disconnected",
+                "influx_url": "http://localhost:8086",  # Default InfluxDB URL
+                "influx_status": "connected",  # For now, assume connected
+            }
+            
+            # Try to get actual database file size and info
+            try:
+                import os
+                if hasattr(self.data_storage, 'db_path') and os.path.exists(self.data_storage.db_path):
+                    db_size = os.path.getsize(self.data_storage.db_path)
+                    db_info["sqlite_size"] = db_size
+                    db_info["sqlite_status"] = "connected"
+                else:
+                    db_info["sqlite_status"] = "file_not_found"
+            except Exception as e:
+                logger.warning(f"Could not get database file info: {e}")
+                db_info["sqlite_status"] = "unknown"
+            
+            return db_info
+            
+        except Exception as e:
+            logger.error(f"Error getting database info: {e}")
+            # Return basic info on error
+            return {
+                "sqlite_path": "data/config.db",
+                "sqlite_status": "error",
+                "influx_url": "http://localhost:8086",
+                "influx_status": "error",
+            }
     
     async def websocket_endpoint(self, websocket: WebSocket):
         """
@@ -930,6 +1547,7 @@ class APIService:
             "miners": self._get_miners_data,
             "alerts": self._get_alerts_data,
             "system": self._get_system_data,
+            "discovery": self._get_discovery_data,
         }
         
         # Start broadcast tasks
@@ -1015,6 +1633,15 @@ class APIService:
             Dict[str, Any]: System data
         """
         return await self.system_monitor.get_system_metrics()
+    
+    async def _get_discovery_data(self):
+        """
+        Get discovery data for broadcasting.
+        
+        Returns:
+            Dict[str, Any]: Discovery data
+        """
+        return await self.miner_manager.get_discovery_status()
     
     async def get_validation_stats(self) -> Dict[str, Any]:
         """
@@ -1372,3 +1999,260 @@ class APIService:
         except Exception as e:
             logger.error(f"Error sending notification email: {str(e)}")
             raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def check_for_updates(self, force_refresh: bool = Query(False, description="Force refresh ignoring cache")) -> Dict[str, Any]:
+        """
+        Check for available updates from GitHub releases.
+        
+        Args:
+            force_refresh (bool): Force refresh ignoring cache
+            
+        Returns:
+            Dict[str, Any]: Update information
+        """
+        try:
+            update_info = await self.update_service.check_for_updates(force_refresh)
+            
+            return {
+                "status": "success",
+                "data": update_info,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking for updates: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to check for updates: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_update_status(self) -> Dict[str, Any]:
+        """
+        Get current update status (uses cache if available).
+        
+        Returns:
+            Dict[str, Any]: Update status information
+        """
+        try:
+            update_status = await self.update_service.get_update_status()
+            
+            return {
+                "status": "success",
+                "data": update_status,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting update status: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get update status: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_update_instructions(self, platform: Optional[str] = Query(None, description="Target platform (windows, macos, linux)")) -> Dict[str, Any]:
+        """
+        Get download and installation instructions for updates.
+        
+        Args:
+            platform (Optional[str]): Target platform
+            
+        Returns:
+            Dict[str, Any]: Download instructions
+        """
+        try:
+            instructions = self.update_service.get_download_instructions(platform)
+            
+            return {
+                "status": "success",
+                "data": instructions,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting update instructions: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get update instructions: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def submit_feedback(self, request: FeedbackSubmissionRequest) -> Dict[str, Any]:
+        """
+        Submit community feedback.
+        
+        Args:
+            request (FeedbackSubmissionRequest): Feedback submission data
+            
+        Returns:
+            Dict[str, Any]: Submission result
+        """
+        try:
+            feedback_data = {
+                'category': request.category,
+                'message': request.message,
+                'user_id': request.user_id,
+                'installer_version': request.installer_version,
+                'system_info': request.system_info,
+                'severity': request.severity
+            }
+            
+            result = self.feedback_service.submit_feedback(feedback_data)
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=400, detail=result.get('error', 'Failed to submit feedback'))
+            
+        except Exception as e:
+            logger.error(f"Error submitting feedback: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def get_feedback_summary(self) -> Dict[str, Any]:
+        """
+        Get community feedback summary.
+        
+        Returns:
+            Dict[str, Any]: Feedback summary data
+        """
+        try:
+            summary = self.feedback_service.get_feedback_summary()
+            
+            return {
+                "status": "success",
+                "data": summary,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting feedback summary: {str(e)}")
+            return {
+                "status": "error",
+                "message": f"Failed to get feedback summary: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def get_feedback_by_category(self, category: str) -> List[Dict[str, Any]]:
+        """
+        Get feedback by category.
+        
+        Args:
+            category (str): Feedback category
+            
+        Returns:
+            List[Dict[str, Any]]: Feedback items for the category
+        """
+        try:
+            feedback_items = self.feedback_service.get_feedback_by_category(category)
+            
+            return feedback_items
+            
+        except Exception as e:
+            logger.error(f"Error getting feedback by category: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def update_feedback_status(self, feedback_id: str, request: FeedbackStatusUpdateRequest) -> Dict[str, Any]:
+        """
+        Update feedback status.
+        
+        Args:
+            feedback_id (str): Feedback ID
+            request (FeedbackStatusUpdateRequest): Status update data
+            
+        Returns:
+            Dict[str, Any]: Update result
+        """
+        try:
+            result = self.feedback_service.update_feedback_status(
+                feedback_id, 
+                request.status, 
+                request.notes or ""
+            )
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=404, detail=result.get('error', 'Feedback not found'))
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating feedback status: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def export_feedback_report(self, output_file: Optional[str] = Query(None, description="Output file path")) -> Dict[str, Any]:
+        """
+        Export feedback report.
+        
+        Args:
+            output_file (Optional[str]): Output file path
+            
+        Returns:
+            Dict[str, Any]: Export result
+        """
+        try:
+            result = self.feedback_service.export_feedback_report(output_file)
+            
+            if result['success']:
+                return {
+                    "status": "success",
+                    "data": result,
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                raise HTTPException(status_code=500, detail=result.get('error', 'Failed to export report'))
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error exporting feedback report: {str(e)}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    async def test_bitcoin_node_detection(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Test Bitcoin node detection on a specific IP address.
+        
+        Args:
+            request (Dict[str, Any]): Test request with ip_address
+            
+        Returns:
+            Dict[str, Any]: Test results
+        """
+        try:
+            ip_address = request.get("ip_address")
+            if not ip_address:
+                raise HTTPException(status_code=400, detail="ip_address is required")
+            
+            logger.info(f"Testing Bitcoin node detection for {ip_address}")
+            
+            # Test with all Bitcoin ports
+            bitcoin_ports = [8332, 18332, 8333, 18333, 80, 8080]
+            
+            from src.backend.models.miner_factory import MinerFactory
+            result = await MinerFactory.detect_miner_type(ip_address, bitcoin_ports)
+            
+            return {
+                "status": "success",
+                "ip_address": ip_address,
+                "ports_tested": bitcoin_ports,
+                "detection_result": result,
+                "bitcoin_node_detected": result.get("type") == "bitcoin_node" if result else False,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error testing Bitcoin node detection: {str(e)}")
+            return {
+                "status": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat()
+            }

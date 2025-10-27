@@ -276,6 +276,54 @@
       </v-col>
     </v-row>
 
+    <!-- Power Cost Settings -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card>
+          <v-card-title>
+            Power Cost Settings
+            <v-spacer></v-spacer>
+            <v-btn
+              color="primary"
+              :loading="savingPowerCost"
+              :disabled="!powerCostChanged"
+              @click="saveElectricityCost"
+            >
+              <v-icon left>mdi-content-save</v-icon>
+              Save Cost
+            </v-btn>
+          </v-card-title>
+          <v-card-text>
+            <v-form ref="powerCostForm" v-model="powerCostFormValid">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model.number="electricityCost"
+                    label="Electricity Cost (USD per kWh)"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max="10.00"
+                    prefix="$"
+                    suffix="/ kWh"
+                    hint="Enter your electricity cost for power calculations"
+                    persistent-hint
+                    :rules="[
+                      (v) => v >= 0.01 || 'Cost must be at least $0.01',
+                      (v) => v <= 10.00 || 'Cost must not exceed $10.00',
+                    ]"
+                  ></v-text-field>
+                  <div class="text-caption mt-2 grey--text">
+                    Default: $0.13/kWh (US national average)
+                  </div>
+                </v-col>
+              </v-row>
+            </v-form>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <!-- Database Settings -->
     <v-row class="mt-4">
       <v-col cols="12">
@@ -701,19 +749,14 @@
       </v-card>
     </v-dialog>
 
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarText }}
-      <template v-slot:action="{ attrs }">
-        <v-btn text v-bind="attrs" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
+    <!-- Local snackbar removed - using global snackbar from App.vue -->
   </div>
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, watch, provide } from "vue";
 import { useSettingsStore } from "../stores/settings";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
 import { resetFirstRun } from "../services/firstRunService";
 import axios from "axios";
 import { cloneDeep } from "lodash";
@@ -725,21 +768,37 @@ export default {
   setup() {
     const settingsStore = useSettingsStore();
     const router = useRouter();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
+
+    // Helper function to handle settings operations with notifications
+    const handleSettingsOperation = async (operation, loadingMessage, successMessage) => {
+      try {
+        await operation;
+        showSuccess(successMessage);
+      } catch (error) {
+        console.error("Settings operation failed:", error);
+        showError("Operation failed. Please try again.");
+        throw error;
+      }
+    };
 
     // Forms
     const settingsForm = ref(null);
     const alertsForm = ref(null);
     const apiForm = ref(null);
     const perfForm = ref(null);
+    const powerCostForm = ref(null);
 
     // Form validation
     const formValid = ref(true);
     const alertsFormValid = ref(true);
+    const powerCostFormValid = ref(true);
 
     // Loading states
     const saving = ref(false);
     const savingAlerts = ref(false);
     const savingAdvanced = ref(false);
+    const savingPowerCost = ref(false);
     const backingUpConfig = ref(false);
     const creatingBackup = ref(false);
     const restoring = ref(false);
@@ -784,6 +843,10 @@ export default {
       websocket_update_interval: 1,
     });
 
+    // Electricity cost setting
+    const originalElectricityCost = ref(0.13);
+    const electricityCost = ref(0.13);
+
     // Database info
     const dbInfo = reactive({
       sqlite_path: "/workspace/data/config.db",
@@ -806,85 +869,87 @@ export default {
 
     // Authentication removed - no longer needed for local network access
 
-    // Snackbar
-    const showSnackbar = ref(false);
-    const snackbarText = ref("");
-    const snackbarColor = ref("success");
+    // Local snackbar state removed - using global snackbar
 
     // Options
 
+    const themeOptions = [
+      { title: "Dark", value: "dark" },
+      { title: "Light", value: "light" },
+    ];
+
     const uiModeOptions = [
-      { text: "Simple Mode", value: "simple" },
-      { text: "Advanced Mode", value: "advanced" },
+      { title: "Simple Mode", value: "simple" },
+      { title: "Advanced Mode", value: "advanced" },
     ];
 
     const refreshIntervalOptions = [
-      { text: "5 seconds", value: 5 },
-      { text: "10 seconds", value: 10 },
-      { text: "30 seconds", value: 30 },
-      { text: "1 minute", value: 60 },
-      { text: "5 minutes", value: 300 },
+      { title: "5 seconds", value: 5 },
+      { title: "10 seconds", value: 10 },
+      { title: "30 seconds", value: 30 },
+      { title: "1 minute", value: 60 },
+      { title: "5 minutes", value: 300 },
     ];
 
     const retentionOptions = [
-      { text: "7 days", value: 7 },
-      { text: "14 days", value: 14 },
-      { text: "30 days", value: 30 },
-      { text: "60 days", value: 60 },
-      { text: "90 days", value: 90 },
-      { text: "180 days", value: 180 },
-      { text: "365 days", value: 365 },
+      { title: "7 days", value: 7 },
+      { title: "14 days", value: 14 },
+      { title: "30 days", value: 30 },
+      { title: "60 days", value: 60 },
+      { title: "90 days", value: 90 },
+      { title: "180 days", value: 180 },
+      { title: "365 days", value: 365 },
     ];
 
     const temperatureUnitOptions = [
-      { text: "Celsius (°C)", value: "celsius" },
-      { text: "Fahrenheit (°F)", value: "fahrenheit" },
+      { title: "Celsius (°C)", value: "celsius" },
+      { title: "Fahrenheit (°F)", value: "fahrenheit" },
     ];
 
     const defaultViewOptions = [
-      { text: "Dashboard", value: "dashboard" },
-      { text: "Miners", value: "miners" },
-      { text: "Analytics", value: "analytics" },
-      { text: "Network", value: "network" },
+      { title: "Dashboard", value: "dashboard" },
+      { title: "Miners", value: "miners" },
+      { title: "Analytics", value: "analytics" },
+      { title: "Network", value: "network" },
     ];
 
     const pollingIntervalOptions = [
-      { text: "10 seconds", value: 10 },
-      { text: "30 seconds", value: 30 },
-      { text: "1 minute", value: 60 },
-      { text: "5 minutes", value: 300 },
-      { text: "10 minutes", value: 600 },
+      { title: "10 seconds", value: 10 },
+      { title: "30 seconds", value: 30 },
+      { title: "1 minute", value: 60 },
+      { title: "5 minutes", value: 300 },
+      { title: "10 minutes", value: 600 },
     ];
 
     const notificationMethodOptions = [
-      { text: "Browser Notifications", value: "browser" },
-      { text: "Email", value: "email" },
-      { text: "Webhook", value: "webhook" },
-      { text: "Telegram", value: "telegram" },
+      { title: "Browser Notifications", value: "browser" },
+      { title: "Email", value: "email" },
+      { title: "Webhook", value: "webhook" },
+      { title: "Telegram", value: "telegram" },
     ];
 
     const emailFrequencyOptions = [
-      { text: "Immediate", value: "immediate" },
-      { text: "Hourly Digest", value: "hourly" },
-      { text: "Daily Digest", value: "daily" },
+      { title: "Immediate", value: "immediate" },
+      { title: "Hourly Digest", value: "hourly" },
+      { title: "Daily Digest", value: "daily" },
     ];
 
     const logLevelOptions = [
-      { text: "Debug", value: "debug" },
-      { text: "Info", value: "info" },
-      { text: "Warning", value: "warning" },
-      { text: "Error", value: "error" },
+      { title: "Debug", value: "debug" },
+      { title: "Info", value: "info" },
+      { title: "Warning", value: "warning" },
+      { title: "Error", value: "error" },
     ];
 
     const purgeOptions = [
-      { text: "7 days", value: "7d" },
-      { text: "30 days", value: "30d" },
-      { text: "90 days", value: "90d" },
-      { text: "180 days", value: "180d" },
-      { text: "365 days", value: "365d" },
+      { title: "7 days", value: "7d" },
+      { title: "30 days", value: "30d" },
+      { title: "90 days", value: "90d" },
+      { title: "180 days", value: "180d" },
+      { title: "365 days", value: "365d" },
     ];
 
-    // Computed properties
+    // Computed properties - Enhanced with settings store integration
     const settingsChanged = computed(() => {
       return (
         JSON.stringify(settings) !== JSON.stringify(originalSettings.value)
@@ -897,6 +962,8 @@ export default {
         JSON.stringify(originalAlertSettings.value)
       );
     });
+
+    // Enhanced loading states are handled by the existing ref variables above
 
     const apiSettingsChanged = computed(() => {
       const originalApi = {
@@ -932,14 +999,23 @@ export default {
       return JSON.stringify(currentPerf) !== JSON.stringify(originalPerf);
     });
 
+    const powerCostChanged = computed(() => {
+      return electricityCost.value !== originalElectricityCost.value;
+    });
+
     // Handle UI mode change
     // Methods
     const loadSettings = async () => {
       try {
+        console.log('Settings view: Loading settings with enhanced error handling');
+        
+        // Use the enhanced settings store
+        await settingsStore.fetchSettings();
+        
         // Get settings from store
         const storeSettings = settingsStore.settings;
 
-        // Update settings
+        // Update local settings
         Object.assign(settings, storeSettings);
         
         // Sync simple_mode with localStorage (localStorage takes precedence for UI mode)
@@ -947,27 +1023,31 @@ export default {
         settings.simple_mode = currentUIMode === 'simple';
         settings.ui_mode = currentUIMode;
 
+        // Load electricity cost setting
+        electricityCost.value = storeSettings.electricity_cost || 0.13;
+        originalElectricityCost.value = electricityCost.value;
+
         // Save original settings for comparison
         originalSettings.value = cloneDeep(settings);
+        
+        console.log('Settings view: Settings loaded successfully:', settings);
       } catch (error) {
-        console.error("Error loading settings:", error);
-        showNotification("Error loading settings", "error");
+        console.error("Settings view: Error loading settings:", error);
+        showError("Failed to load settings. Using defaults.");
       }
     };
 
     const loadAlertSettings = async () => {
       try {
-        // Fetch alert settings from API
-        const response = await axios.get("/api/settings/alerts");
-
-        // Update alert settings
-        Object.assign(alertSettings, response.data);
-
+        // Alert settings are part of the main settings endpoint
+        // They will be loaded with the main settings
+        console.log("Alert settings loaded with main settings");
+        
         // Save original settings for comparison
         originalAlertSettings.value = cloneDeep(alertSettings);
       } catch (error) {
         console.error("Error loading alert settings:", error);
-        showNotification("Error loading alert settings", "error");
+        showError("Error loading alert settings");
       }
     };
 
@@ -983,7 +1063,7 @@ export default {
         originalAdvancedSettings.value = cloneDeep(advancedSettings);
       } catch (error) {
         console.error("Error loading advanced settings:", error);
-        showNotification("Error loading advanced settings", "error");
+        showError("Error loading advanced settings");
       }
     };
 
@@ -1003,69 +1083,77 @@ export default {
 
     const saveSettings = async () => {
       if (!formValid.value) {
-        showNotification("Please fix the errors in the form", "error");
+        showError("Please fix the errors in the form before saving");
         return;
       }
 
-      saving.value = true;
-
       try {
+        console.log('Settings view: Saving settings with enhanced error handling');
+        
         // Sync ui_mode with simple_mode before saving
         settings.ui_mode = settings.simple_mode ? "simple" : "advanced";
         
         // Update localStorage
         localStorage.setItem("uiMode", settings.ui_mode);
 
-        // Update settings in store
-        await settingsStore.updateSettings(settings);
+        // Convert string values to appropriate types before saving
+        const settingsToSave = {
+          ...settings,
+          polling_interval: parseInt(settings.polling_interval) || 30,
+          refresh_interval: parseInt(settings.refresh_interval) || 10,
+          chart_retention_days: parseInt(settings.chart_retention_days) || 30
+        };
 
-        // Update original settings
+        // Use the enhanced settings store with notification integration
+        await notifications.settingsOperation(
+          settingsStore.updateSettings(settingsToSave),
+          "Saving settings...",
+          "Settings saved successfully"
+        );
+
+        // Update original settings for comparison
         originalSettings.value = cloneDeep(settings);
 
-        showNotification("Settings saved successfully", "success");
+        console.log('Settings view: Settings saved successfully');
       } catch (error) {
-        console.error("Error saving settings:", error);
-        showNotification("Error saving settings", "error");
-      } finally {
-        saving.value = false;
+        console.error("Settings view: Error saving settings:", error);
+        // Error notification is handled by the notification composable
       }
     };
 
     const saveAlertSettings = async () => {
       if (!alertsFormValid.value) {
-        showNotification("Please fix the errors in the form", "error");
+        showError("Please fix the errors in the alert form before saving");
         return;
       }
 
-      savingAlerts.value = true;
-
       try {
-        // Save alert settings to API
-        await axios.put("/api/settings/alerts", alertSettings);
+        // Use notification composable for consistent UX
+        await notifications.settingsOperation(
+          axios.put("/api/settings/alerts", alertSettings),
+          "Saving alert settings...",
+          "Alert settings saved successfully"
+        );
 
         // Update original settings
         originalAlertSettings.value = cloneDeep(alertSettings);
-
-        showNotification("Alert settings saved successfully", "success");
       } catch (error) {
-        console.error("Error saving alert settings:", error);
-        showNotification("Error saving alert settings", "error");
-      } finally {
-        savingAlerts.value = false;
+        console.error("Settings view: Error saving alert settings:", error);
+        // Error notification is handled by the notification composable
       }
     };
 
     const saveAdvancedSettings = async (section) => {
-      savingAdvanced.value = true;
-
       try {
         let payload = {};
+        let sectionName = "";
 
         if (section === "api") {
           payload = {
             api_enabled: advancedSettings.api_enabled,
             api_port: advancedSettings.api_port,
           };
+          sectionName = "API";
         } else if (section === "performance") {
           payload = {
             log_level: advancedSettings.log_level,
@@ -1074,20 +1162,50 @@ export default {
             websocket_update_interval:
               advancedSettings.websocket_update_interval,
           };
+          sectionName = "Performance";
         }
 
-        // Save advanced settings to API
-        await axios.put("/api/settings/advanced", payload);
+        // Use notification composable for consistent UX
+        await notifications.settingsOperation(
+          axios.put("/api/settings/advanced", payload),
+          `Saving ${sectionName.toLowerCase()} settings...`,
+          `${sectionName} settings saved successfully`
+        );
 
         // Update original settings
         originalAdvancedSettings.value = cloneDeep(advancedSettings);
-
-        showNotification("Advanced settings saved successfully", "success");
       } catch (error) {
-        console.error("Error saving advanced settings:", error);
-        showNotification("Error saving advanced settings", "error");
+        console.error(`Settings view: Error saving ${section} settings:`, error);
+        // Error notification is handled by the notification composable
+      }
+    };
+
+    const saveElectricityCost = async () => {
+      if (!powerCostFormValid.value) {
+        showError("Please fix the errors in the form before saving");
+        return;
+      }
+
+      savingPowerCost.value = true;
+
+      try {
+        console.log('Settings view: Saving electricity cost:', electricityCost.value);
+        
+        // Save electricity cost to settings
+        await settingsStore.updateSettings({
+          electricity_cost: electricityCost.value
+        });
+
+        // Update original value for comparison
+        originalElectricityCost.value = electricityCost.value;
+
+        showSuccess("Electricity cost saved successfully");
+        console.log('Settings view: Electricity cost saved successfully');
+      } catch (error) {
+        console.error("Settings view: Error saving electricity cost:", error);
+        showError("Failed to save electricity cost");
       } finally {
-        savingAdvanced.value = false;
+        savingPowerCost.value = false;
       }
     };
 
@@ -1112,10 +1230,10 @@ export default {
         link.click();
         link.remove();
 
-        showNotification("Configuration database backup created", "success");
+        showSuccess("Configuration database backup created");
       } catch (error) {
         console.error("Error backing up configuration database:", error);
-        showNotification("Error creating backup", "error");
+        showError("Error creating backup");
       } finally {
         backingUpConfig.value = false;
       }
@@ -1142,10 +1260,10 @@ export default {
         link.click();
         link.remove();
 
-        showNotification("Full backup created", "success");
+        showSuccess("Full backup created");
       } catch (error) {
         console.error("Error creating full backup:", error);
-        showNotification("Error creating backup", "error");
+        showError("Error creating backup");
       } finally {
         creatingBackup.value = false;
       }
@@ -1153,7 +1271,7 @@ export default {
 
     const restoreFromBackup = async () => {
       if (!backupFile.value) {
-        showNotification("Please select a backup file", "error");
+        showError("Please select a backup file");
         return;
       }
 
@@ -1171,10 +1289,7 @@ export default {
           },
         });
 
-        showNotification(
-          "Backup restored successfully. The application will restart.",
-          "success",
-        );
+        showSuccess("Backup restored successfully. The application will restart.");
 
         // Reload the page after a short delay
         setTimeout(() => {
@@ -1182,7 +1297,7 @@ export default {
         }, 3000);
       } catch (error) {
         console.error("Error restoring from backup:", error);
-        showNotification("Error restoring from backup", "error");
+        showError("Error restoring from backup");
       } finally {
         restoring.value = false;
       }
@@ -1197,14 +1312,11 @@ export default {
           age: purgeAge.value,
         });
 
-        showNotification(
-          `Data older than ${purgeAge.value} purged successfully`,
-          "success",
-        );
+        showSuccess(`Data older than ${purgeAge.value} purged successfully`);
         showPurgeDialog.value = false;
       } catch (error) {
         console.error("Error purging data:", error);
-        showNotification("Error purging data", "error");
+        showError("Error purging data");
       } finally {
         purging.value = false;
       }
@@ -1223,10 +1335,7 @@ export default {
         localStorage.clear();
 
         // Show notification
-        showNotification(
-          "Application reset successful. Redirecting to setup wizard...",
-          "success",
-        );
+        showSuccess("Application reset successful. Redirecting to setup wizard...");
 
         // Wait a moment before redirecting
         setTimeout(() => {
@@ -1237,16 +1346,13 @@ export default {
         }, 2000);
       } catch (error) {
         console.error("Error resetting application:", error);
-        showNotification("Error resetting application", "error");
+        showError("Error resetting application");
         resetting.value = false;
       }
     };
 
-    const showNotification = (text, color = "success") => {
-      snackbarText.value = text;
-      snackbarColor.value = color;
-      showSnackbar.value = true;
-    };
+    // Local showNotification method removed - using global snackbar methods
+    // showSuccess, showError, showWarning, showInfo are available from useGlobalSnackbar
 
 
 
@@ -1265,10 +1371,7 @@ export default {
       }
       
       // Show feedback to user
-      showNotification(
-        `Switched to ${settings.simple_mode ? 'Simple' : 'Advanced'} Mode`, 
-        'success'
-      );
+      showSuccess(`Switched to ${settings.simple_mode ? 'Simple' : 'Advanced'} Mode`);
     };
 
     // Watch for changes in notification method
@@ -1314,13 +1417,16 @@ export default {
       alertsForm,
       apiForm,
       perfForm,
+      powerCostForm,
       formValid,
       alertsFormValid,
+      powerCostFormValid,
 
       // Loading states
       saving,
       savingAlerts,
       savingAdvanced,
+      savingPowerCost,
       backingUpConfig,
       creatingBackup,
       restoring,
@@ -1332,6 +1438,7 @@ export default {
       alertSettings,
       advancedSettings,
       dbInfo,
+      electricityCost,
 
       // Backup
       backupFile,
@@ -1346,10 +1453,7 @@ export default {
 
       // Authentication removed
 
-      // Snackbar
-      showSnackbar,
-      snackbarText,
-      snackbarColor,
+      // Local snackbar state removed - using global snackbar
 
       // Options
       themeOptions,
@@ -1369,12 +1473,14 @@ export default {
       alertsChanged,
       apiSettingsChanged,
       perfSettingsChanged,
+      powerCostChanged,
 
       // Methods
       handleModeChange,
       saveSettings,
       saveAlertSettings,
       saveAdvancedSettings,
+      saveElectricityCost,
       backupConfigDb,
       createFullBackup,
       restoreFromBackup,

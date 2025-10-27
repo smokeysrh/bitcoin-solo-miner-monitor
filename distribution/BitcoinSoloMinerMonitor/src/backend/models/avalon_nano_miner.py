@@ -173,14 +173,40 @@ class AvalonNanoMiner(MinerInterface):
         if not self.device_info:
             self.device_info = await self._get_device_details()
         
-        # Add basic device type information
+        # Get version info to identify device type
+        try:
+            version = await self._send_command("version")
+            if version and "VERSION" in version:
+                version_data = version["VERSION"][0]
+                miner_type = version_data.get("Miner", "")
+                
+                # Check if this is actually an Avalon device
+                if "avalon" in miner_type.lower():
+                    device_type = "Avalon Nano"
+                    model = miner_type
+                else:
+                    # It's a cgminer device, but not Avalon
+                    device_type = "cgminer Device"
+                    model = miner_type if miner_type else "Unknown"
+                    logger.info(f"Detected cgminer device (not Avalon): {miner_type} at {self.ip_address}")
+            else:
+                device_type = "cgminer Device"
+                model = "Unknown"
+        except Exception as e:
+            logger.debug(f"Error getting version info: {e}")
+            device_type = "cgminer Device"
+            model = "Unknown"
+        
+        # Build device info
         device_info = {
-            "type": "Avalon Nano",
-            "model": "Avalon Nano",  # Will be updated if available in device details
+            "type": device_type,
+            "model": model,
             "api": "cgminer",
+            "cgminer_version": self.device_info.get("cgminer_version", "Unknown"),
+            "api_version": self.device_info.get("api_version", "Unknown"),
         }
         
-        # Add any additional details from device_info
+        # Add additional details
         device_info.update(self.device_info)
         
         return device_info

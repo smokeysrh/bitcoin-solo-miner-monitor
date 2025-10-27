@@ -38,15 +38,19 @@ class WebSocketManager:
         self._connection_lock = asyncio.Lock()
         
         # Heartbeat configuration
-        self._heartbeat_interval = 30.0  # seconds
+        self._heartbeat_interval = 72.0  # seconds (stale detection at 2.5x = 180s)
         self._heartbeat_task = None
         
         # Broadcast intervals (in seconds)
         self._broadcast_intervals = {
-            "miners": 1.0,
-            "alerts": 5.0,
-            "system": 10.0,
+            "miners": 5.0,
+            "alerts": 10.0,
+            "system": 30.0,
+            "discovery": 0.5,  # More frequent updates for discovery progress
         }
+        
+        # Cache last broadcast data for change detection
+        self._last_broadcast_data: Dict[str, str] = {}
     
     async def connect(self, websocket: WebSocket, client_id: str = None) -> str:
         """
@@ -96,7 +100,7 @@ class WebSocketManager:
                 "type": "connection_established",
                 "client_id": client_id,
                 "timestamp": datetime.now().isoformat(),
-                "available_topics": ["miners", "alerts", "system", "metrics"],
+                "available_topics": ["miners", "alerts", "system", "metrics", "discovery"],
                 "heartbeat_interval": self._heartbeat_interval,
                 "server_info": {
                     "version": "0.1.0",
@@ -258,20 +262,53 @@ class WebSocketManager:
         except Exception as e:
             logger.error(f"Error unsubscribing client {client_id} from topics {topics}: {e}")
     
+    def _hash_data(self, data: Any) -> str:
+        """
+        Generate hash of data for change detection.
+        
+        Args:
+            data (Any): Data to hash
+            
+        Returns:
+            str: Hash of the data
+        """
+        import hashlib
+        
+        try:
+            # Convert data to JSON string with sorted keys for consistent hashing
+            data_str = json.dumps(data, sort_keys=True, default=str)
+            return hashlib.md5(data_str.encode()).hexdigest()
+        except Exception as e:
+            logger.debug(f"Error hashing data: {e}")
+            # Fallback to string hash
+            return str(hash(str(data)))
+    
     async def broadcast(self, topic: str, message: Dict[str, Any]):
         """
         Thread-safe broadcast of messages to all clients subscribed to a topic.
         Includes comprehensive error handling and automatic cleanup of failed connections.
+        Implements change detection to skip broadcasts when data hasn't changed.
         
         Args:
             topic (str): Topic to broadcast to
             message (Dict[str, Any]): Message to broadcast
         """
         # Validate topic
-        valid_topics = ["miners", "alerts", "system", "metrics", "all"]
+        valid_topics = ["miners", "alerts", "system", "metrics", "discovery", "all"]
         if topic not in valid_topics:
             logger.warning(f"Invalid broadcast topic: {topic}")
             return
+        
+        # Check if data has changed to avoid redundant broadcasts
+        data_hash = self._hash_data(message.get("data"))
+        last_hash = self._last_broadcast_data.get(topic)
+        
+        if last_hash == data_hash:
+            logger.debug(f"Skipping broadcast for topic '{topic}' - no changes detected")
+            return
+        
+        # Update cache with new hash
+        self._last_broadcast_data[topic] = data_hash
         
         # Prepare message with metadata
         broadcast_message = message.copy()
@@ -289,10 +326,10 @@ class WebSocketManager:
         connections = await self._thread_safe_manager.get_connections(topic)
         
         if not connections:
-            logger.debug(f"No clients subscribed to topic: {topic}")
+            logger.info(f"No clients subscribed to topic '{topic}' - broadcast skipped")
             return
         
-        logger.debug(f"Broadcasting {broadcast_message['type']} to {len(connections)} clients on topic '{topic}'")
+        logger.info(f"Broadcasting {broadcast_message['type']} to {len(connections)} clients on topic '{topic}'")
         
         # Track broadcast statistics
         successful_sends = 0
@@ -369,6 +406,40 @@ class WebSocketManager:
             "data": system_data,
         })
     
+    async def broadcast_metrics(self, miner_id: str, metrics: Dict[str, Any], timestamp: Optional[str] = None):
+        """
+        Broadcast metrics update to all subscribed clients.
+        
+        Args:
+            miner_id (str): ID of the miner
+            metrics (Dict[str, Any]): Metrics data
+            timestamp (Optional[str]): ISO timestamp of the metrics
+        """
+        if timestamp is None:
+            timestamp = datetime.now().isoformat()
+        
+        await self.broadcast("metrics", {
+            "type": "metrics_update",
+            "data": {
+                "miner_id": miner_id,
+                "metrics": metrics,
+                "timestamp": timestamp
+            }
+        })
+    
+    async def broadcast_to_topic(self, topic: str, message: Dict[str, Any]):
+        """
+        Broadcast a message to a specific topic (alias for broadcast method).
+        This method provides compatibility with existing code that uses broadcast_to_topic.
+        
+        Args:
+            topic (str): Topic to broadcast to
+            message (Dict[str, Any]): Message to broadcast
+        """
+        logger.info(f"broadcast_to_topic called for topic '{topic}' with message type: {message.get('type', 'unknown')}")
+        await self.broadcast(topic, message)
+        logger.info(f"broadcast_to_topic completed for topic '{topic}'")
+    
     def register_message_handler(self, message_type: str, handler: Callable):
         """
         Register a handler for a specific message type.
@@ -411,12 +482,26 @@ class WebSocketManager:
             # Handle different message types
             if message_type == "subscribe":
                 topics = message.get("topics", [])
+                
+                # ADD ENHANCED DEBUG LOGGING
+                logger.info(f"=== SUBSCRIPTION DEBUG ===")
+                logger.info(f"Raw message: {message}")
+                logger.info(f"Message type: {type(message)}")
+                logger.info(f"Topics extracted: {topics}")
+                logger.info(f"Topics type: {type(topics)}")
+                logger.info(f"Topics length: {len(topics) if isinstance(topics, list) else 'N/A'}")
+                if isinstance(topics, list) and len(topics) > 0:
+                    logger.info(f"First topic: '{topics[0]}' (type: {type(topics[0])})")
+                
                 if isinstance(topics, str):
                     topics = [topics]
                 
                 # Validate topics
-                valid_topics = ["miners", "alerts", "system", "metrics"]
+                valid_topics = ["miners", "alerts", "system", "metrics", "discovery"]
                 filtered_topics = [topic for topic in topics if topic in valid_topics]
+                
+                logger.info(f"Filtered topics: {filtered_topics}")
+                logger.info(f"=== END SUBSCRIPTION DEBUG ===")
                 
                 if filtered_topics:
                     await self.subscribe(websocket, filtered_topics)
@@ -485,12 +570,13 @@ class WebSocketManager:
                 await websocket.send_json({
                     "type": "topics_response",
                     "data": {
-                        "available_topics": ["miners", "alerts", "system", "metrics"],
+                        "available_topics": ["miners", "alerts", "system", "metrics", "discovery"],
                         "description": {
                             "miners": "Real-time miner status and metrics",
                             "alerts": "System alerts and notifications",
                             "system": "System performance metrics",
-                            "metrics": "Historical metrics data"
+                            "metrics": "Historical metrics data",
+                            "discovery": "Network discovery progress and results"
                         }
                     },
                     "timestamp": datetime.now().isoformat()
@@ -693,7 +779,7 @@ class WebSocketManager:
         
         try:
             # Get connection counts by topic
-            for topic in ["all", "miners", "alerts", "system"]:
+            for topic in ["all", "miners", "alerts", "system", "discovery"]:
                 count = await self._thread_safe_manager.get_connection_count(topic)
                 stats["connections_by_topic"][topic] = count
             
@@ -738,7 +824,7 @@ class WebSocketManager:
                 pass
         
         # Close all connections using thread-safe manager
-        for topic in ["all", "miners", "alerts", "system"]:
+        for topic in ["all", "miners", "alerts", "system", "discovery"]:
             connections = await self._thread_safe_manager.get_connections(topic)
             for websocket in connections:
                 try:

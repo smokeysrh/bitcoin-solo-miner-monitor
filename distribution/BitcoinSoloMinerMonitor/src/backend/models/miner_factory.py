@@ -11,6 +11,7 @@ from src.backend.models.miner_interface import MinerInterface
 from src.backend.models.bitaxe_miner import BitaxeMiner
 from src.backend.models.avalon_nano_miner import AvalonNanoMiner
 from src.backend.models.magic_miner import MagicMiner
+from src.backend.models.bitcoin_node import BitcoinNode
 from src.backend.exceptions import (
     MinerError, MinerConnectionError, MinerConfigurationError,
     HTTPSessionError, ValidationError
@@ -54,6 +55,10 @@ class MinerFactory:
                 # Default port for Magic Miner is 80
                 miner_port = port if port is not None else 80
                 miner = MagicMiner(ip_address, miner_port)
+            elif miner_type in ["bitcoin_node", "bitcoinnode", "node", "btc_node"]:
+                # Default port for Bitcoin node RPC is 8332, but detection will try multiple ports
+                miner_port = port if port is not None else 8332
+                miner = BitcoinNode(ip_address, miner_port)
             else:
                 raise MinerConfigurationError(f"Unsupported miner type: {miner_type}", 
                                             context={'miner_type': miner_type, 'ip_address': ip_address})
@@ -154,73 +159,12 @@ class MinerFactory:
             # Default ports to check
             ports = [80, 4028]
         
+        logger.info(f"Starting detection for {ip_address} with open ports: {ports}")
         result = {}
         
-        # Try Bitaxe first (HTTP API on port 80)
-        if 80 in ports:
-            bitaxe = None
-            try:
-                bitaxe = BitaxeMiner(ip_address, 80)
-                connected = await bitaxe.connect()
-                if connected:
-                    device_info = await bitaxe.get_device_info()
-                    if device_info:
-                        await bitaxe.disconnect()
-                        return {
-                            "type": "bitaxe",
-                            "ip_address": ip_address,
-                            "port": 80,
-                            "device_info": device_info
-                        }
-            except MinerConnectionError as e:
-                logger.debug(f"Bitaxe connection failed at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'connection_error'
-                })
-            except MinerError as e:
-                logger.debug(f"Bitaxe detection failed at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'miner_error'
-                })
-            except (RuntimeError, MemoryError) as e:
-                logger.debug(f"System error during Bitaxe detection at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'system_error',
-                    'error': str(e)
-                })
-            finally:
-                # Ensure cleanup
-                if bitaxe:
-                    try:
-                        await bitaxe.disconnect()
-                        # Cleanup any active sessions
-                        from src.backend.services.http_session_manager import get_session_manager
-                        session_manager = await get_session_manager()
-                        await session_manager.close_session(ip_address, 80)
-                    except HTTPSessionError as cleanup_error:
-                        logger.debug(f"HTTP session error during Bitaxe detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
-                    except MinerError as cleanup_error:
-                        logger.debug(f"Miner error during Bitaxe detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
-                    except Exception as cleanup_error:
-                        logger.debug(f"Unexpected error during Bitaxe detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
-        
-        # Try Avalon Nano (cgminer API on port 4028)
+        # Try Avalon Nano FIRST (port 4028 - most specific)
         if 4028 in ports:
+            logger.info(f"Trying Avalon Nano detection on {ip_address}:4028")
             avalon = None
             try:
                 avalon = AvalonNanoMiner(ip_address, 4028)
@@ -228,6 +172,7 @@ class MinerFactory:
                 if connected:
                     device_info = await avalon.get_device_info()
                     if device_info:
+                        logger.info(f"Avalon Nano detected at {ip_address}:4028")
                         await avalon.disconnect()
                         return {
                             "type": "avalon_nano",
@@ -235,6 +180,10 @@ class MinerFactory:
                             "port": 4028,
                             "device_info": device_info
                         }
+                    else:
+                        logger.debug(f"Device at {ip_address}:4028 responded but is not a valid Avalon Nano")
+                else:
+                    logger.debug(f"Avalon Nano connection failed at {ip_address}:4028")
             except MinerConnectionError as e:
                 logger.debug(f"Avalon Nano connection failed at {ip_address}:4028", {
                     'ip_address': ip_address,
@@ -272,67 +221,168 @@ class MinerFactory:
                             'cleanup_error': str(cleanup_error)
                         })
         
-        # Try Magic Miner (Web interface on port 80)
+        # Try to detect miners on port 80 (both Bitaxe and Magic Miner use this port)
         if 80 in ports:
-            magic = None
+            logger.info(f"Trying Bitaxe detection on {ip_address}:80")
+            
+            # First, try Bitaxe detection (more specific API)
+            bitaxe = None
+            bitaxe_detected = False
             try:
-                magic = MagicMiner(ip_address, 80)
-                connected = await magic.connect()
+                bitaxe = BitaxeMiner(ip_address, 80)
+                connected = await bitaxe.connect()
                 if connected:
-                    device_info = await magic.get_device_info()
-                    if device_info and device_info.get("model") == "BG02":
-                        await magic.disconnect()
+                    device_info = await bitaxe.get_device_info()
+                    # Only consider it a Bitaxe if we got valid device info with required fields
+                    # Note: device_info.get("type") could be "Bitaxe" or "NerdQaxe++" or other variants
+                    if device_info and device_info.get("type"):
+                        logger.info(f"{device_info.get('type')} miner detected at {ip_address}:80")
+                        await bitaxe.disconnect()
                         return {
-                            "type": "magic_miner",
+                            "type": "bitaxe",
                             "ip_address": ip_address,
                             "port": 80,
                             "device_info": device_info
                         }
+                    else:
+                        logger.debug(f"Device at {ip_address}:80 responded but is not a valid Bitaxe/NerdQaxe")
             except MinerConnectionError as e:
-                logger.debug(f"Magic Miner connection failed at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'connection_error'
-                })
+                logger.debug(f"Bitaxe connection failed at {ip_address}:80 - {str(e)}")
             except MinerError as e:
-                logger.debug(f"Magic Miner detection failed at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'miner_error'
-                })
+                logger.debug(f"Bitaxe detection failed at {ip_address}:80 - {str(e)}")
             except (RuntimeError, MemoryError) as e:
-                logger.debug(f"System error during Magic Miner detection at {ip_address}:80", {
-                    'ip_address': ip_address,
-                    'port': 80,
-                    'error_type': 'system_error',
-                    'error': str(e)
-                })
+                logger.debug(f"System error during Bitaxe detection at {ip_address}:80 - {str(e)}")
             finally:
                 # Ensure cleanup
-                if magic:
+                if bitaxe:
                     try:
-                        await magic.disconnect()
+                        await bitaxe.disconnect()
                         # Cleanup any active sessions
                         from src.backend.services.http_session_manager import get_session_manager
                         session_manager = await get_session_manager()
                         await session_manager.close_session(ip_address, 80)
-                    except HTTPSessionError as cleanup_error:
-                        logger.debug(f"HTTP session error during Magic Miner detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
-                    except MinerError as cleanup_error:
-                        logger.debug(f"Miner error during Magic Miner detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
                     except Exception as cleanup_error:
-                        logger.debug(f"Unexpected error during Magic Miner detection cleanup", {
-                            'ip_address': ip_address,
-                            'port': 80,
-                            'cleanup_error': str(cleanup_error)
-                        })
+                        logger.debug(f"Error during Bitaxe detection cleanup: {cleanup_error}")
+            
+            # If Bitaxe detection failed, try Magic Miner detection
+            if not bitaxe_detected:
+                logger.info(f"Bitaxe detection failed on {ip_address}, trying Magic Miner")
+                magic = None
+                try:
+                    magic = MagicMiner(ip_address, 80)
+                    connected = await magic.connect()
+                    if connected:
+                        device_info = await magic.get_device_info()
+                        # Only return if we got valid Magic Miner device info
+                        if device_info and device_info.get("type") == "Magic Miner":
+                            logger.info(f"Magic Miner detected at {ip_address}:80")
+                            await magic.disconnect()
+                            return {
+                                "type": "magic_miner",
+                                "ip_address": ip_address,
+                                "port": 80,
+                                "device_info": device_info
+                            }
+                        else:
+                            logger.debug(f"Device at {ip_address}:80 responded but is not a valid Magic Miner")
+                    else:
+                        logger.debug(f"Magic Miner connection failed at {ip_address}:80")
+                except MinerConnectionError as e:
+                    logger.debug(f"Magic Miner connection failed at {ip_address}:80 - {str(e)}")
+                except MinerError as e:
+                    logger.debug(f"Magic Miner detection failed at {ip_address}:80 - {str(e)}")
+                except (RuntimeError, MemoryError) as e:
+                    logger.debug(f"System error during Magic Miner detection at {ip_address}:80 - {str(e)}")
+                finally:
+                    # Ensure cleanup
+                    if magic:
+                        try:
+                            await magic.disconnect()
+                            # Cleanup any active sessions
+                            from src.backend.services.http_session_manager import get_session_manager
+                            session_manager = await get_session_manager()
+                            await session_manager.close_session(ip_address, 80)
+                        except Exception as cleanup_error:
+                            logger.debug(f"Error during Magic Miner detection cleanup: {cleanup_error}")
         
+        # Try Bitcoin Node detection (check ONLY Bitcoin-specific ports, NOT port 80)
+        bitcoin_ports = [8332, 18332, 8333, 18333]
+        # Check if any Bitcoin-specific ports are available
+        bitcoin_ports_available = [p for p in bitcoin_ports if p in ports]
+        
+        if bitcoin_ports_available:
+            logger.info(f"Trying Bitcoin node detection on {ip_address} with ports: {bitcoin_ports_available}")
+            
+            for bitcoin_port in bitcoin_ports_available:
+                node = None
+                try:
+                    node = BitcoinNode(ip_address, bitcoin_port)
+                    connected = await node.connect()
+                    if connected:
+                        logger.info(f"Bitcoin node connection successful on {ip_address}:{bitcoin_port}")
+                        device_info = await node.get_device_info()
+                        # Only return if we got valid Bitcoin node device info
+                        if device_info and device_info.get("type") == "Bitcoin Node":
+                            logger.info(f"Valid Bitcoin node detected on {ip_address}:{bitcoin_port}")
+                            await node.disconnect()
+                            return {
+                                "type": "bitcoin_node",
+                                "ip_address": ip_address,
+                                "port": bitcoin_port,
+                                "device_info": device_info
+                            }
+                        else:
+                            logger.debug(f"Invalid device info from {ip_address}:{bitcoin_port}")
+                    else:
+                        logger.debug(f"Bitcoin node connection failed on {ip_address}:{bitcoin_port}")
+                except MinerConnectionError as e:
+                    logger.debug(f"Bitcoin node connection failed at {ip_address}:{bitcoin_port}", {
+                        'ip_address': ip_address,
+                        'port': bitcoin_port,
+                        'error_type': 'connection_error'
+                    })
+                except MinerError as e:
+                    logger.debug(f"Bitcoin node detection failed at {ip_address}:{bitcoin_port}", {
+                        'ip_address': ip_address,
+                        'port': bitcoin_port,
+                        'error_type': 'miner_error'
+                    })
+                except (RuntimeError, MemoryError) as e:
+                    logger.debug(f"System error during Bitcoin node detection at {ip_address}:{bitcoin_port}", {
+                        'ip_address': ip_address,
+                        'port': bitcoin_port,
+                        'error_type': 'system_error',
+                        'error': str(e)
+                    })
+                finally:
+                    # Ensure cleanup
+                    if node:
+                        try:
+                            await node.disconnect()
+                            # Cleanup any active sessions
+                            from src.backend.services.http_session_manager import get_session_manager
+                            session_manager = await get_session_manager()
+                            await session_manager.close_session(ip_address, bitcoin_port)
+                        except HTTPSessionError as cleanup_error:
+                            logger.debug(f"HTTP session error during Bitcoin node detection cleanup", {
+                                'ip_address': ip_address,
+                                'port': bitcoin_port,
+                                'cleanup_error': str(cleanup_error)
+                            })
+                        except MinerError as cleanup_error:
+                            logger.debug(f"Miner error during Bitcoin node detection cleanup", {
+                                'ip_address': ip_address,
+                                'port': bitcoin_port,
+                                'cleanup_error': str(cleanup_error)
+                            })
+                        except Exception as cleanup_error:
+                            logger.debug(f"Unexpected error during Bitcoin node detection cleanup", {
+                                'ip_address': ip_address,
+                                'port': bitcoin_port,
+                                'cleanup_error': str(cleanup_error)
+                            })
+        else:
+            logger.debug(f"No Bitcoin-specific ports available for {ip_address}")
+        
+        logger.info(f"All detection attempts failed for {ip_address}")
         return result

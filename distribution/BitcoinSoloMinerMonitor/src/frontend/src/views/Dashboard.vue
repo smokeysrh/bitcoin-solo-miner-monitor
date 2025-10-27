@@ -61,6 +61,21 @@
       </v-col>
     </v-row>
 
+    <!-- Quick Actions -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <QuickActions
+          :default-network="discoveryNetwork"
+          @scan-network="handleQuickScanNetwork"
+          @add-miner="handleQuickAddMiner"
+          @restart-all="handleQuickRestartAll"
+          @view-analytics="handleQuickViewAnalytics"
+          @miner-added="handleMinerAdded"
+          @miner-error="handleMinerError"
+        />
+      </v-col>
+    </v-row>
+
     <!-- Miners Status Table -->
     <v-row class="mt-4">
       <v-col cols="12">
@@ -110,7 +125,7 @@
                     <v-icon left>mdi-plus</v-icon>
                     Add Miner
                   </v-btn>
-                  <v-btn color="secondary" @click="startDiscovery" :disabled="!discoveryFormValid">
+                  <v-btn color="secondary" @click="handleQuickScanNetwork">
                     <v-icon left>mdi-magnify</v-icon>
                     Scan Network
                   </v-btn>
@@ -133,12 +148,12 @@
             <!-- Temperature Column -->
             <template v-slot:item.temperature="{ item }">
               <v-progress-linear
-                :value="item.temperature"
+                :model-value="getTemperaturePercentage(item.temperature)"
                 :color="getTemperatureColor(item.temperature)"
                 height="20"
               >
-                <template v-slot:default="{ value }">
-                  <strong>{{ formatTemperature(value) }}</strong>
+                <template v-slot:default>
+                  <strong>{{ formatTemperature(item.temperature) }}</strong>
                 </template>
               </v-progress-linear>
             </template>
@@ -166,112 +181,12 @@
       </v-col>
     </v-row>
 
-    <!-- Network Discovery Section -->
-    <v-row class="mt-4">
-      <v-col cols="12">
-        <v-card>
-          <v-card-title>Network Discovery</v-card-title>
-          <v-card-text>
-            <v-form ref="discoveryForm" v-model="discoveryFormValid">
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="discoveryNetwork"
-                    label="Network Range"
-                    hint="e.g., 192.168.1.0/24"
-                    :rules="[
-                      (v) => !!v || 'Network range is required',
-                      (v) =>
-                        /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(v) ||
-                        'Invalid network range format',
-                    ]"
-                  ></v-text-field>
-                </v-col>
-                <v-col cols="12" md="6">
-                  <v-btn
-                    color="primary"
-                    :loading="discoveryLoading"
-                    :disabled="!discoveryFormValid || discoveryLoading"
-                    @click="startDiscovery"
-                  >
-                    <v-icon left>mdi-magnify</v-icon>
-                    Start Discovery
-                  </v-btn>
-                </v-col>
-              </v-row>
-            </v-form>
-
-            <v-alert
-              v-if="discoveryStatus && discoveryStatus.status === 'in_progress'"
-              type="info"
-              class="mt-4"
-            >
-              Discovery in progress...
-            </v-alert>
-
-            <v-alert
-              v-if="discoveryStatus && discoveryStatus.status === 'completed'"
-              type="success"
-              class="mt-4"
-            >
-              Discovery completed. Found
-              {{ discoveryStatus.miners_found }} miners.
-            </v-alert>
-
-            <v-alert
-              v-if="discoveryStatus && discoveryStatus.status === 'error'"
-              type="error"
-              class="mt-4"
-            >
-              Discovery error: {{ discoveryStatus.error }}
-            </v-alert>
-
-            <!-- Discovery Results -->
-            <v-expansion-panels
-              v-if="
-                discoveryStatus &&
-                discoveryStatus.status === 'completed' &&
-                discoveryStatus.result &&
-                discoveryStatus.result.length > 0
-              "
-              class="mt-4"
-            >
-              <v-expansion-panel>
-                <v-expansion-panel-title>
-                  Discovery Results ({{ discoveryStatus.result.length }} miners
-                  found)
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <v-list>
-                    <v-list-item
-                      v-for="(miner, index) in discoveryStatus.result"
-                      :key="index"
-                    >
-                      <v-list-item-title
-                        >{{ miner.type }} at
-                        {{ miner.ip_address }}</v-list-item-title
-                      >
-                      <v-list-item-subtitle>{{
-                        miner.device_info.model || "Unknown Model"
-                      }}</v-list-item-subtitle>
-                      <template v-slot:append>
-                        <v-btn
-                          color="primary"
-                          size="small"
-                          @click="addDiscoveredMiner(miner)"
-                        >
-                          Add Miner
-                        </v-btn>
-                      </template>
-                    </v-list-item>
-                  </v-list>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+    <!-- Add Miner Dialog -->
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
   </div>
 </template>
 
@@ -280,20 +195,33 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
+import { useGlobalSnackbar } from "../composables/useGlobalSnackbar";
+import { usePollingManager } from "../composables/usePollingManager";
 import BitcoinLoadingSpinner from "../components/BitcoinLoadingSpinner.vue";
+import AddMinerDialog from "../components/AddMinerDialog.vue";
+import QuickActions from "../components/QuickActions.vue";
 import { formatTemperature } from "../utils/formatters";
+import axios from "axios";
 
 export default {
   name: "Dashboard",
 
   components: {
     BitcoinLoadingSpinner,
+    AddMinerDialog,
+    QuickActions,
   },
 
   setup() {
     const minersStore = useMinersStore();
     const settingsStore = useSettingsStore();
     const router = useRouter();
+    const { showSuccess, showError, showWarning, showInfo } = useGlobalSnackbar();
+
+    // Alert settings for temperature threshold
+    const alertSettings = ref({
+      temperature_threshold: 80 // Default value
+    });
 
     // Simple Mode toggle
     const simpleMode = ref((localStorage.getItem('uiMode') || 'advanced') === 'simple');
@@ -312,15 +240,16 @@ export default {
       { title: "Actions", key: "actions", sortable: false },
     ];
 
-    // Discovery form
-    const discoveryForm = ref(null);
-    const discoveryFormValid = ref(false);
+    // Discovery network for QuickActions
     const discoveryNetwork = ref("192.168.1.0/24");
-    const discoveryLoading = ref(false);
-    const discoveryStatus = ref(null);
 
-    // Refresh interval
-    let refreshInterval = null;
+    // Set up polling manager for automatic miner data refresh
+    const { startPolling, stopPolling, isPolling: pollingActive } = usePollingManager({
+      fetchFunction: () => minersStore.fetchMiners(),
+      intervalKey: 'refresh_interval',
+      componentName: 'Dashboard',
+      enabled: true
+    });
 
     // Computed properties from store
     const miners = computed(() => minersStore.miners);
@@ -367,6 +296,12 @@ export default {
       return "error";
     };
 
+    const getTemperaturePercentage = (temp) => {
+      if (!temp) return 0;
+      const maxTemp = alertSettings.value.temperature_threshold || 80;
+      return Math.min((temp / maxTemp) * 100, 100);
+    };
+
     const restartMiner = async (minerId) => {
       try {
         await minersStore.restartMiner(minerId);
@@ -375,95 +310,53 @@ export default {
       }
     };
 
-    const startDiscovery = async () => {
-      discoveryLoading.value = true;
 
-      try {
-        const result = await minersStore.startDiscovery(discoveryNetwork.value);
-        discoveryStatus.value = { status: "in_progress", ...result };
-        
-        // Poll for status updates
-        const pollStatus = async () => {
-          try {
-            const status = await minersStore.getDiscoveryStatus();
-            discoveryStatus.value = status;
-            
-            if (status.status === "in_progress") {
-              setTimeout(pollStatus, 2000); // Poll every 2 seconds
-            }
-          } catch (error) {
-            console.error("Error polling discovery status:", error);
-            discoveryStatus.value = { status: "error", error: error.message };
-          }
-        };
-        
-        setTimeout(pollStatus, 2000);
-      } catch (error) {
-        console.error("Error starting discovery:", error);
-        discoveryStatus.value = { status: "error", error: error.message };
-      } finally {
-        discoveryLoading.value = false;
-      }
-    };
 
-    const pollDiscoveryStatus = async () => {
-      try {
-        // Mock polling - discovery status is already managed in startDiscovery
-        console.log("Mock: Polling discovery status");
-      } catch (error) {
-        console.error("Error polling discovery status:", error);
-      }
-    };
-
-    const addDiscoveredMiner = async (miner) => {
-      try {
-        const minerData = {
-          type: miner.type,
-          ip_address: miner.ip_address,
-          port: miner.port,
-          name: miner.name || `${miner.type} (${miner.ip_address})`,
-        };
-        await minersStore.addMiner(minerData);
-      } catch (error) {
-        console.error("Error adding discovered miner:", error);
-      }
-    };
+    const addMinerDialog = ref(false);
 
     const openAddMinerDialog = () => {
-      // Emit event to open add miner dialog in parent App component
-      window.dispatchEvent(new CustomEvent("open-add-miner-dialog"));
+      addMinerDialog.value = true;
+    };
+
+    const handleMinerAdded = (miner) => {
+      console.log(`Miner "${miner.name}" added successfully`);
+      showSuccess(`Miner "${miner.name}" added successfully`);
+    };
+
+    const handleMinerError = (error) => {
+      console.error('Error adding miner:', error);
+      // Optionally show an error message
+    };
+
+    // Fetch alert settings
+    const fetchAlertSettings = async () => {
+      try {
+        const response = await axios.get('/api/settings/alerts');
+        if (response.data) {
+          alertSettings.value = response.data;
+        }
+      } catch (error) {
+        console.warn('Failed to load alert settings, using defaults:', error);
+      }
     };
 
     // Lifecycle hooks
     onMounted(async () => {
       // Initialize miners store
       try {
-        await minersStore.fetchMiners();
         minersStore.connectWebSocket();
       } catch (error) {
         console.error("Error initializing dashboard:", error);
       }
 
-      // Set up refresh interval
-      const refreshTime = settingsStore.settings.refresh_interval * 1000 || 10000;
-      refreshInterval = setInterval(async () => {
-        try {
-          await minersStore.fetchMiners();
-        } catch (error) {
-          console.error("Error refreshing miner data:", error);
-        }
-      }, refreshTime);
+      // Load alert settings for temperature threshold
+      await fetchAlertSettings();
 
-      // Initialize discovery status
-      discoveryStatus.value = { status: "idle", found_miners: [] };
+      // Start polling (will fetch miners immediately and then at configured interval)
+      startPolling();
     });
 
-    onUnmounted(() => {
-      // Clear refresh interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
-    });
+    // Cleanup is handled automatically by usePollingManager's onUnmounted hook
 
     // Simple Mode toggle function
     const toggleMode = () => {
@@ -476,16 +369,38 @@ export default {
       router.push(targetRoute);
     };
 
+    // Quick Actions event handlers
+    const handleQuickScanNetwork = () => {
+      // QuickActions component handles the dialog
+      // No action needed here - dialog is managed by QuickActions
+    };
+
+    const handleQuickAddMiner = () => {
+      // Use the existing openAddMinerDialog method
+      openAddMinerDialog();
+    };
+
+    const handleQuickRestartAll = async () => {
+      // Restart all miners using the store
+      try {
+        await minersStore.restartAllMiners();
+      } catch (error) {
+        console.error("Error restarting all miners:", error);
+      }
+    };
+
+    const handleQuickViewAnalytics = () => {
+      // Navigate to analytics page
+      router.push("/analytics");
+    };
+
     return {
       // State
       search,
       headers,
-      discoveryForm,
-      discoveryFormValid,
       discoveryNetwork,
-      discoveryLoading,
-      discoveryStatus,
       simpleMode,
+      addMinerDialog,
 
       // Computed
       miners,
@@ -499,11 +414,16 @@ export default {
       formatTemperature,
       getStatusColor,
       getTemperatureColor,
+      getTemperaturePercentage,
       restartMiner,
-      startDiscovery,
-      addDiscoveredMiner,
       openAddMinerDialog,
+      handleMinerAdded,
+      handleMinerError,
       toggleMode,
+      handleQuickScanNetwork,
+      handleQuickAddMiner,
+      handleQuickRestartAll,
+      handleQuickViewAnalytics,
     };
   },
 };

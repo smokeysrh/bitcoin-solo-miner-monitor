@@ -111,15 +111,67 @@ The application follows a modern async architecture:
 - **Avalon Nano**: Socket-based CGMiner API
 - **Magic Miner**: Web scraping-based data extraction
 
-## Installation Packages
+## Installation
 
-Professional installer packages are available for all major platforms:
+### Windows Installer (Recommended)
 
-- **Windows**: `.exe` installer with automatic dependency management
-- **macOS**: `.dmg` disk image with drag-to-install interface
-- **Linux**: `.deb`, `.rpm`, and `.AppImage` packages
+Professional Windows installer with fast, offline installation:
 
-**Note**: macOS and Linux installers are built and tested in CI/CD environments but have not been extensively tested on physical hardware due to platform availability limitations. Community testing and feedback on these platforms is greatly appreciated!
+- **Download:** Single `.exe` file (~55MB)
+- **Installation Time:** <60 seconds
+- **Requirements:** Windows 10 or later (no additional software needed)
+- **Features:** 
+  - Pre-bundled Python runtime (no internet required)
+  - Automatic dependency management
+  - Desktop and Start Menu shortcuts
+  - Clean uninstaller
+  - Optional auto-start with Windows
+
+**Get the latest installer from [GitHub Releases](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases)**
+
+For building the installer yourself, see `BUILD_INSTALLER_FOR_RELEASE.md`.
+
+### Installation from Source
+
+For development or other platforms, install from source:
+
+#### Backend Setup
+
+1. Install Python dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the application:
+```bash
+python src/main.py
+```
+
+#### Frontend Setup
+
+1. Navigate to the frontend directory:
+```bash
+cd src/frontend
+```
+
+2. Install Node.js dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm run dev
+```
+
+4. Build for production:
+```bash
+npm run build
+```
+
+### Future Platform Support
+
+**macOS and Linux:** Installers for these platforms are planned but not yet implemented. The current focus has been on creating a solid, maintainable Windows installer as a foundation. Community contributions for macOS and Linux installers are welcome!
 
 ## Project Philosophy
 

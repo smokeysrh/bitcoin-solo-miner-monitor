@@ -49,9 +49,9 @@ class TestWebSocketManager(unittest.TestCase):
         self.assertIn("system", self.websocket_manager._connections)
         
         # Verify broadcast intervals are set
-        self.assertEqual(self.websocket_manager._broadcast_intervals["miners"], 1.0)
-        self.assertEqual(self.websocket_manager._broadcast_intervals["alerts"], 5.0)
-        self.assertEqual(self.websocket_manager._broadcast_intervals["system"], 10.0)
+        self.assertEqual(self.websocket_manager._broadcast_intervals["miners"], 5.0)
+        self.assertEqual(self.websocket_manager._broadcast_intervals["alerts"], 10.0)
+        self.assertEqual(self.websocket_manager._broadcast_intervals["system"], 30.0)
     
     def test_connect(self):
         """

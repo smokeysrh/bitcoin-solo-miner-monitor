@@ -1,0 +1,69 @@
+{
+  "github_repo": "smokeysrh/bitcoin-solo-miner-monitor",
+  "security_branch": "security-patches",
+  "update_server_url": "https://api.github.com/repos/smokeysrh/bitcoin-solo-miner-monitor",
+  "patch_check_interval_hours": 6,
+  "auto_apply_critical": false,
+  "notification_channels": [
+    {
+      "type": "in_app",
+      "enabled": true,
+      "priority_threshold": "medium"
+    },
+    {
+      "type": "email",
+      "enabled": false,
+      "recipients": [],
+      "priority_threshold": "high"
+    }
+  ],
+  "trusted_signers": [],
+  "patch_verification": {
+    "require_signature": false,
+    "require_checksum": true,
+    "require_community_review": true,
+    "min_review_time_hours": 24
+  },
+  "vulnerability_scanning": {
+    "enabled": true,
+    "scan_dependencies": true,
+    "scan_code": true,
+    "scan_installers": true,
+    "fail_on_critical": true,
+    "fail_on_high": false,
+    "tools": {
+      "safety": {
+        "enabled": true,
+        "timeout_seconds": 120
+      },
+      "bandit": {
+        "enabled": true,
+        "timeout_seconds": 300,
+        "confidence_level": "medium"
+      },
+      "npm_audit": {
+        "enabled": true,
+        "timeout_seconds": 120,
+        "audit_level": "moderate"
+      },
+      "clamav": {
+        "enabled": false,
+        "timeout_seconds": 300
+      }
+    }
+  },
+  "installer_security": {
+    "max_file_size_mb": 500,
+    "min_file_size_mb": 1,
+    "required_checksums": ["sha256"],
+    "verify_file_types": true,
+    "scan_for_malware": true,
+    "check_signatures": false
+  },
+  "reporting": {
+    "generate_markdown": true,
+    "generate_json": true,
+    "include_recommendations": true,
+    "retention_days": 90
+  }
+}

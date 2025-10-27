@@ -5,8 +5,8 @@
         <v-row>
           <v-col cols="12" class="text-center discovery-header">
             <div class="mb-4">
-              <BitcoinLogo 
-                size="md" 
+              <BitcoinLogo
+                size="md"
                 class="discovery-logo"
                 aria-label="Bitcoin Network Discovery"
               />
@@ -109,16 +109,45 @@
                     </v-row>
 
                     <v-row>
+                      <v-col cols="12">
+                        <h3 class="text-h6 mb-2">Port Configuration</h3>
+                        <p class="text-caption mb-4">
+                          Specify which ports to scan (comma-separated)
+                        </p>
+
+                        <v-text-field
+                          v-model="portsInput"
+                          label="Ports to Scan"
+                          hint="e.g., 80, 4028, 8332, 18332, 8333 (Bitcoin P2P port)"
+                          persistent-hint
+                          variant="outlined"
+                          prepend-inner-icon="mdi-ethernet"
+                          :rules="[portsValidationRule]"
+                        ></v-text-field>
+                      </v-col>
+                    </v-row>
+
+                    <v-row>
                       <v-col cols="12" class="text-center">
                         <v-btn
+                          v-if="!scanning"
                           color="primary"
                           size="large"
-                          :loading="scanning"
                           :disabled="!ipRangeValid"
                           @click="startScan"
                         >
                           <v-icon start>mdi-radar</v-icon>
                           Start Network Scan
+                        </v-btn>
+
+                        <v-btn
+                          v-else
+                          color="error"
+                          size="large"
+                          @click="stopScan"
+                        >
+                          <v-icon start>mdi-stop</v-icon>
+                          Stop Scan
                         </v-btn>
                       </v-col>
                     </v-row>
@@ -136,8 +165,30 @@
                           </template>
                         </v-progress-linear>
                         <p class="text-center mt-2">
-                          Scanning IP {{ currentIp }}...
+                          <span v-if="currentIp"
+                            >Scanning IP {{ currentIp }}...</span
+                          >
+                          <span v-else>Starting network scan...</span>
                         </p>
+                        <p class="text-center text-caption">
+                          Found {{ discoveredMiners.length }} miner{{
+                            discoveredMiners.length === 1 ? "" : "s"
+                          }}
+                          so far
+                        </p>
+                      </v-col>
+                    </v-row>
+
+                    <!-- Error/Status Messages -->
+                    <v-row v-if="statusMessage">
+                      <v-col cols="12">
+                        <v-alert
+                          :type="statusMessage.type"
+                          variant="outlined"
+                          class="mb-4"
+                        >
+                          {{ statusMessage.text }}
+                        </v-alert>
                       </v-col>
                     </v-row>
                   </v-card-text>
@@ -148,72 +199,21 @@
               <v-window-item>
                 <v-card flat>
                   <v-card-text>
-                    <v-form ref="manualForm" v-model="manualFormValid">
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.name"
-                            label="Miner Name"
-                            variant="outlined"
-                            :rules="[(v) => !!v || 'Name is required']"
-                          ></v-text-field>
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.ip"
-                            label="IP Address"
-                            variant="outlined"
-                            :rules="[
-                              (v) => !!v || 'IP Address is required',
-                              ipAddressRule,
-                            ]"
-                          ></v-text-field>
-                        </v-col>
-                      </v-row>
-
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-select
-                            v-model="manualMiner.type"
-                            :items="minerTypeOptions"
-                            label="Miner Type"
-                            variant="outlined"
-                            :rules="[(v) => !!v || 'Miner type is required']"
-                            attach
-                            :menu-props="{
-                              closeOnContentClick: true,
-                              maxHeight: 300,
-                              transition: 'slide-y-transition',
-                            }"
-                          ></v-select>
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="manualMiner.port"
-                            label="Port (Optional)"
-                            type="number"
-                            variant="outlined"
-                            hint="Leave empty for default port"
-                            persistent-hint
-                          ></v-text-field>
-                        </v-col>
-                      </v-row>
-
-                      <v-row>
-                        <v-col cols="12" class="text-center">
-                          <v-btn
-                            color="primary"
-                            @click="addManualMiner"
-                            :disabled="!manualFormValid"
-                          >
-                            <v-icon start>mdi-plus</v-icon>
-                            Add Miner
-                          </v-btn>
-                        </v-col>
-                      </v-row>
-                    </v-form>
+                    <div class="text-center">
+                      <h3 class="text-h6 mb-4">Add Miner Manually</h3>
+                      <p class="text-body-2 mb-6">
+                        If you know the exact details of your miner, you can add
+                        it directly using the standardized form.
+                      </p>
+                      <v-btn
+                        color="primary"
+                        size="large"
+                        @click="openAddMinerDialog"
+                      >
+                        <v-icon start>mdi-plus-circle</v-icon>
+                        Add Miner
+                      </v-btn>
+                    </div>
                   </v-card-text>
                 </v-card>
               </v-window-item>
@@ -277,18 +277,26 @@
       </v-container>
     </div>
 
-
+    <!-- Add Miner Dialog -->
+    <AddMinerDialog
+      v-model="addMinerDialog"
+      @miner-added="handleMinerAdded"
+      @error="handleMinerError"
+    />
   </div>
 </template>
 
 <script>
-import BitcoinLogo from '../BitcoinLogo.vue'
+import BitcoinLogo from "../BitcoinLogo.vue";
+import AddMinerDialog from "../AddMinerDialog.vue";
+import { DEFAULT_SCAN_PORTS, formatPortList } from "../../config/ports.config";
 
 export default {
   name: "NetworkDiscoveryScreen",
-  
+
   components: {
-    BitcoinLogo
+    BitcoinLogo,
+    AddMinerDialog,
   },
 
   props: {
@@ -305,6 +313,8 @@ export default {
       scanProgress: 0,
       currentIp: "",
       skipDiscovery: false,
+      websocket: null,
+      statusMessage: null,
 
       ipRange: {
         start: "192.168.1.1",
@@ -312,25 +322,27 @@ export default {
       },
 
       scanOptions: {
-        minerTypes: ["Magic Miner", "Avalon Nano", "Bitaxe"],
-        timeout: 15,
+        minerTypes: ["Magic Miner", "Avalon Nano", "Bitaxe", "Bitcoin Node"],
+        timeout: 3,
       },
 
-      manualFormValid: false,
-      manualMiner: {
-        name: "",
-        ip: "",
-        type: "",
-        port: "",
-      },
+      portsInput: formatPortList(DEFAULT_SCAN_PORTS),
+
+      addMinerDialog: false,
 
       discoveredMiners: [],
 
-      minerTypeOptions: ["Magic Miner", "Avalon Nano", "Bitaxe"],
+      minerTypeOptions: [
+        "Magic Miner",
+        "Avalon Nano",
+        "Bitaxe",
+        "Bitcoin Node",
+      ],
 
       minerHeaders: [
         { title: "Name", key: "name" },
         { title: "IP Address", key: "ip" },
+        { title: "Port", key: "port" },
         { title: "Type", key: "type" },
         { title: "Status", key: "status" },
         { title: "Actions", key: "actions", sortable: false },
@@ -349,6 +361,26 @@ export default {
     noMinersText() {
       return this.scanning ? "Scanning network..." : "No miners discovered yet";
     },
+
+    parsedPorts() {
+      try {
+        if (!this.portsInput || this.portsInput.trim() === "") {
+          return DEFAULT_SCAN_PORTS;
+        }
+
+        const ports = this.portsInput
+          .split(",")
+          .map((p) => p.trim())
+          .filter((p) => p !== "")
+          .map((p) => parseInt(p))
+          .filter((p) => !isNaN(p) && p >= 1 && p <= 65535);
+
+        return ports.length > 0 ? ports : DEFAULT_SCAN_PORTS;
+      } catch (error) {
+        console.error("Error parsing ports:", error);
+        return DEFAULT_SCAN_PORTS;
+      }
+    },
   },
 
   methods: {
@@ -358,108 +390,461 @@ export default {
       return pattern.test(value) || "Invalid IP address format";
     },
 
-    startScan() {
+    portsValidationRule(value) {
+      if (!value || value.trim() === "") {
+        return true; // Allow empty, will use defaults
+      }
+
+      const ports = value
+        .split(",")
+        .map((p) => p.trim())
+        .filter((p) => p);
+
+      if (ports.length === 0) {
+        return true; // Allow empty
+      }
+
+      if (ports.length > 20) {
+        return "Maximum 20 ports allowed";
+      }
+
+      for (const port of ports) {
+        const portNum = parseInt(port);
+        if (isNaN(portNum)) {
+          return `"${port}" is not a valid port number`;
+        }
+        if (portNum < 1 || portNum > 65535) {
+          return `Port ${portNum} must be between 1 and 65535`;
+        }
+      }
+
+      return true;
+    },
+
+    async startScan() {
       if (!this.ipRangeValid) return;
 
       this.scanning = true;
       this.scanProgress = 0;
       this.currentIp = this.ipRange.start;
+      this.discoveredMiners = [];
+      this.statusMessage = null;
 
-      // Simulate network scanning
-      this.simulateScan();
+      try {
+        // Use real network discovery API
+        await this.performRealScan();
+      } catch (error) {
+        console.error("Error during network scan:", error);
+        this.scanning = false;
+        this.statusMessage = {
+          type: "error",
+          text: "Network scan failed. Please try again or add miners manually.",
+        };
+      }
     },
 
-    simulateScan() {
-      // This is a simulation of a network scan
-      // In a real implementation, this would be replaced with actual network scanning logic
+    async stopScan() {
+      try {
+        // Stop the discovery via API
+        const response = await fetch("/api/discovery/stop", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-      const totalIps = this.calculateTotalIps();
-      let scannedIps = 0;
+        if (response.ok) {
+          console.log("Discovery stopped successfully");
+        }
+      } catch (error) {
+        console.error("Error stopping discovery:", error);
+      }
 
-      // Generate some random miners for demonstration
-      const potentialMiners = [
-        {
-          name: "MagicMiner-01",
-          type: "Magic Miner",
-          ip: "10.0.0.100",
-          status: "online",
-        },
-        {
-          name: "AvalonNano-02",
-          type: "Avalon Nano",
-          ip: "10.0.0.101",
-          status: "online",
-        },
-        {
-          name: "Bitaxe-03",
-          type: "Bitaxe",
-          ip: "10.0.0.102",
-          status: "offline",
-        },
-      ];
+      // Clean up local state
+      this.scanning = false;
 
-      const scanInterval = setInterval(() => {
-        scannedIps++;
-        this.scanProgress = (scannedIps / totalIps) * 100;
+      if (this.websocket) {
+        this.websocket.close();
+        this.websocket = null;
+      }
+    },
 
-        // Update current IP being scanned (simplified)
-        const ipParts = this.currentIp.split(".");
-        let lastOctet = parseInt(ipParts[3]);
-        lastOctet++;
-        this.currentIp = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.${lastOctet}`;
+    async performRealScan() {
+      try {
+        // Convert IP range to CIDR notation for the API
+        const networkCidr = this.convertRangeToCidr();
+        console.log("Starting scan with network:", networkCidr);
 
-        // Randomly discover miners
-        if (scannedIps === Math.floor(totalIps * 0.3)) {
-          this.discoveredMiners.push(potentialMiners[0]);
-        } else if (scannedIps === Math.floor(totalIps * 0.6)) {
-          this.discoveredMiners.push(potentialMiners[1]);
-        } else if (scannedIps === Math.floor(totalIps * 0.9)) {
-          this.discoveredMiners.push(potentialMiners[2]);
+        // Use the universal network scan service for consistent port handling
+        const { networkScanService } = await import(
+          "../../services/networkScanService"
+        );
+
+        const scanOptions = {
+          network: networkCidr,
+          // Use parsed ports from user input
+          ports: this.parsedPorts,
+          timeout: this.scanOptions.timeout,
+        };
+
+        await networkScanService.startScan(scanOptions);
+        return; // Let the universal service handle the rest
+
+        console.log("Discovery request:", requestBody);
+
+        // First test if the API endpoint is reachable
+        console.log("Testing API endpoint reachability...");
+        try {
+          // Test a simple GET endpoint first
+          const testResponse = await fetch("/api/miners");
+          console.log("Miners API test response:", testResponse.status);
+          if (testResponse.ok) {
+            const testData = await testResponse.json();
+            console.log("Miners API test data:", testData);
+          } else {
+            console.log("Miners API test failed:", testResponse.status);
+          }
+        } catch (testError) {
+          console.error("API test failed:", testError);
         }
 
-        if (scannedIps >= totalIps) {
-          clearInterval(scanInterval);
-          this.scanning = false;
-          this.activeTab = 2; // Switch to results tab
+        // Test the discovery status endpoint
+        try {
+          const statusResponse = await fetch("/api/discovery/status");
+          console.log("Discovery status test response:", statusResponse.status);
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            console.log("Discovery status test data:", statusData);
+          }
+        } catch (statusError) {
+          console.error("Discovery status test failed:", statusError);
         }
-      }, 100);
+
+        // Test a simple health check endpoint
+        try {
+          const healthResponse = await fetch("/api/health");
+          console.log("Health check test response:", healthResponse.status);
+          if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            console.log("Health check test data:", healthData);
+          }
+        } catch (healthError) {
+          console.error("Health check test failed:", healthError);
+        }
+
+        // All endpoint tests completed successfully
+
+        // Start the discovery via API
+        console.log("Making discovery API request...");
+
+        let response;
+        try {
+          // Add timeout to the fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => {
+            console.log("Discovery API request timed out after 30 seconds");
+            controller.abort();
+          }, 30000);
+
+          response = await fetch("/api/discovery", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          console.log("Discovery API request completed");
+        } catch (fetchError) {
+          console.error("Fetch request failed:", fetchError);
+          if (fetchError.name === "AbortError") {
+            throw new Error("Discovery API request timed out after 30 seconds");
+          }
+          throw new Error(`Network request failed: ${fetchError.message}`);
+        }
+
+        console.log("Discovery response status:", response.status);
+        console.log(
+          "Discovery response headers:",
+          Object.fromEntries(response.headers.entries())
+        );
+
+        if (!response.ok) {
+          let errorText;
+          try {
+            errorText = await response.text();
+            console.error("Discovery API error response:", errorText);
+          } catch (textError) {
+            console.error("Could not read error response:", textError);
+            errorText = "Unknown error";
+          }
+          throw new Error(
+            `Discovery API error: ${response.status} - ${errorText}`
+          );
+        }
+
+        let result;
+        try {
+          result = await response.json();
+          console.log("Discovery started successfully:", result);
+        } catch (jsonError) {
+          console.error("Could not parse JSON response:", jsonError);
+          const responseText = await response.text();
+          console.error("Raw response:", responseText);
+          throw new Error("Invalid JSON response from discovery API");
+        }
+
+        // Validate that the response contains expected data
+        if (!result || typeof result !== "object") {
+          console.error("Invalid discovery response format:", result);
+          throw new Error("Invalid response from discovery API");
+        }
+
+        // Set up WebSocket connection for real-time updates
+        this.connectWebSocketForDiscovery();
+
+        // Poll for status updates as fallback
+        this.pollDiscoveryStatus();
+      } catch (error) {
+        console.error("Error starting real network scan:", error);
+        this.scanning = false;
+        throw error;
+      }
     },
 
-    calculateTotalIps() {
-      // Simple calculation of IP range size
-      const start = this.ipRange.start.split(".")[3];
-      const end = this.ipRange.end.split(".")[3];
-      return end - start + 1;
+    convertRangeToCidr() {
+      // Convert IP range (start-end) to a list of individual IPs
+      // This gives us precise control over the scan range
+      const startParts = this.ipRange.start.split(".").map(Number);
+      const endParts = this.ipRange.end.split(".").map(Number);
+
+      // For now, we'll create a custom range format that the backend can handle
+      // Format: "192.168.1.83-192.168.1.88" for precise range scanning
+      const rangeFormat = `${this.ipRange.start}-${this.ipRange.end}`;
+
+      console.log(
+        `Converting IP range: ${this.ipRange.start} to ${this.ipRange.end}`
+      );
+      console.log(`Range format: ${rangeFormat}`);
+
+      return rangeFormat;
     },
 
-    addManualMiner() {
-      if (!this.$refs.manualForm.validate()) return;
+    connectWebSocketForDiscovery() {
+      try {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-      // Add the manually entered miner to the discovered miners list
+        this.websocket = new WebSocket(wsUrl);
+
+        this.websocket.onopen = () => {
+          console.log("WebSocket connected for discovery");
+          // Subscribe to discovery updates
+          const subscribeMessage = {
+            type: "subscribe",
+            topics: ["discovery"],
+          };
+          console.log("Sending WebSocket subscription:", subscribeMessage);
+          this.websocket.send(JSON.stringify(subscribeMessage));
+        };
+
+        this.websocket.onmessage = (event) => {
+          try {
+            console.log("WebSocket message received:", event.data);
+            const message = JSON.parse(event.data);
+            console.log("Parsed WebSocket message:", message);
+
+            if (message.type === "discovery_update" && message.data) {
+              console.log("Processing discovery update:", message.data);
+              this.handleDiscoveryUpdate(message.data);
+            } else if (message.type === "connection_established") {
+              console.log("WebSocket connection established:", message);
+            } else if (message.type === "subscription_update") {
+              console.log("WebSocket subscription confirmed:", message);
+            } else {
+              console.log("Unhandled WebSocket message type:", message.type);
+            }
+          } catch (error) {
+            console.error(
+              "Error parsing WebSocket message:",
+              error,
+              event.data
+            );
+          }
+        };
+
+        this.websocket.onclose = () => {
+          console.log("WebSocket disconnected");
+          this.websocket = null;
+        };
+
+        this.websocket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+        };
+      } catch (error) {
+        console.error("Error connecting WebSocket:", error);
+      }
+    },
+
+    handleDiscoveryUpdate(data) {
+      console.log("=== DISCOVERY UPDATE ===");
+      console.log("Raw data:", data);
+      console.log("Data type:", typeof data);
+      console.log("Data keys:", Object.keys(data || {}));
+
+      // Update progress
+      if (data.total_hosts && data.scanned_hosts !== undefined) {
+        const newProgress = (data.scanned_hosts / data.total_hosts) * 100;
+        console.log(
+          `Progress update: ${data.scanned_hosts}/${data.total_hosts} = ${newProgress}%`
+        );
+        this.scanProgress = newProgress;
+      } else {
+        console.log("No progress data available:", {
+          total_hosts: data.total_hosts,
+          scanned_hosts: data.scanned_hosts,
+        });
+      }
+
+      // Update current IP
+      if (data.current_ip) {
+        console.log("Current IP update:", data.current_ip);
+        this.currentIp = data.current_ip;
+      } else {
+        console.log("No current IP in update");
+      }
+
+      // Update found miners
+      if (data.found_miners && Array.isArray(data.found_miners)) {
+        console.log("Found miners update:", data.found_miners);
+        this.discoveredMiners = data.found_miners.map((miner) => ({
+          name:
+            miner.device_info?.model || `${miner.type} (${miner.ip_address})`,
+          ip: miner.ip_address,
+          type: this.mapMinerType(miner.type),
+          status: "online",
+          port: miner.port,
+        }));
+
+        // Automatically emit miners found to parent to enable Continue button
+        this.$emit("miners-found", this.discoveredMiners);
+      } else {
+        console.log("No miners data or invalid format:", data.found_miners);
+      }
+
+      // Handle completion
+      if (data.status === "completed") {
+        this.scanning = false;
+        this.activeTab = 2; // Switch to results tab
+
+        if (this.websocket) {
+          this.websocket.close();
+          this.websocket = null;
+        }
+
+        const minerCount = this.discoveredMiners.length;
+        this.statusMessage = {
+          type: minerCount > 0 ? "success" : "info",
+          text:
+            minerCount > 0
+              ? `Discovery completed! Found ${minerCount} miner${minerCount === 1 ? "" : "s"}.`
+              : "Discovery completed. No miners found on the network.",
+        };
+
+        console.log(`Discovery completed. Found ${minerCount} miners.`);
+      } else if (data.status === "error") {
+        this.scanning = false;
+        this.statusMessage = {
+          type: "error",
+          text: `Discovery failed: ${data.error || "Unknown error occurred"}`,
+        };
+        console.error("Discovery error:", data.error);
+
+        if (this.websocket) {
+          this.websocket.close();
+          this.websocket = null;
+        }
+      }
+    },
+
+    mapMinerType(apiType) {
+      // Map API miner types to display names
+      const typeMap = {
+        bitaxe: "Bitaxe",
+        avalon_nano: "Avalon Nano",
+        magic_miner: "Magic Miner",
+        bitcoin_node: "Bitcoin Node",
+      };
+      return typeMap[apiType] || apiType;
+    },
+
+    async pollDiscoveryStatus() {
+      // Fallback polling in case WebSocket fails
+      console.log("Starting discovery status polling...");
+      const pollInterval = setInterval(async () => {
+        if (!this.scanning) {
+          console.log("Stopping discovery polling - scan no longer active");
+          clearInterval(pollInterval);
+          return;
+        }
+
+        try {
+          console.log("Polling discovery status...");
+          const response = await fetch("/api/discovery/status");
+          console.log("Discovery status response:", response.status);
+
+          if (response.ok) {
+            const status = await response.json();
+            console.log("Discovery status data:", status);
+
+            // Always update from polling for debugging
+            this.handleDiscoveryUpdate(status);
+          } else {
+            console.error("Discovery status request failed:", response.status);
+          }
+        } catch (error) {
+          console.error("Error polling discovery status:", error);
+        }
+      }, 2000); // Poll every 2 seconds
+    },
+
+    openAddMinerDialog() {
+      this.addMinerDialog = true;
+    },
+
+    handleMinerAdded(miner) {
+      // Add the miner to the discovered miners list
       this.discoveredMiners.push({
-        name: this.manualMiner.name,
-        ip: this.manualMiner.ip,
-        type: this.manualMiner.type,
-        port: this.manualMiner.port || null,
+        name: miner.name,
+        ip: miner.ip_address,
+        type: this.mapMinerType(miner.type),
+        port: miner.port || null,
         status: "unknown", // Status is unknown until we connect to it
       });
 
-      // Reset the form
-      this.manualMiner = {
-        name: "",
-        ip: "",
-        type: "",
-        port: "",
-      };
+      // Automatically emit miners found to parent to enable Continue button
+      this.$emit("miners-found", this.discoveredMiners);
 
-      // Switch to results tab
+      // Switch to results tab to show the added miner
       this.activeTab = 2;
     },
 
+    handleMinerError(error) {
+      console.error("Error adding miner in wizard:", error);
+      // Could show a snackbar or alert here if needed
+    },
+
     removeMiner(miner) {
-      const index = this.discoveredMiners.findIndex((m) => m.ip === miner.ip);
+      const index = this.discoveredMiners.findIndex(
+        (m) => m.ip === miner.ip && m.port === miner.port
+      );
       if (index !== -1) {
         this.discoveredMiners.splice(index, 1);
+
+        // Automatically emit miners found to parent to update Continue button state
+        this.$emit("miners-found", this.discoveredMiners);
       }
     },
 
@@ -467,6 +852,14 @@ export default {
       // Emit the discovered miners to the parent component
       this.$emit("miners-found", this.discoveredMiners);
     },
+  },
+
+  beforeUnmount() {
+    // Clean up WebSocket connection when component is destroyed
+    if (this.websocket) {
+      this.websocket.close();
+      this.websocket = null;
+    }
   },
 };
 </script>

@@ -33,6 +33,10 @@ class AppPaths:
         
         # Ensure base path is absolute
         self._base_path = self._base_path.resolve()
+        
+        # Determine if we're in a read-only installation directory (like Program Files)
+        # If so, use user-specific directories for writable data
+        self._use_user_dirs = self._is_readonly_location()
     
     @property
     def base_path(self) -> Path:
@@ -67,11 +71,19 @@ class AppPaths:
     @property
     def data_path(self) -> Path:
         """Get the data directory."""
+        if self._use_user_dirs:
+            # Use APPDATA for writable data in installed environments
+            appdata = Path(os.environ.get('APPDATA', '~/.local/share')).expanduser()
+            return appdata / "Bitcoin Solo Miner Monitor" / "data"
         return self._base_path / "data"
     
     @property
     def logs_path(self) -> Path:
         """Get the logs directory."""
+        if self._use_user_dirs:
+            # Use APPDATA for writable logs in installed environments
+            appdata = Path(os.environ.get('APPDATA', '~/.local/share')).expanduser()
+            return appdata / "Bitcoin Solo Miner Monitor" / "logs"
         return self._base_path / "logs"
     
     @property
@@ -83,6 +95,31 @@ class AppPaths:
     def log_file_path(self) -> Path:
         """Get the main log file path."""
         return self.logs_path / "app.log"
+    
+    def _is_readonly_location(self) -> bool:
+        """
+        Check if the base path is in a read-only location (like Program Files).
+        
+        Returns:
+            bool: True if in a read-only location, False otherwise
+        """
+        # Check if we're in Program Files or other system directories
+        # Use simple string matching to avoid permission errors
+        base_str = str(self._base_path).lower().replace('\\', '/')
+        readonly_indicators = [
+            'program files',
+            'program files (x86)',
+            '/usr/',
+            '/opt/',
+            'c:/windows',
+            '/applications/'  # macOS
+        ]
+        
+        for indicator in readonly_indicators:
+            if indicator in base_str:
+                return True
+        
+        return False
     
     def ensure_directories(self) -> None:
         """
@@ -123,23 +160,56 @@ class AppPaths:
         if path.is_absolute():
             return path
         else:
-            return (self._base_path / path).resolve()
+            # Check if this is a data or logs path that should use user directories
+            path_str_normalized = str(path).replace('\\', '/')
+            if path_str_normalized.startswith('data/'):
+                # Resolve relative to data_path
+                relative_part = Path(*Path(path_str_normalized).parts[1:]) if len(Path(path_str_normalized).parts) > 1 else Path()
+                return (self.data_path / relative_part).resolve()
+            elif path_str_normalized.startswith('logs/'):
+                # Resolve relative to logs_path
+                relative_part = Path(*Path(path_str_normalized).parts[1:]) if len(Path(path_str_normalized).parts) > 1 else Path()
+                return (self.logs_path / relative_part).resolve()
+            else:
+                # Other paths resolve relative to base_path
+                return (self._base_path / path).resolve()
     
     def is_safe_path(self, path: Path) -> bool:
         """
-        Check if a path is safe (within the application directory).
+        Check if a path is safe (within the application directory or user data directory).
         
         Args:
             path (Path): Path to check
             
         Returns:
-            bool: True if path is safe (within app directory)
+            bool: True if path is safe (within app directory or user directories)
         """
         try:
             resolved_path = path.resolve()
-            resolved_path.relative_to(self._base_path)
-            return True
-        except ValueError:
+            
+            # Check if within base installation directory
+            try:
+                resolved_path.relative_to(self._base_path)
+                return True
+            except ValueError:
+                pass
+            
+            # If using user directories, also check if within data or logs paths
+            if self._use_user_dirs:
+                try:
+                    resolved_path.relative_to(self.data_path.parent)
+                    return True
+                except ValueError:
+                    pass
+                
+                try:
+                    resolved_path.relative_to(self.logs_path.parent)
+                    return True
+                except ValueError:
+                    pass
+            
+            return False
+        except (ValueError, OSError):
             return False
     
     def get_config_file_path(self, filename: str) -> Path:
