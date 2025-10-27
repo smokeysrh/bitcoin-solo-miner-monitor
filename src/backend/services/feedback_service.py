@@ -11,15 +11,22 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from ..utils.app_paths import get_app_paths
 
 logger = logging.getLogger(__name__)
 
 class FeedbackService:
     """Service for handling community feedback and validation reports"""
     
-    def __init__(self, feedback_dir: str = "community-feedback"):
-        self.feedback_dir = Path(feedback_dir)
-        self.feedback_dir.mkdir(exist_ok=True)
+    def __init__(self, feedback_dir: Optional[str] = None):
+        if feedback_dir:
+            self.feedback_dir = Path(feedback_dir)
+        else:
+            # Use data directory for feedback storage
+            app_paths = get_app_paths()
+            self.feedback_dir = app_paths.data_path / "community-feedback"
+        
+        self.feedback_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize feedback categories
         self.categories = {

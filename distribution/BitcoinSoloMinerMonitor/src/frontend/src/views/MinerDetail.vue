@@ -1,11 +1,14 @@
 <template>
-  <div>
+  <div class="miner-detail">
     <!-- Loading State -->
-    <v-skeleton-loader
-      v-if="loading && !miner"
-      type="card, list-item-three-line, card-heading, card-heading"
-      class="mx-auto"
-    ></v-skeleton-loader>
+    <div v-if="loading && !miner" class="loading-container">
+      <v-progress-circular
+        indeterminate
+        color="primary"
+        size="64"
+      ></v-progress-circular>
+      <p class="mt-4 text-center">Loading miner details...</p>
+    </div>
 
     <!-- Error State -->
     <v-alert v-else-if="error" type="error" class="mb-4">
@@ -13,12 +16,12 @@
     </v-alert>
 
     <!-- Not Found State -->
-    <v-alert v-else-if="!miner" type="warning" class="mb-4">
+    <v-alert v-else-if="!loading && !miner" type="warning" class="mb-4">
       Miner not found
     </v-alert>
 
-    <!-- Miner Details -->
-    <template v-else>
+    <!-- Miner Details - Only render when miner exists -->
+    <div v-else-if="miner">
       <!-- Header -->
       <v-row>
         <v-col cols="12" md="8">
@@ -119,9 +122,9 @@
           <v-tab>Settings</v-tab>
         </v-tabs>
 
-        <v-tabs-items v-model="activeTab">
+        <v-window v-model="activeTab">
           <!-- Overview Tab -->
-          <v-tab-item>
+          <v-window-item>
             <v-card flat>
               <v-card-text>
                 <v-row>
@@ -129,44 +132,42 @@
                     <v-card outlined>
                       <v-card-title>Device Information</v-card-title>
                       <v-card-text>
-                        <v-simple-table>
-                          <template v-slot:default>
-                            <tbody>
-                              <tr>
-                                <td>Type</td>
-                                <td>{{ miner.type }}</td>
-                              </tr>
-                              <tr>
-                                <td>Model</td>
-                                <td>{{ getDeviceInfo("model") }}</td>
-                              </tr>
-                              <tr>
-                                <td>IP Address</td>
-                                <td>{{ miner.ip_address }}</td>
-                              </tr>
-                              <tr>
-                                <td>Port</td>
-                                <td>{{ miner.port || "Default" }}</td>
-                              </tr>
-                              <tr>
-                                <td>Firmware Version</td>
-                                <td>{{ getDeviceInfo("firmware_version") }}</td>
-                              </tr>
-                              <tr>
-                                <td>MAC Address</td>
-                                <td>{{ getDeviceInfo("mac_address") }}</td>
-                              </tr>
-                              <tr>
-                                <td>Added On</td>
-                                <td>{{ formatDate(miner.added_at) }}</td>
-                              </tr>
-                              <tr>
-                                <td>Last Updated</td>
-                                <td>{{ formatDate(miner.last_updated) }}</td>
-                              </tr>
-                            </tbody>
-                          </template>
-                        </v-simple-table>
+                        <v-table>
+                          <tbody>
+                            <tr>
+                              <td>Type</td>
+                              <td>{{ miner.type }}</td>
+                            </tr>
+                            <tr>
+                              <td>Model</td>
+                              <td>{{ getDeviceInfo("model") }}</td>
+                            </tr>
+                            <tr>
+                              <td>IP Address</td>
+                              <td>{{ miner.ip_address }}</td>
+                            </tr>
+                            <tr>
+                              <td>Port</td>
+                              <td>{{ miner.port || "Default" }}</td>
+                            </tr>
+                            <tr>
+                              <td>Firmware Version</td>
+                              <td>{{ getDeviceInfo("firmware_version") }}</td>
+                            </tr>
+                            <tr>
+                              <td>MAC Address</td>
+                              <td>{{ getDeviceInfo("mac_address") }}</td>
+                            </tr>
+                            <tr>
+                              <td>Added On</td>
+                              <td>{{ formatDate(miner.added_at) }}</td>
+                            </tr>
+                            <tr>
+                              <td>Last Updated</td>
+                              <td>{{ formatDate(miner.last_updated) }}</td>
+                            </tr>
+                          </tbody>
+                        </v-table>
                       </v-card-text>
                     </v-card>
                   </v-col>
@@ -175,93 +176,102 @@
                     <v-card outlined>
                       <v-card-title>Status Information</v-card-title>
                       <v-card-text>
-                        <v-simple-table>
-                          <template v-slot:default>
-                            <tbody>
-                              <tr>
-                                <td>Status</td>
-                                <td>
-                                  <v-chip
-                                    :color="getStatusColor(miner.status)"
-                                    small
-                                    dark
-                                  >
-                                    {{ miner.status }}
-                                  </v-chip>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td>Hashrate</td>
-                                <td>{{ formatHashrate(miner.hashrate) }}</td>
-                              </tr>
-                              <tr>
-                                <td>Temperature</td>
-                                <td>
-                                  {{ formatTemperature(miner.temperature) }}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td>Fan Speed</td>
-                                <td>
-                                  {{
-                                    miner.fan_speed
-                                      ? `${miner.fan_speed}%`
-                                      : "N/A"
-                                  }}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td>Power</td>
-                                <td>
-                                  {{ miner.power ? `${miner.power}W` : "N/A" }}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td>Efficiency</td>
-                                <td>
-                                  {{
-                                    calculateEfficiency(
-                                      miner.hashrate,
-                                      miner.power,
-                                    )
-                                  }}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td>Accepted Shares</td>
-                                <td>{{ miner.shares_accepted || 0 }}</td>
-                              </tr>
-                              <tr>
-                                <td>Rejected Shares</td>
-                                <td>{{ miner.shares_rejected || 0 }}</td>
-                              </tr>
-                              <tr>
-                                <td>Hardware Errors</td>
-                                <td>{{ miner.hardware_errors || 0 }}</td>
-                              </tr>
-                              <tr>
-                                <td>Uptime</td>
-                                <td>{{ formatUptime(miner.uptime) }}</td>
-                              </tr>
-                            </tbody>
-                          </template>
-                        </v-simple-table>
+                        <v-table>
+                          <tbody>
+                            <tr>
+                              <td>Status</td>
+                              <td>
+                                <v-chip
+                                  :color="getStatusColor(miner.status)"
+                                  size="small"
+                                  dark
+                                >
+                                  {{ miner.status }}
+                                </v-chip>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Hashrate</td>
+                              <td>{{ formatHashrate(miner.hashrate) }}</td>
+                            </tr>
+                            <tr>
+                              <td>Temperature</td>
+                              <td>
+                                {{ formatTemperature(miner.temperature) }}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Fan Speed</td>
+                              <td>
+                                {{
+                                  miner.fan_speed
+                                    ? `${miner.fan_speed}%`
+                                    : "N/A"
+                                }}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Power</td>
+                              <td>
+                                {{ miner.power ? `${miner.power}W` : "N/A" }}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Efficiency</td>
+                              <td>
+                                {{
+                                  calculateEfficiency(
+                                    miner.hashrate,
+                                    miner.power,
+                                  )
+                                }}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>Accepted Shares</td>
+                              <td>{{ miner.shares_accepted || 0 }}</td>
+                            </tr>
+                            <tr>
+                              <td>Rejected Shares</td>
+                              <td>{{ miner.shares_rejected || 0 }}</td>
+                            </tr>
+                            <tr>
+                              <td>Hardware Errors</td>
+                              <td>{{ miner.hardware_errors || 0 }}</td>
+                            </tr>
+                            <tr>
+                              <td>Uptime</td>
+                              <td>{{ formatUptime(miner.uptime) }}</td>
+                            </tr>
+                          </tbody>
+                        </v-table>
                       </v-card-text>
                     </v-card>
                   </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-tab-item>
+          </v-window-item>
 
           <!-- Performance Tab -->
-          <v-tab-item>
+          <v-window-item>
             <v-card flat>
               <v-card-text>
                 <v-row>
                   <v-col cols="12">
                     <v-card outlined>
-                      <v-card-title>Hashrate History</v-card-title>
+                      <v-card-title>
+                        Analytics Preview
+                        <v-spacer></v-spacer>
+                        <v-btn
+                          color="primary"
+                          :to="`/analytics?miner=${props.id}`"
+                          size="small"
+                        >
+                          <v-icon left>mdi-chart-line</v-icon>
+                          See Full Analytics
+                        </v-btn>
+                      </v-card-title>
                       <v-card-text>
                         <div class="text-center" v-if="loadingMetrics">
                           <v-progress-circular
@@ -271,7 +281,25 @@
                           <div class="mt-2">Loading metrics...</div>
                         </div>
                         <div
-                          v-else-if="!hashrateData.length"
+                          v-else-if="metricsError"
+                          class="text-center pa-5"
+                        >
+                          <v-icon size="64" color="error"
+                            >mdi-alert-circle</v-icon
+                          >
+                          <div class="mt-3 text-error">
+                            {{ metricsError }}
+                          </div>
+                          <v-btn
+                            color="primary"
+                            class="mt-3"
+                            @click="fetchPreviewMetrics"
+                          >
+                            Retry
+                          </v-btn>
+                        </div>
+                        <div
+                          v-else-if="!hashrateData.length && !temperatureData.length && !powerData.length"
                           class="text-center pa-5"
                         >
                           <v-icon size="64" color="grey lighten-1"
@@ -280,87 +308,40 @@
                           <div class="mt-3">
                             No performance data available yet
                           </div>
-                        </div>
-                        <div v-else style="height: 300px">
-                          <!-- Placeholder for chart component -->
-                          <div class="text-center">
-                            Hashrate chart will be displayed here
+                          <div class="text-caption mt-2">
+                            Data will appear once metrics are collected
                           </div>
                         </div>
-                      </v-card-text>
-                    </v-card>
-                  </v-col>
-                </v-row>
-
-                <v-row class="mt-4">
-                  <v-col cols="12" md="6">
-                    <v-card outlined>
-                      <v-card-title>Temperature History</v-card-title>
-                      <v-card-text>
-                        <div class="text-center" v-if="loadingMetrics">
-                          <v-progress-circular
-                            indeterminate
-                            color="primary"
-                          ></v-progress-circular>
-                          <div class="mt-2">Loading metrics...</div>
-                        </div>
-                        <div
-                          v-else-if="!temperatureData.length"
-                          class="text-center pa-5"
-                        >
-                          <v-icon size="64" color="grey lighten-1"
-                            >mdi-thermometer</v-icon
-                          >
-                          <div class="mt-3">
-                            No temperature data available yet
-                          </div>
-                        </div>
-                        <div v-else style="height: 200px">
-                          <!-- Placeholder for chart component -->
-                          <div class="text-center">
-                            Temperature chart will be displayed here
-                          </div>
-                        </div>
-                      </v-card-text>
-                    </v-card>
-                  </v-col>
-
-                  <v-col cols="12" md="6">
-                    <v-card outlined>
-                      <v-card-title>Power Consumption</v-card-title>
-                      <v-card-text>
-                        <div class="text-center" v-if="loadingMetrics">
-                          <v-progress-circular
-                            indeterminate
-                            color="primary"
-                          ></v-progress-circular>
-                          <div class="mt-2">Loading metrics...</div>
-                        </div>
-                        <div
-                          v-else-if="!powerData.length"
-                          class="text-center pa-5"
-                        >
-                          <v-icon size="64" color="grey lighten-1"
-                            >mdi-flash</v-icon
-                          >
-                          <div class="mt-3">No power data available yet</div>
-                        </div>
-                        <div v-else style="height: 200px">
-                          <!-- Placeholder for chart component -->
-                          <div class="text-center">
-                            Power chart will be displayed here
-                          </div>
-                        </div>
+                        <v-row v-else>
+                          <v-col cols="12">
+                            <div class="text-subtitle-2 mb-2">Hashrate History (Last 6 Hours)</div>
+                            <div style="position: relative; height: 200px;">
+                              <canvas ref="previewHashrateChart"></canvas>
+                            </div>
+                          </v-col>
+                          <v-col cols="12" md="6">
+                            <div class="text-subtitle-2 mb-2">Temperature History</div>
+                            <div style="position: relative; height: 150px;">
+                              <canvas ref="previewTemperatureChart"></canvas>
+                            </div>
+                          </v-col>
+                          <v-col cols="12" md="6">
+                            <div class="text-subtitle-2 mb-2">Power Consumption</div>
+                            <div style="position: relative; height: 150px;">
+                              <canvas ref="previewPowerChart"></canvas>
+                            </div>
+                          </v-col>
+                        </v-row>
                       </v-card-text>
                     </v-card>
                   </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-tab-item>
+          </v-window-item>
 
           <!-- Pool Tab -->
-          <v-tab-item>
+          <v-window-item>
             <v-card flat>
               <v-card-text>
                 <v-row>
@@ -377,50 +358,48 @@
                           >
                           <div class="mt-3">No pool information available</div>
                         </div>
-                        <v-simple-table v-else>
-                          <template v-slot:default>
-                            <thead>
-                              <tr>
-                                <th>URL</th>
-                                <th>User</th>
-                                <th>Status</th>
-                                <th>Difficulty</th>
-                                <th>Active</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr
-                                v-for="(pool, index) in miner.pool_info"
-                                :key="index"
-                              >
-                                <td>{{ pool.url }}:{{ pool.port }}</td>
-                                <td>{{ pool.user }}</td>
-                                <td>
-                                  <v-chip
-                                    :color="pool.is_active ? 'success' : 'grey'"
-                                    small
-                                    dark
-                                  >
-                                    {{
-                                      pool.status ||
-                                      (pool.is_active ? "Active" : "Inactive")
-                                    }}
-                                  </v-chip>
-                                </td>
-                                <td>{{ pool.difficulty || "N/A" }}</td>
-                                <td>
-                                  <v-icon
-                                    :color="pool.is_active ? 'success' : 'grey'"
-                                  >
-                                    {{
-                                      pool.is_active ? "mdi-check" : "mdi-close"
-                                    }}
-                                  </v-icon>
-                                </td>
-                              </tr>
-                            </tbody>
-                          </template>
-                        </v-simple-table>
+                        <v-table v-else>
+                          <thead>
+                            <tr>
+                              <th>URL</th>
+                              <th>User</th>
+                              <th>Status</th>
+                              <th>Difficulty</th>
+                              <th>Active</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr
+                              v-for="(pool, index) in miner.pool_info"
+                              :key="index"
+                            >
+                              <td>{{ pool.url }}:{{ pool.port }}</td>
+                              <td>{{ pool.user }}</td>
+                              <td>
+                                <v-chip
+                                  :color="pool.is_active ? 'success' : 'grey'"
+                                  size="small"
+                                  dark
+                                >
+                                  {{
+                                    pool.status ||
+                                    (pool.is_active ? "Active" : "Inactive")
+                                  }}
+                                </v-chip>
+                              </td>
+                              <td>{{ pool.difficulty || "N/A" }}</td>
+                              <td>
+                                <v-icon
+                                  :color="pool.is_active ? 'success' : 'grey'"
+                                >
+                                  {{
+                                    pool.is_active ? "mdi-check" : "mdi-close"
+                                  }}
+                                </v-icon>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </v-table>
                       </v-card-text>
                     </v-card>
                   </v-col>
@@ -485,10 +464,10 @@
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-tab-item>
+          </v-window-item>
 
           <!-- Settings Tab -->
-          <v-tab-item>
+          <v-window-item>
             <v-card flat>
               <v-card-text>
                 <v-row>
@@ -504,7 +483,6 @@
                           ></v-text-field>
 
                           <v-slider
-                            v-if="supportsFanControl"
                             v-model="minerSettings.fan_speed"
                             label="Fan Speed"
                             thumb-label
@@ -518,7 +496,6 @@
                           ></v-slider>
 
                           <v-text-field
-                            v-if="supportsFrequencyControl"
                             v-model="minerSettings.frequency"
                             label="Frequency (MHz)"
                             type="number"
@@ -542,42 +519,13 @@
                     </v-card>
                   </v-col>
 
-                  <v-col cols="12" md="6">
-                    <v-card outlined>
-                      <v-card-title>Supported Features</v-card-title>
-                      <v-card-text>
-                        <v-chip-group column>
-                          <v-chip
-                            v-for="feature in supportedFeatures"
-                            :key="feature"
-                            color="primary"
-                            outlined
-                          >
-                            {{ formatFeatureName(feature) }}
-                          </v-chip>
-                        </v-chip-group>
-
-                        <div
-                          v-if="!supportedFeatures.length"
-                          class="text-center pa-5"
-                        >
-                          <v-icon size="64" color="grey lighten-1"
-                            >mdi-cog</v-icon
-                          >
-                          <div class="mt-3">
-                            No feature information available
-                          </div>
-                        </div>
-                      </v-card-text>
-                    </v-card>
-                  </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-          </v-tab-item>
-        </v-tabs-items>
+          </v-window-item>
+        </v-window>
       </v-card>
-    </template>
+    </div>
 
     <!-- Edit Miner Dialog -->
     <v-dialog v-model="editDialog" max-width="500px">
@@ -642,11 +590,17 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import { formatTemperature } from "../utils/formatters";
+import { usePollingManager } from "../composables/usePollingManager";
+import { Chart, registerables } from "chart.js";
+import { addMessageHandler, removeMessageHandler } from "../services/websocket";
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 export default {
   name: "MinerDetail",
@@ -665,9 +619,20 @@ export default {
     // State
     const activeTab = ref(0);
     const loadingMetrics = ref(false);
+    const metricsError = ref(null);
     const hashrateData = ref([]);
     const temperatureData = ref([]);
     const powerData = ref([]);
+    
+    // Chart refs
+    const previewHashrateChart = ref(null);
+    const previewTemperatureChart = ref(null);
+    const previewPowerChart = ref(null);
+    
+    // Chart instances
+    let hashrateChartInstance = null;
+    let temperatureChartInstance = null;
+    let powerChartInstance = null;
 
     // Dialogs
     const editDialog = ref(false);
@@ -700,26 +665,21 @@ export default {
     });
     const updatingSettings = ref(false);
 
-    // Refresh interval
-    let refreshInterval = null;
+    // Set up polling manager
+    const { startPolling, stopPolling } = usePollingManager({
+      fetchFunction: () => minersStore.fetchMiner(props.id),
+      intervalKey: "refresh_interval",
+      componentName: "MinerDetail",
+      enabled: true,
+    });
 
     // Computed properties
-    const miner = computed(() => minersStore.getMinerById(props.id));
+    const miner = computed(() => {
+      const minerGetter = minersStore.getMinerById;
+      return minerGetter ? minerGetter(props.id) : null;
+    });
     const loading = computed(() => minersStore.loading);
     const error = computed(() => minersStore.error);
-
-    const supportedFeatures = computed(() => {
-      if (!miner.value) return [];
-      return miner.value.supported_features || [];
-    });
-
-    const supportsFanControl = computed(() => {
-      return supportedFeatures.value.includes("fan_control");
-    });
-
-    const supportsFrequencyControl = computed(() => {
-      return supportedFeatures.value.includes("frequency_control");
-    });
 
     // Methods
     const formatHashrate = (hashrate) => {
@@ -786,12 +746,24 @@ export default {
     };
 
     const calculateEfficiency = (hashrate, power) => {
+      // Check if miner already has efficiency calculated by backend
+      if (miner.value && miner.value.efficiency && miner.value.efficiency > 0) {
+        return `${miner.value.efficiency.toFixed(2)} W/TH`;
+      }
+
+      // Fallback: calculate efficiency if not provided by backend
       if (!hashrate || !power || power === 0) return "N/A";
 
-      // Convert to TH/s per watt
-      const efficiency = hashrate / power / 1000000000;
+      // Convert hashrate from H/s to TH/s (1 TH = 10^12 H)
+      const hashrateInTH = hashrate / 1000000000000;
 
-      return `${efficiency.toFixed(6)} TH/s/W`;
+      if (hashrateInTH === 0) return "N/A";
+
+      // Calculate efficiency as watts per terahash (W/TH)
+      // Lower values indicate better efficiency
+      const efficiency = power / hashrateInTH;
+
+      return `${efficiency.toFixed(2)} W/TH`;
     };
 
     const getDeviceInfo = (key) => {
@@ -806,14 +778,6 @@ export default {
 
       return "N/A";
     };
-
-    const formatFeatureName = (feature) => {
-      return feature
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-    };
-
     const openEditDialog = () => {
       if (!miner.value) return;
 
@@ -904,15 +868,9 @@ export default {
       try {
         const settings = {
           name: minerSettings.value.name,
+          fan_speed: minerSettings.value.fan_speed,
+          frequency: minerSettings.value.frequency,
         };
-
-        if (supportsFanControl.value) {
-          settings.fan_speed = minerSettings.value.fan_speed;
-        }
-
-        if (supportsFrequencyControl.value) {
-          settings.frequency = minerSettings.value.frequency;
-        }
 
         await minersStore.updateMiner(miner.value.id, {
           name: settings.name,
@@ -931,68 +889,398 @@ export default {
       }
     };
 
-    const fetchMetrics = async () => {
-      if (!miner.value) return;
+    const fetchPreviewMetrics = async () => {
+      console.log('[fetchPreviewMetrics] Called, miner.value:', miner.value);
+      
+      if (!miner.value) {
+        console.warn('[fetchPreviewMetrics] No miner data available, skipping metrics fetch');
+        return;
+      }
+
+      if (!miner.value.id) {
+        console.error('[fetchPreviewMetrics] Miner has no ID:', miner.value);
+        metricsError.value = "Miner ID is missing";
+        return;
+      }
 
       loadingMetrics.value = true;
+      metricsError.value = null;
 
       try {
-        // Get metrics for the last 24 hours
+        console.log('[fetchPreviewMetrics] Fetching metrics for miner ID:', miner.value.id);
+        
+        // Get metrics for the last 6 hours with 15-minute intervals
         const endTime = new Date();
-        const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+        const startTime = new Date(endTime.getTime() - 6 * 60 * 60 * 1000);
+
+        console.log('[fetchPreviewMetrics] Time range:', {
+          start: startTime.toISOString(),
+          end: endTime.toISOString(),
+          interval: '15m'
+        });
 
         const metrics = await minersStore.fetchMinerMetrics(
           miner.value.id,
           startTime.toISOString(),
           endTime.toISOString(),
-          "5m",
+          "15m",
         );
+
+        console.log('[fetchPreviewMetrics] Metrics received:', metrics?.length || 0, 'data points');
 
         // Process metrics data for charts
         processMetricsData(metrics);
+        
+        // Only try to render if we have data
+        if (hashrateData.value.length > 0 || temperatureData.value.length > 0 || powerData.value.length > 0) {
+          // Wait for DOM to update with the new data
+          await nextTick();
+          await nextTick();
+          
+          // Try to render charts with retry logic
+          let retries = 0;
+          const maxRetries = 5;
+          const tryRender = async () => {
+            // Check if all required refs exist and are valid DOM elements
+            const hasValidRefs = 
+              previewHashrateChart.value instanceof HTMLCanvasElement &&
+              previewTemperatureChart.value instanceof HTMLCanvasElement &&
+              previewPowerChart.value instanceof HTMLCanvasElement;
+            
+            if (hasValidRefs) {
+              // Extra safety: ensure canvases are actually in the DOM and visible
+              const allVisible = 
+                previewHashrateChart.value.offsetParent !== null &&
+                previewTemperatureChart.value.offsetParent !== null &&
+                previewPowerChart.value.offsetParent !== null;
+              
+              if (allVisible) {
+                renderPreviewCharts();
+              } else if (retries < maxRetries) {
+                retries++;
+                console.log(`Canvas elements not visible yet, retry ${retries}/${maxRetries}`);
+                setTimeout(tryRender, 150);
+              } else {
+                console.warn('Failed to render charts: canvas elements not visible after max retries');
+              }
+            } else if (retries < maxRetries) {
+              retries++;
+              console.log(`Canvas refs not ready, retry ${retries}/${maxRetries}`);
+              setTimeout(tryRender, 150);
+            } else {
+              console.warn('Failed to render charts: refs not ready after max retries');
+            }
+          };
+          tryRender();
+        }
       } catch (error) {
         console.error(
-          `Error fetching metrics for miner ${miner.value.id}:`,
+          `[fetchPreviewMetrics] Error fetching metrics for miner ${miner.value?.id}:`,
           error,
         );
+        
+        // Check if it's a 404 error
+        if (error.response?.status === 404) {
+          metricsError.value = "Miner not found. The miner may still be initializing.";
+        } else {
+          metricsError.value = "Failed to load metrics data. Please try again.";
+        }
       } finally {
         loadingMetrics.value = false;
       }
     };
 
     const processMetricsData = (metrics) => {
-      // Process hashrate data
+      if (!metrics || metrics.length === 0) {
+        hashrateData.value = [];
+        temperatureData.value = [];
+        powerData.value = [];
+        return;
+      }
+
+      // Process hashrate data - API returns metric_type, time_bucket, and avg_value
       hashrateData.value = metrics
-        .filter((m) => m.field === "hashrate")
+        .filter((m) => m.metric_type === "hashrate")
         .map((m) => ({
-          time: new Date(m.time),
-          value: m.value,
+          time: new Date(m.time_bucket),
+          value: m.avg_value,
         }));
 
       // Process temperature data
       temperatureData.value = metrics
-        .filter((m) => m.field === "temperature")
+        .filter((m) => m.metric_type === "temperature")
         .map((m) => ({
-          time: new Date(m.time),
-          value: m.value,
+          time: new Date(m.time_bucket),
+          value: m.avg_value,
         }));
 
       // Process power data
       powerData.value = metrics
-        .filter((m) => m.field === "power")
+        .filter((m) => m.metric_type === "power")
         .map((m) => ({
-          time: new Date(m.time),
-          value: m.value,
+          time: new Date(m.time_bucket),
+          value: m.avg_value,
         }));
+      
+      console.log('Processed metrics data:', {
+        hashrate: hashrateData.value.length,
+        temperature: temperatureData.value.length,
+        power: powerData.value.length
+      });
+    };
+    
+    const renderPreviewCharts = () => {
+      console.log('=== renderPreviewCharts CALLED ===');
+      
+      // Validate canvas refs are HTMLCanvasElements before proceeding
+      if (!(previewHashrateChart.value instanceof HTMLCanvasElement) ||
+          !(previewTemperatureChart.value instanceof HTMLCanvasElement) ||
+          !(previewPowerChart.value instanceof HTMLCanvasElement)) {
+        console.warn("Canvas refs not available or not valid HTMLCanvasElements");
+        return;
+      }
+      
+      // Ensure canvases are in the DOM and visible
+      if (previewHashrateChart.value.offsetParent === null ||
+          previewTemperatureChart.value.offsetParent === null ||
+          previewPowerChart.value.offsetParent === null) {
+        console.warn("Canvas elements are not visible in the DOM");
+        return;
+      }
+      
+      // Destroy existing chart instances safely
+      try {
+        if (hashrateChartInstance) {
+          console.log('Destroying existing hashrate chart instance');
+          hashrateChartInstance.destroy();
+          hashrateChartInstance = null;
+        }
+        if (temperatureChartInstance) {
+          console.log('Destroying existing temperature chart instance');
+          temperatureChartInstance.destroy();
+          temperatureChartInstance = null;
+        }
+        if (powerChartInstance) {
+          console.log('Destroying existing power chart instance');
+          powerChartInstance.destroy();
+          powerChartInstance = null;
+        }
+      } catch (error) {
+        console.error('Error destroying chart instances:', error);
+      }
+      
+      // Log canvas dimensions before rendering
+      console.log('Canvas dimensions BEFORE rendering:', {
+        hashrate: {
+          width: previewHashrateChart.value.width,
+          height: previewHashrateChart.value.height,
+          clientWidth: previewHashrateChart.value.clientWidth,
+          clientHeight: previewHashrateChart.value.clientHeight,
+          offsetWidth: previewHashrateChart.value.offsetWidth,
+          offsetHeight: previewHashrateChart.value.offsetHeight,
+          style: previewHashrateChart.value.style.cssText
+        },
+        temperature: {
+          width: previewTemperatureChart.value.width,
+          height: previewTemperatureChart.value.height,
+          clientWidth: previewTemperatureChart.value.clientWidth,
+          clientHeight: previewTemperatureChart.value.clientHeight
+        },
+        power: {
+          width: previewPowerChart.value.width,
+          height: previewPowerChart.value.height,
+          clientWidth: previewPowerChart.value.clientWidth,
+          clientHeight: previewPowerChart.value.clientHeight
+        }
+      });
+      
+      // Render hashrate chart
+      if (hashrateData.value.length > 0) {
+        const hashrateLabels = hashrateData.value.map(d => 
+          d.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        );
+        const hashrateValues = hashrateData.value.map(d => d.value);
+        
+        console.log('Creating hashrate chart with data points:', hashrateValues.length);
+        hashrateChartInstance = new Chart(previewHashrateChart.value, {
+          type: 'line',
+          data: {
+            labels: hashrateLabels,
+            datasets: [{
+              label: 'Hashrate',
+              data: hashrateValues,
+              borderColor: 'rgba(75, 192, 192, 1)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              fill: true,
+              tension: 0.4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    return `${formatHashrate(context.parsed.y)}`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (value) => formatHashrate(value)
+                }
+              }
+            }
+          }
+        });
+        console.log('Hashrate chart created, canvas dimensions AFTER:', {
+          width: previewHashrateChart.value.width,
+          height: previewHashrateChart.value.height,
+          clientWidth: previewHashrateChart.value.clientWidth,
+          clientHeight: previewHashrateChart.value.clientHeight,
+          style: previewHashrateChart.value.style.cssText
+        });
+      }
+      
+      // Render temperature chart
+      if (temperatureData.value.length > 0) {
+        const tempLabels = temperatureData.value.map(d => 
+          d.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        );
+        const tempValues = temperatureData.value.map(d => d.value);
+        
+        console.log('Creating temperature chart with data points:', tempValues.length);
+        temperatureChartInstance = new Chart(previewTemperatureChart.value, {
+          type: 'line',
+          data: {
+            labels: tempLabels,
+            datasets: [{
+              label: 'Temperature',
+              data: tempValues,
+              borderColor: 'rgba(255, 99, 132, 1)',
+              backgroundColor: 'rgba(255, 99, 132, 0.2)',
+              fill: true,
+              tension: 0.4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    return `${context.parsed.y}°C`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: false,
+                ticks: {
+                  callback: (value) => `${value}°C`
+                }
+              }
+            }
+          }
+        });
+        console.log('Temperature chart created');
+      }
+      
+      // Render power chart
+      if (powerData.value.length > 0) {
+        const powerLabels = powerData.value.map(d => 
+          d.time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        );
+        const powerValues = powerData.value.map(d => d.value);
+        
+        console.log('Creating power chart with data points:', powerValues.length);
+        powerChartInstance = new Chart(previewPowerChart.value, {
+          type: 'line',
+          data: {
+            labels: powerLabels,
+            datasets: [{
+              label: 'Power',
+              data: powerValues,
+              borderColor: 'rgba(255, 206, 86, 1)',
+              backgroundColor: 'rgba(255, 206, 86, 0.2)',
+              fill: true,
+              tension: 0.4,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    return `${context.parsed.y}W`;
+                  }
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (value) => `${value}W`
+                }
+              }
+            }
+          }
+        });
+        console.log('Power chart created');
+      }
+      
+      console.log('=== renderPreviewCharts COMPLETE ===');
     };
 
+    // WebSocket message handler - DISABLED for preview (static snapshot only)
+    // The analytics preview shows a static 6-hour snapshot, not real-time updates
+    // For real-time charts, users should navigate to the full Analytics page
+    const handleMetricsUpdate = (message) => {
+      // Intentionally disabled - preview charts are static snapshots
+      return;
+    };
+    
+    // REMOVED: updatePreviewCharts() function
+    // Preview charts are now static snapshots and don't update in real-time
+    // This prevents the page from continuously growing as new data arrives
+    
     // Lifecycle hooks
     onMounted(async () => {
-      // Fetch miner data
-      await minersStore.fetchMiner(props.id);
+      console.log('[MinerDetail] onMounted - Starting initialization for miner:', props.id);
+      
+      // Fetch miner data and wait for it to complete
+      try {
+        await minersStore.fetchMiner(props.id);
+        console.log('[MinerDetail] Miner data fetched, miner.value:', miner.value);
+      } catch (error) {
+        console.error('[MinerDetail] Error fetching miner:', error);
+      }
+
+      // Wait for next tick to ensure reactive updates have propagated
+      await nextTick();
 
       // Initialize form data if miner exists
       if (miner.value) {
+        console.log('[MinerDetail] Miner exists, initializing forms');
+        
         // Initialize settings form
         minerSettings.value = {
           name: miner.value.name,
@@ -1014,22 +1302,30 @@ export default {
           };
         }
 
-        // Fetch metrics
-        fetchMetrics();
+        // Fetch preview metrics only after miner is confirmed loaded
+        console.log('[MinerDetail] Fetching preview metrics for miner:', miner.value.id);
+        // Don't await - let it load in the background
+        fetchPreviewMetrics();
+      } else {
+        console.warn('[MinerDetail] Miner not found after fetch attempt');
       }
 
-      // Set up refresh interval
-      const refreshTime = settingsStore.settings.refresh_interval * 1000;
-      refreshInterval = setInterval(async () => {
-        await minersStore.fetchMiner(props.id);
-      }, refreshTime);
+      // WebSocket metrics updates disabled for preview (static snapshot only)
+      // addMessageHandler(handleMetricsUpdate);
+
+      // Start polling with usePollingManager
+      startPolling();
     });
-
+    
+    // Cleanup on unmount
     onUnmounted(() => {
-      // Clear refresh interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      // WebSocket handler not registered, so no need to remove
+      // removeMessageHandler(handleMetricsUpdate);
+      
+      // Destroy chart instances
+      if (hashrateChartInstance) hashrateChartInstance.destroy();
+      if (temperatureChartInstance) temperatureChartInstance.destroy();
+      if (powerChartInstance) powerChartInstance.destroy();
     });
 
     // Watch for miner changes
@@ -1060,6 +1356,31 @@ export default {
         }
       },
     );
+    
+    // Watch for tab changes to render charts when Performance tab is selected
+    watch(
+      () => activeTab.value,
+      async (newTab, oldTab) => {
+        console.log(`Tab changed from ${oldTab} to ${newTab}`);
+        // Performance tab is index 1
+        if (newTab === 1 && hashrateData.value.length > 0) {
+          console.log('Switching to Performance tab, will render charts after DOM update');
+          // Wait for DOM to update
+          await nextTick();
+          await nextTick();
+          
+          // Try to render charts
+          setTimeout(() => {
+            if (previewHashrateChart.value && previewTemperatureChart.value && previewPowerChart.value) {
+              console.log('Canvas refs available, rendering charts');
+              renderPreviewCharts();
+            } else {
+              console.warn('Canvas refs not available after tab switch');
+            }
+          }, 100);
+        }
+      },
+    );
 
     return {
       // State
@@ -1068,9 +1389,15 @@ export default {
       error,
       activeTab,
       loadingMetrics,
+      metricsError,
       hashrateData,
       temperatureData,
       powerData,
+      
+      // Chart refs
+      previewHashrateChart,
+      previewTemperatureChart,
+      previewPowerChart,
 
       // Dialogs
       editDialog,
@@ -1090,11 +1417,6 @@ export default {
       minerSettings,
       updatingSettings,
 
-      // Computed
-      supportedFeatures,
-      supportsFanControl,
-      supportsFrequencyControl,
-
       // Methods
       formatHashrate,
       formatTemperature,
@@ -1104,7 +1426,6 @@ export default {
       getTemperatureColor,
       calculateEfficiency,
       getDeviceInfo,
-      formatFeatureName,
       openEditDialog,
       saveMinerEdit,
       confirmRestart,
@@ -1113,7 +1434,21 @@ export default {
       removeMiner,
       updatePoolConfig,
       updateMinerSettings,
+      fetchPreviewMetrics,
+      
+      // Props
+      props,
     };
   },
 };
 </script>
+
+<style scoped>
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+</style>

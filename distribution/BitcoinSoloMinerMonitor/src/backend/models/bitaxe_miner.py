@@ -95,9 +95,13 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
             # Get system info
             system_info = await self._http_get("/api/system/info")
             if system_info:
+                # Bitaxe API returns hashrate in GH/s, convert to H/s for consistency
+                hashrate_gh = system_info.get("hashRate", 0)
+                hashrate_hs = hashrate_gh * 1000000000  # Convert GH/s to H/s
+                
                 status_data.update({
                     "online": True,
-                    "hashrate": system_info.get("hashRate", 0),
+                    "hashrate": hashrate_hs,
                     "temperature": system_info.get("temp", 0),
                     "fan_speed": system_info.get("fanspeed", 0),
                     "fan_rpm": system_info.get("fanrpm", 0),
@@ -135,11 +139,21 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
             if not stats:
                 return {}
                 
+            # Calculate efficiency as W/TH (watts per terahash)
+            # Bitaxe API returns hashrate in GH/s
+            hashrate_gh = stats.get("hashRate", 0)  # in GH/s
+            power = stats.get("power", 0)
+            hashrate_in_th = hashrate_gh / 1000 if hashrate_gh > 0 else 0  # Convert GH/s to TH/s
+            efficiency = power / hashrate_in_th if hashrate_in_th > 0 and power > 0 else 0
+            
+            # Convert hashrate to H/s for consistency with other miners
+            hashrate_hs = hashrate_gh * 1000000000  # Convert GH/s to H/s
+            
             metrics = {
-                "hashrate": stats.get("hashRate", 0),
+                "hashrate": hashrate_hs,
                 "temperature": stats.get("temp", 0),
-                "power": stats.get("power", 0),
-                "efficiency": stats.get("hashRate", 0) / stats.get("power", 1) if stats.get("power", 0) > 0 else 0,
+                "power": power,
+                "efficiency": efficiency,
                 "shares": {
                     "accepted": stats.get("sharesAccepted", 0),
                     "rejected": stats.get("sharesRejected", 0),
@@ -165,24 +179,87 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
         """
         if not self.device_info:
             try:
-                self.device_info = await self._http_get("/api/system/info")
+                logger.debug(f"Fetching device info from Bitaxe at {self.ip_address}")
+                response = await self._http_get("/api/system/info")
+                
+                # Ensure we got a valid JSON response
+                if not isinstance(response, dict):
+                    logger.debug(f"Invalid response type from {self.ip_address}/api/system/info: {type(response)}")
+                    return {}
+                
+                self.device_info = response
+                logger.debug(f"Received device info from {self.ip_address}: {list(self.device_info.keys())}")
+                
             except Exception as e:
-                logger.error(f"Error getting device info from Bitaxe miner at {self.ip_address}: {str(e)}")
+                logger.debug(f"Error getting device info from Bitaxe miner at {self.ip_address}: {str(e)}")
                 return {}
         
-        # Extract relevant device information
-        if self.device_info:
-            return {
-                "type": "Bitaxe",
-                "model": self.device_info.get("ASICModel", "Unknown"),
-                "firmware_version": self.device_info.get("version", "Unknown"),
-                "idf_version": self.device_info.get("idfVersion", "Unknown"),
-                "board_version": self.device_info.get("boardVersion", "Unknown"),
-                "mac_address": self.device_info.get("macAddr", "Unknown"),
-                "hostname": self.device_info.get("hostname", "Unknown"),
-                "asic_count": self.device_info.get("asicCount", 0),
-                "core_count": self.device_info.get("smallCoreCount", 0),
-            }
+        # Validate that this is actually a Bitaxe by checking for specific fields
+        if self.device_info and isinstance(self.device_info, dict):
+            # Bitaxe devices should have these specific fields in their API response
+            required_bitaxe_fields = ["ASICModel", "version", "boardVersion", "asicCount"]
+            
+            # Check if at least 3 out of 4 required fields are present
+            present_fields = sum(1 for field in required_bitaxe_fields if field in self.device_info)
+            
+            logger.debug(f"Bitaxe validation for {self.ip_address}: {present_fields}/4 required fields present")
+            logger.debug(f"Available fields: {list(self.device_info.keys())}")
+            
+            if present_fields >= 3:
+                # Get key identifiers
+                asic_count = self.device_info.get("asicCount", 0)
+                hostname = str(self.device_info.get("hostname", "")).lower()
+                asic_model = self.device_info.get("ASICModel", "").lower()
+                hash_rate = self.device_info.get("hashRate", 0)
+                
+                # Validate ASIC model
+                valid_asic_models = ["bm1366", "bm1368", "bm1397", "bm1370", "bitaxe"]
+                if not any(model in asic_model for model in valid_asic_models):
+                    logger.debug(f"Device at {self.ip_address} has invalid ASIC model: {asic_model}")
+                    return {}
+                
+                # CONCRETE DIFFERENTIATION: Check for deviceModel field
+                device_model = self.device_info.get("deviceModel", None)
+                
+                if device_model:
+                    # This is a NerdQaxe/NerdAxe variant (has deviceModel field)
+                    device_type = device_model  # Use exact model name from device
+                    model = device_model
+                    logger.info(f"Detected {device_model} at {self.ip_address} (asicCount: {asic_count})")
+                else:
+                    # This is a standard Bitaxe (NO deviceModel field)
+                    device_type = "Bitaxe"
+                    
+                    # Determine Bitaxe model based on ASIC chip
+                    if "bm1366" in asic_model:
+                        model = "Bitaxe Ultra"
+                    elif "bm1368" in asic_model:
+                        model = "Bitaxe Supra"
+                    elif "bm1397" in asic_model:
+                        model = "Bitaxe Gamma"
+                    elif "bm1370" in asic_model:
+                        model = "Bitaxe Hex"
+                    else:
+                        model = "Bitaxe"
+                    
+                    logger.info(f"Detected {model} at {self.ip_address} (asicCount: {asic_count})")
+                
+                return {
+                    "type": device_type,
+                    "model": model,
+                    "asic_model": self.device_info.get("ASICModel", "Unknown"),
+                    "asic_count": asic_count,
+                    "firmware_version": self.device_info.get("version", "Unknown"),
+                    "board_version": self.device_info.get("boardVersion", "Unknown"),
+                    "hostname": self.device_info.get("hostname", "Unknown"),
+                    "mac_address": self.device_info.get("macAddr", "Unknown"),
+                    "hash_rate": hash_rate,
+                    "idf_version": self.device_info.get("idfVersion", "Unknown"),
+                    "core_count": self.device_info.get("smallCoreCount", 0),
+                }
+            else:
+                logger.debug(f"Device at {self.ip_address} does not appear to be a Bitaxe - missing required fields ({present_fields}/4)")
+                return {}
         
         return {}
     

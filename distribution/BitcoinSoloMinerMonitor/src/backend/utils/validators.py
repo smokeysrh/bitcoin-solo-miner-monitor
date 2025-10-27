@@ -55,10 +55,10 @@ class IPAddressValidator:
     @staticmethod
     def validate_network_range(network: str) -> str:
         """
-        Validate network range in CIDR notation.
+        Validate network range in CIDR notation or IP range format.
         
         Args:
-            network (str): Network range to validate (e.g., "192.168.1.0/24")
+            network (str): Network range to validate (e.g., "192.168.1.0/24" or "192.168.1.1-192.168.1.10")
             
         Returns:
             str: Normalized network range
@@ -72,11 +72,35 @@ class IPAddressValidator:
         network = network.strip()
         
         try:
-            # Parse and validate network range
-            network_obj = ipaddress.ip_network(network, strict=False)
-            return str(network_obj)
+            # Check if it's an IP range format (e.g., "192.168.1.1-192.168.1.10")
+            if '-' in network:
+                start_ip, end_ip = network.split('-', 1)
+                start_ip = start_ip.strip()
+                end_ip = end_ip.strip()
+                
+                # Validate both IPs
+                start_addr = ipaddress.ip_address(start_ip)
+                end_addr = ipaddress.ip_address(end_ip)
+                
+                # Ensure start is before or equal to end
+                if int(start_addr) > int(end_addr):
+                    raise AppValidationError(f"Start IP {start_ip} must be less than or equal to end IP {end_ip}")
+                
+                # Ensure they're the same IP version
+                if type(start_addr) != type(end_addr):
+                    raise AppValidationError("Start and end IPs must be the same version (IPv4 or IPv6)")
+                
+                # Return the validated range format
+                return f"{start_addr}-{end_addr}"
+            else:
+                # Handle CIDR notation
+                network_obj = ipaddress.ip_network(network, strict=False)
+                return str(network_obj)
+                
         except ipaddress.AddressValueError as e:
             raise AppValidationError(f"Invalid network range: {network} - {str(e)}")
+        except ValueError as e:
+            raise AppValidationError(f"Invalid IP range format: {network} - {str(e)}")
         except Exception as e:
             raise AppValidationError(f"Network range validation failed: {str(e)}")
 
@@ -239,9 +263,18 @@ class DataSanitizer:
         # Sanitize basic string
         name = DataSanitizer.sanitize_string(name, max_length=100)
         
-        # Check for valid characters (alphanumeric, spaces, hyphens, underscores)
-        if not re.match(r'^[a-zA-Z0-9\s\-_]+$', name):
-            raise AppValidationError("Miner name can only contain letters, numbers, spaces, hyphens, and underscores")
+        # Replace invalid characters with allowed ones
+        # Replace parentheses with dashes
+        name = name.replace('(', '-').replace(')', '')
+        # Replace any other invalid characters with underscores
+        name = re.sub(r'[^a-zA-Z0-9\s\-_]', '_', name)
+        # Clean up multiple spaces/dashes
+        name = re.sub(r'[\s\-]+', ' ', name).strip()
+        # Replace spaces at boundaries with dashes
+        name = re.sub(r'\s*-\s*', '-', name)
+        
+        if not name:
+            raise AppValidationError("Miner name cannot be empty after sanitization")
         
         return name
     
@@ -288,7 +321,7 @@ class DataSanitizer:
 class MinerTypeValidator:
     """Validator for miner types."""
     
-    VALID_MINER_TYPES = ['bitaxe', 'avalon_nano', 'magic_miner']
+    VALID_MINER_TYPES = ['bitaxe', 'avalon_nano', 'magic_miner', 'bitcoin_node']
     
     @staticmethod
     def validate_miner_type(miner_type: str) -> str:

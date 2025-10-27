@@ -19,6 +19,10 @@ import { ref, reactive } from "vue";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore as _useSettingsStore } from "../stores/settings";
 
+// Debug mode flag - only enable verbose logging in development
+const DEBUG_MODE =
+  import.meta.env.DEV || localStorage.getItem("debug") === "true";
+
 // Connection status
 export const connectionStatus = ref("disconnected");
 export const connectionError = ref(null);
@@ -34,6 +38,16 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL_BASE = 1000; // 1 second
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 
+// Message priority queue
+const messagePriorityQueue = {
+  high: [], // Heartbeat responses (pong)
+  normal: [], // Regular messages (subscribe, status requests)
+  low: [], // Broadcast updates
+};
+
+// Queue processing state
+let isProcessingQueue = false;
+
 // Subscriptions
 const subscriptions = reactive({
   miners: true,
@@ -46,12 +60,16 @@ const subscriptions = reactive({
  */
 export function initWebSocket() {
   if (isInitializing) {
-    console.log("WebSocket initialization already in progress");
+    if (DEBUG_MODE) {
+      console.log("WebSocket initialization already in progress");
+    }
     return;
   }
 
   if (socket && socket.readyState === WebSocket.OPEN) {
-    console.log("WebSocket already connected");
+    if (DEBUG_MODE) {
+      console.log("WebSocket already connected");
+    }
     return;
   }
 
@@ -61,8 +79,10 @@ export function initWebSocket() {
   const port = 8000;
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const wsUrl = `${protocol}//${host}:${port}/ws`;
-  
-  console.log("Connecting to WebSocket:", wsUrl);
+
+  if (DEBUG_MODE) {
+    console.log("Connecting to WebSocket:", wsUrl);
+  }
 
   if (socket) {
     socket.close();
@@ -89,7 +109,8 @@ export function initWebSocket() {
  * Handle WebSocket open event
  */
 function handleOpen() {
-  console.log("WebSocket connection established");
+  // Log connection at info level (important event)
+  console.info("WebSocket connection established");
   connectionStatus.value = "connected";
   connectionError.value = null;
   reconnectAttempts = 0;
@@ -104,8 +125,9 @@ function handleOpen() {
   // Start heartbeat
   startHeartbeat();
 
-  // Don't automatically subscribe - let the stores handle their own subscriptions
-  // subscribeToTopics();
+  // Automatically restore subscriptions after reconnection
+  // This ensures that active scans and other subscriptions continue working
+  subscribeToTopics();
 }
 
 /**
@@ -119,11 +141,15 @@ function handleMessage(event) {
     // Handle different message types
     switch (message.type) {
       case "connection_established":
-        console.log("Connection established with ID:", message.client_id);
+        if (DEBUG_MODE) {
+          console.log("Connection established with ID:", message.client_id);
+        }
         break;
 
       case "subscription_update":
-        console.log("Subscription updated:", message);
+        if (DEBUG_MODE) {
+          console.log("Subscription updated:", message);
+        }
         break;
 
       case "miners_update":
@@ -138,14 +164,30 @@ function handleMessage(event) {
         handleSystemUpdate(message.data);
         break;
 
-      case "ping":
-        // Respond to server ping with pong
-        sendMessage({ type: "pong", timestamp: new Date().toISOString() });
+      case "ping": {
+        // Respond to server ping with pong - HIGH PRIORITY to prevent timeout
+        const pongStartTime = performance.now();
+        sendMessage(
+          { type: "pong", timestamp: new Date().toISOString() },
+          "high",
+        );
+        const pongEndTime = performance.now();
+        const pongLatency = pongEndTime - pongStartTime;
+
+        // Log if response took longer than 100ms
+        if (pongLatency > 100 && DEBUG_MODE) {
+          console.warn(
+            `Pong response took ${pongLatency.toFixed(2)}ms (target: <100ms)`,
+          );
+        }
         break;
+      }
 
       case "pong":
         // Server responded to our ping
-        console.log("Received pong from server");
+        if (DEBUG_MODE) {
+          console.log("Received pong from server");
+        }
         break;
 
       case "error":
@@ -161,15 +203,31 @@ function handleMessage(event) {
         break;
 
       case "status_response":
-        console.log("Status response:", message.data);
+        if (DEBUG_MODE) {
+          console.log("Status response:", message.data);
+        }
         break;
 
       case "topics_response":
-        console.log("Available topics:", message.data);
+        if (DEBUG_MODE) {
+          console.log("Available topics:", message.data);
+        }
+        break;
+
+      case "discovery_update":
+        // Handle discovery updates - notify custom handlers
+        if (DEBUG_MODE) {
+          console.log("Discovery update received:", message.data);
+        }
+        notifyCustomHandlers(message);
         break;
 
       default:
-        console.log("Unknown message type:", message.type);
+        if (DEBUG_MODE) {
+          console.log("Unknown message type:", message.type);
+        }
+        // Notify custom handlers for unknown message types too
+        notifyCustomHandlers(message);
     }
   } catch (error) {
     console.error("Error parsing WebSocket message:", error);
@@ -181,7 +239,8 @@ function handleMessage(event) {
  * @param {CloseEvent} event - WebSocket close event
  */
 function handleClose(event) {
-  console.log("WebSocket connection closed:", event.code, event.reason);
+  // Log connection close at info level (important event)
+  console.info("WebSocket connection closed:", event.code, event.reason);
   connectionStatus.value = "disconnected";
   isInitializing = false;
 
@@ -191,12 +250,16 @@ function handleClose(event) {
   // Always attempt to reconnect unless it's a manual disconnect
   // This handles page refreshes, network issues, and server restarts
   if (!isManualDisconnect) {
-    console.log("Connection lost, attempting to reconnect...");
+    if (DEBUG_MODE) {
+      console.log("Connection lost, attempting to reconnect...");
+    }
     // For page refreshes and unexpected disconnects, start fresh
     reconnectAttempts = 0;
     attemptReconnect();
   } else {
-    console.log("Manual disconnect, not attempting to reconnect");
+    if (DEBUG_MODE) {
+      console.log("Manual disconnect, not attempting to reconnect");
+    }
     isManualDisconnect = false; // Reset flag
   }
 }
@@ -217,7 +280,9 @@ function handleError(error) {
  */
 function attemptReconnect() {
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-    console.error("Maximum reconnect attempts reached, will retry in 10 seconds");
+    console.error(
+      "Maximum reconnect attempts reached, will retry in 10 seconds",
+    );
     connectionError.value = "Connection lost - retrying...";
     setTimeout(() => {
       reconnectAttempts = 0;
@@ -226,10 +291,23 @@ function attemptReconnect() {
     return;
   }
 
-  const delay = reconnectAttempts === 0 ? 25 : reconnectAttempts === 1 ? 50 : 
-    reconnectAttempts === 2 ? 100 : Math.min(RECONNECT_INTERVAL_BASE * Math.pow(1.5, reconnectAttempts - 3), 5000);
+  const delay =
+    reconnectAttempts === 0
+      ? 25
+      : reconnectAttempts === 1
+        ? 50
+        : reconnectAttempts === 2
+          ? 100
+          : Math.min(
+              RECONNECT_INTERVAL_BASE * Math.pow(1.5, reconnectAttempts - 3),
+              5000,
+            );
 
-  console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`);
+  if (DEBUG_MODE) {
+    console.log(
+      `Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts + 1}/${MAX_RECONNECT_ATTEMPTS})`,
+    );
+  }
   connectionStatus.value = "reconnecting";
 
   if (reconnectInterval) {
@@ -247,17 +325,29 @@ function attemptReconnect() {
  */
 function subscribeToTopics() {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
-    console.log("Cannot subscribe to topics: WebSocket not open");
+    if (DEBUG_MODE) {
+      console.log("Cannot subscribe to topics: WebSocket not open");
+    }
     return;
   }
 
-  // Get topics to subscribe to
-  const topics = Object.keys(subscriptions).filter(
-    (topic) => subscriptions[topic],
+  // Get topics to subscribe to - use toRaw to access the actual object
+  const rawSubscriptions = { ...subscriptions };
+  const topics = Object.keys(rawSubscriptions).filter(
+    (topic) => rawSubscriptions[topic] === true,
   );
 
-  console.log("Subscribing to topics:", topics);
-  console.log("Subscriptions object:", subscriptions);
+  if (DEBUG_MODE) {
+    console.log("Subscribing to topics:", topics);
+    console.log("Raw subscriptions:", rawSubscriptions);
+  }
+
+  if (topics.length === 0) {
+    if (DEBUG_MODE) {
+      console.warn("No topics to subscribe to");
+    }
+    return;
+  }
 
   // Send subscribe message
   const message = {
@@ -265,7 +355,9 @@ function subscribeToTopics() {
     topics,
   };
 
-  console.log("Sending subscription message:", message);
+  if (DEBUG_MODE) {
+    console.log("Sending subscription message:", message);
+  }
   socket.send(JSON.stringify(message));
 }
 
@@ -274,11 +366,24 @@ function subscribeToTopics() {
  * @param {Object} newSubscriptions - New subscriptions
  */
 export function updateSubscriptions(newSubscriptions) {
-  // Update subscriptions
-  Object.assign(subscriptions, newSubscriptions);
+  // Update subscriptions - set each property individually to maintain reactivity
+  Object.keys(newSubscriptions).forEach((key) => {
+    subscriptions[key] = newSubscriptions[key];
+  });
 
-  // Subscribe to topics
-  subscribeToTopics();
+  if (DEBUG_MODE) {
+    console.log("Updated subscriptions:", JSON.stringify(subscriptions));
+  }
+
+  // Subscribe to topics - use a small delay to batch multiple updates
+  if (updateSubscriptions.timeout) {
+    clearTimeout(updateSubscriptions.timeout);
+  }
+
+  updateSubscriptions.timeout = setTimeout(() => {
+    subscribeToTopics();
+    updateSubscriptions.timeout = null;
+  }, 100);
 }
 
 /**
@@ -296,7 +401,9 @@ function handleMinersUpdate(data) {
  */
 function handleAlertsUpdate(data) {
   // TODO: Implement alerts store
-  console.log("Alerts update:", data);
+  if (DEBUG_MODE) {
+    console.log("Alerts update:", data);
+  }
 }
 
 /**
@@ -305,20 +412,85 @@ function handleAlertsUpdate(data) {
  */
 function handleSystemUpdate(data) {
   // TODO: Implement system store
-  console.log("System update:", data);
+  if (DEBUG_MODE) {
+    console.log("System update:", data);
+  }
 }
 
 /**
- * Send message to WebSocket
+ * Process message priority queue
+ * Processes high-priority messages first, then normal, then low
+ */
+function processMessageQueue() {
+  // Prevent concurrent queue processing
+  if (isProcessingQueue) {
+    return;
+  }
+
+  isProcessingQueue = true;
+
+  try {
+    // Process all high-priority messages first (heartbeat responses)
+    while (messagePriorityQueue.high.length > 0) {
+      const message = messagePriorityQueue.high.shift();
+      sendMessageImmediate(message);
+    }
+
+    // Process normal priority messages
+    while (messagePriorityQueue.normal.length > 0) {
+      const message = messagePriorityQueue.normal.shift();
+      sendMessageImmediate(message);
+    }
+
+    // Process low priority messages
+    while (messagePriorityQueue.low.length > 0) {
+      const message = messagePriorityQueue.low.shift();
+      sendMessageImmediate(message);
+    }
+  } finally {
+    isProcessingQueue = false;
+  }
+}
+
+/**
+ * Send message immediately without queueing
  * @param {Object} message - Message to send
  */
-export function sendMessage(message) {
+function sendMessageImmediate(message) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     console.error("WebSocket not connected");
     return;
   }
 
-  socket.send(JSON.stringify(message));
+  try {
+    socket.send(JSON.stringify(message));
+  } catch (error) {
+    console.error("Error sending WebSocket message:", error);
+  }
+}
+
+/**
+ * Send message to WebSocket with priority
+ * @param {Object} message - Message to send
+ * @param {string} priority - Priority level: 'high', 'normal', or 'low' (default: 'normal')
+ */
+export function sendMessage(message, priority = "normal") {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    console.error("WebSocket not connected");
+    return;
+  }
+
+  // Validate priority
+  if (!["high", "normal", "low"].includes(priority)) {
+    console.warn(`Invalid priority "${priority}", using "normal"`);
+    priority = "normal";
+  }
+
+  // Add message to appropriate queue
+  messagePriorityQueue[priority].push(message);
+
+  // Process queue immediately
+  processMessageQueue();
 }
 
 /**
@@ -355,7 +527,9 @@ function stopHeartbeat() {
  * Close WebSocket connection manually
  */
 export function closeConnection() {
-  console.log("Manually closing WebSocket connection");
+  if (DEBUG_MODE) {
+    console.log("Manually closing WebSocket connection");
+  }
   isManualDisconnect = true;
   stopHeartbeat();
 
@@ -375,7 +549,9 @@ export function closeConnection() {
  * Force reconnection (useful for manual retry)
  */
 export function forceReconnect() {
-  console.log("Forcing WebSocket reconnection...");
+  if (DEBUG_MODE) {
+    console.log("Forcing WebSocket reconnection...");
+  }
   isManualDisconnect = false;
   reconnectAttempts = 0;
 
@@ -419,9 +595,11 @@ if (typeof window !== "undefined") {
       connectionStatus.value === "disconnected" ||
       connectionStatus.value === "error"
     ) {
-      console.log(
-        "Backup initialization: WebSocket still not connected, retrying...",
-      );
+      if (DEBUG_MODE) {
+        console.log(
+          "Backup initialization: WebSocket still not connected, retrying...",
+        );
+      }
       initWebSocket();
     }
   }, 200);
@@ -429,7 +607,9 @@ if (typeof window !== "undefined") {
   // Handle page visibility changes to reconnect when page becomes visible
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && connectionStatus.value === "disconnected") {
-      console.log("Page became visible, attempting to reconnect WebSocket");
+      if (DEBUG_MODE) {
+        console.log("Page became visible, attempting to reconnect WebSocket");
+      }
       initWebSocket();
     }
   });
@@ -437,7 +617,9 @@ if (typeof window !== "undefined") {
   // Handle window focus to reconnect
   window.addEventListener("focus", () => {
     if (connectionStatus.value === "disconnected") {
-      console.log("Window focused, attempting to reconnect WebSocket");
+      if (DEBUG_MODE) {
+        console.log("Window focused, attempting to reconnect WebSocket");
+      }
       initWebSocket();
     }
   });
@@ -448,6 +630,49 @@ if (typeof window !== "undefined") {
     // The connection will be re-established when the page loads
     if (socket) {
       socket.close();
+    }
+  });
+}
+
+// Custom message handlers
+const customMessageHandlers = new Set();
+
+/**
+ * Add a custom message handler
+ * @param {Function} handler - Handler function that receives the message
+ */
+export function addMessageHandler(handler) {
+  customMessageHandlers.add(handler);
+  if (DEBUG_MODE) {
+    console.log(
+      `Added custom message handler. Total handlers: ${customMessageHandlers.size}`,
+    );
+  }
+}
+
+/**
+ * Remove a custom message handler
+ * @param {Function} handler - Handler function to remove
+ */
+export function removeMessageHandler(handler) {
+  customMessageHandlers.delete(handler);
+  if (DEBUG_MODE) {
+    console.log(
+      `Removed custom message handler. Total handlers: ${customMessageHandlers.size}`,
+    );
+  }
+}
+
+/**
+ * Notify all custom message handlers
+ * @param {Object} message - Message to send to handlers
+ */
+function notifyCustomHandlers(message) {
+  customMessageHandlers.forEach((handler) => {
+    try {
+      handler(message);
+    } catch (error) {
+      console.error("Error in custom message handler:", error);
     }
   });
 }

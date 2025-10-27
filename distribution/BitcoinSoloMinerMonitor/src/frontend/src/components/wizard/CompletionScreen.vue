@@ -48,6 +48,22 @@
                     >
                       {{ foundMiners.length }} miners
                     </v-chip>
+                    <div v-if="addingMiners" class="mt-2">
+                      <v-progress-linear
+                        indeterminate
+                        color="primary"
+                        height="4"
+                      ></v-progress-linear>
+                      <p class="text-caption mt-1">Adding miners to database...</p>
+                    </div>
+                    <div v-else-if="minersAdded > 0" class="mt-2">
+                      <p class="text-caption text-success">
+                        ✓ {{ minersAdded }} miner{{ minersAdded === 1 ? '' : 's' }} added successfully
+                      </p>
+                      <p v-if="minersFailed > 0" class="text-caption text-error">
+                        ✗ {{ minersFailed }} miner{{ minersFailed === 1 ? '' : 's' }} failed to add
+                      </p>
+                    </div>
                   </v-col>
                 </v-row>
 
@@ -140,6 +156,9 @@
                       variant="outlined"
                       block
                       class="mb-2"
+                      href="https://github.com/smokeysrh/bitcoin-solo-miner-monitor/tree/main/docs"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <v-icon start>mdi-book-open-variant</v-icon>
                       Documentation
@@ -152,6 +171,9 @@
                       variant="outlined"
                       block
                       class="mb-2"
+                      href="https://discord.gg/GzNsNnh4yT"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       <v-icon start>mdi-forum</v-icon>
                       Community Forum
@@ -198,6 +220,14 @@ export default {
     },
   },
 
+  data() {
+    return {
+      addingMiners: false,
+      minersAdded: 0,
+      minersFailed: 0
+    };
+  },
+
   computed: {
     getExperienceLevelColor() {
       switch (this.experienceLevel) {
@@ -236,8 +266,46 @@ export default {
   },
 
   methods: {
-    launchDashboard() {
+    async launchDashboard() {
       console.log("CompletionScreen: Launch Dashboard button clicked");
+      
+      // Add discovered miners to the database before launching
+      if (this.foundMiners && this.foundMiners.length > 0) {
+        this.addingMiners = true;
+        console.log(`CompletionScreen: Adding ${this.foundMiners.length} discovered miners to database...`);
+        
+        const { useMinersStore } = await import('../../stores/miners');
+        const minersStore = useMinersStore();
+        
+        this.minersAdded = 0;
+        this.minersFailed = 0;
+        
+        for (const miner of this.foundMiners) {
+          try {
+            console.log(`Adding miner: ${miner.name} at ${miner.ip}:${miner.port}`);
+            
+            await minersStore.addMiner({
+              type: miner.type,
+              ip_address: miner.ip,
+              port: miner.port,
+              name: miner.name
+            });
+            
+            this.minersAdded++;
+            console.log(`Successfully added miner: ${miner.name}`);
+          } catch (error) {
+            this.minersFailed++;
+            console.error(`Failed to add miner ${miner.name}:`, error);
+            // Continue adding other miners even if one fails
+          }
+        }
+        
+        this.addingMiners = false;
+        console.log(`CompletionScreen: Added ${this.minersAdded} miners successfully, ${this.minersFailed} failed`);
+      } else {
+        console.log("CompletionScreen: No miners to add");
+      }
+      
       this.$emit("finish");
       console.log("CompletionScreen: Finish event emitted");
     },

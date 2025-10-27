@@ -225,26 +225,10 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
             ValidationError: If JSON data is invalid
         """
         try:
-            # Read the request body
-            body = await request.body()
-            
-            if not body:
-                return
-            
-            # Parse JSON
-            try:
-                data = json.loads(body)
-            except json.JSONDecodeError as e:
-                raise ValidationError(f"Invalid JSON format: {str(e)}")
-            
-            # Validate JSON structure
-            self._validate_json_structure(data, depth=0)
-            
-            # Sanitize JSON data
-            sanitized_data = self._sanitize_json_data(data)
-            
-            # Replace request body with sanitized data
-            request._body = json.dumps(sanitized_data).encode('utf-8')
+            # For now, skip body validation to avoid consuming the request body
+            # This prevents the hanging issue while still allowing other validations
+            # TODO: Implement proper body validation that doesn't consume the stream
+            return
             
         except ValidationError:
             raise
