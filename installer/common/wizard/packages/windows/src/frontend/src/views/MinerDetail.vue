@@ -429,7 +429,7 @@
                 <v-row class="mt-4">
                   <v-col cols="12">
                     <v-card outlined>
-                      <v-card-title>Update Pool Configuration</v-card-title>
+                      <v-card-title>Add Backup Pool</v-card-title>
                       <v-card-text>
                         <v-form ref="poolForm" v-model="poolFormValid">
                           <v-row>
@@ -476,7 +476,7 @@
                             :loading="updatingPool"
                             @click="updatePoolConfig"
                           >
-                            Update Pool Configuration
+                            Add Pool
                           </v-btn>
                         </v-form>
                       </v-card-text>

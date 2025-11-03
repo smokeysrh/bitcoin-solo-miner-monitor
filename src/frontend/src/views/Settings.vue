@@ -1089,6 +1089,7 @@ export default {
 
       try {
         console.log('Settings view: Saving settings with enhanced error handling');
+        saving.value = true;
         
         // Sync ui_mode with simple_mode before saving
         settings.ui_mode = settings.simple_mode ? "simple" : "advanced";
@@ -1104,8 +1105,8 @@ export default {
           chart_retention_days: parseInt(settings.chart_retention_days) || 30
         };
 
-        // Use the enhanced settings store with notification integration
-        await notifications.settingsOperation(
+        // Use the helper function instead of undefined notifications object
+        await handleSettingsOperation(
           settingsStore.updateSettings(settingsToSave),
           "Saving settings...",
           "Settings saved successfully"
@@ -1117,7 +1118,9 @@ export default {
         console.log('Settings view: Settings saved successfully');
       } catch (error) {
         console.error("Settings view: Error saving settings:", error);
-        // Error notification is handled by the notification composable
+        showError("Failed to save settings. Please try again.");
+      } finally {
+        saving.value = false;
       }
     };
 
@@ -1128,8 +1131,9 @@ export default {
       }
 
       try {
-        // Use notification composable for consistent UX
-        await notifications.settingsOperation(
+        savingAlerts.value = true;
+        // Use the helper function instead of undefined notifications object
+        await handleSettingsOperation(
           axios.put("/api/settings/alerts", alertSettings),
           "Saving alert settings...",
           "Alert settings saved successfully"
@@ -1139,12 +1143,15 @@ export default {
         originalAlertSettings.value = cloneDeep(alertSettings);
       } catch (error) {
         console.error("Settings view: Error saving alert settings:", error);
-        // Error notification is handled by the notification composable
+        showError("Failed to save alert settings. Please try again.");
+      } finally {
+        savingAlerts.value = false;
       }
     };
 
     const saveAdvancedSettings = async (section) => {
       try {
+        savingAdvanced.value = true;
         let payload = {};
         let sectionName = "";
 
@@ -1165,8 +1172,8 @@ export default {
           sectionName = "Performance";
         }
 
-        // Use notification composable for consistent UX
-        await notifications.settingsOperation(
+        // Use the helper function instead of undefined notifications object
+        await handleSettingsOperation(
           axios.put("/api/settings/advanced", payload),
           `Saving ${sectionName.toLowerCase()} settings...`,
           `${sectionName} settings saved successfully`
@@ -1176,7 +1183,9 @@ export default {
         originalAdvancedSettings.value = cloneDeep(advancedSettings);
       } catch (error) {
         console.error(`Settings view: Error saving ${section} settings:`, error);
-        // Error notification is handled by the notification composable
+        showError(`Failed to save ${section} settings. Please try again.`);
+      } finally {
+        savingAdvanced.value = false;
       }
     };
 

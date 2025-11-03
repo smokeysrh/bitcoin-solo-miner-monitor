@@ -26,6 +26,34 @@ if errorlevel 1 (
 echo Done.
 echo.
 
+REM Step 2.5: Copy assets folder (logo files)
+echo [2.5/4] Copying assets folder...
+if exist "assets" (
+    xcopy "assets\*" "build\windows\assets\" /E /I /Y /Q
+    if errorlevel 1 (
+        echo WARNING: Failed to copy assets folder
+    ) else (
+        echo Assets folder copied successfully.
+    )
+) else (
+    echo WARNING: Assets folder not found, skipping
+)
+echo.
+
+REM Step 2.6: Copy application icon for shortcuts
+echo [2.6/4] Copying application icon...
+if exist "installer\common\assets\bitcoin-symbol.ico" (
+    copy "installer\common\assets\bitcoin-symbol.ico" "build\windows\bitcoin-symbol.ico" /Y >nul
+    if errorlevel 1 (
+        echo WARNING: Failed to copy application icon
+    ) else (
+        echo Application icon copied successfully.
+    )
+) else (
+    echo WARNING: Application icon not found, skipping
+)
+echo.
+
 REM Step 3: Build installer with NSIS
 echo [3/4] Building installer with NSIS...
 cd installer\windows

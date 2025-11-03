@@ -142,11 +142,40 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
         status_data = {}
         
         try:
-            # Get the main status page
-            html = await self._http_get_text("/status")
-            if html:
-                status_data = await self._extract_status_data(html)
-                status_data["online"] = True
+            # Magic Miner uses JSON API instead of HTML parsing
+            api_data = await self._http_get("/api/system/info")
+            if api_data and isinstance(api_data, dict):
+                # Extract status information from API response
+                # Magic Miner API returns hashrate in GH/s, convert to H/s for consistency
+                raw_hashrate_gh = api_data.get("hashRate", 0)
+                hashrate_h = raw_hashrate_gh * 1000000000  # Convert GH/s to H/s
+                
+                status_data = {
+                    "online": True,
+                    "hashrate": hashrate_h,
+                    "temperature": api_data.get("temp", 0),
+                    "power": api_data.get("power", 0),
+                    "fan_speed": api_data.get("fanSpeed", 0),
+                    "shares_accepted": api_data.get("sharesAccepted", 0),
+                    "shares_rejected": api_data.get("sharesRejected", 0),
+                    "uptime": api_data.get("uptimeSeconds", 0),
+                    "voltage": api_data.get("voltage", 0),
+                    "frequency": api_data.get("frequency", 0),
+                    "best_diff": api_data.get("bestDiff", "0"),
+                    "wifi_status": api_data.get("wifiStatus", "Unknown"),
+                    "stratum_url": api_data.get("stratumURL", ""),
+                    "stratum_user": api_data.get("stratumUser", ""),
+                    "asic_count": api_data.get("asicCount", 0),
+                    "asic_detected": api_data.get("asicDetected", 0),
+                    "core_voltage": api_data.get("coreVoltage", 0),
+                    "core_voltage_actual": api_data.get("coreVoltageActual", 0),
+                    "vr_temp": api_data.get("vrTemp", 0),
+                    "chip_temp": api_data.get("chipTemp", 0),
+                    "avg_hashrate": api_data.get("avgHashRate", 0),
+                    "fan_rpm": api_data.get("fanrpm", 0),
+                    "overheat_mode": api_data.get("overheat_mode", 0),
+                    "autofanspeed": api_data.get("autofanspeed", 0)
+                }
                 
                 # Update last updated timestamp
                 self.last_updated = datetime.now()
@@ -188,13 +217,59 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
             Dict[str, Any]: Dictionary containing miner metrics
         """
         try:
-            # For Magic Miner, we'll try to get metrics from the stats page
-            html = await self._http_get_text("/stats")
-            if html:
-                return await self._extract_metrics_data(html)
+            # Magic Miner uses JSON API for all data
+            api_data = await self._http_get("/api/system/info")
+            if api_data and isinstance(api_data, dict):
+                # Extract detailed metrics from API response
+                # Magic Miner API returns hashrate in GH/s, convert to H/s for consistency
+                raw_hashrate_gh = api_data.get("hashRate", 0)
+                raw_avg_hashrate_gh = api_data.get("avgHashRate", 0)
+                hashrate_h = raw_hashrate_gh * 1000000000  # Convert GH/s to H/s
+                avg_hashrate_h = raw_avg_hashrate_gh * 1000000000  # Convert GH/s to H/s
+                
+                metrics = {
+                    "hashrate": hashrate_h,
+                    "avg_hashrate": avg_hashrate_h,
+                    "temperature": api_data.get("temp", 0),
+                    "vr_temp": api_data.get("vrTemp", 0),
+                    "chip_temp": api_data.get("chipTemp", 0),
+                    "power": api_data.get("power", 0),
+                    "voltage": api_data.get("voltage", 0),
+                    "core_voltage": api_data.get("coreVoltage", 0),
+                    "core_voltage_actual": api_data.get("coreVoltageActual", 0),
+                    "frequency": api_data.get("frequency", 0),
+                    "fan_speed": api_data.get("fanSpeed", 0),
+                    "fan_rpm": api_data.get("fanrpm", 0),
+                    "shares_accepted": api_data.get("sharesAccepted", 0),
+                    "shares_rejected": api_data.get("sharesRejected", 0),
+                    "uptime": api_data.get("uptimeSeconds", 0),
+                    "best_diff": api_data.get("bestDiff", "0"),
+                    "best_session_diff": api_data.get("bestSessionDiff", "0"),
+                    "asic_count": api_data.get("asicCount", 0),
+                    "asic_detected": api_data.get("asicDetected", 0),
+                    "free_heap": api_data.get("freeHeap", 0),
+                    "overheat_mode": api_data.get("overheat_mode", 0),
+                    "autofanspeed": api_data.get("autofanspeed", 0),
+                    "wifi_status": api_data.get("wifiStatus", "Unknown"),
+                    "mac_address": api_data.get("macAddr", ""),
+                    "hostname": api_data.get("hostname", ""),
+                    "ssid": api_data.get("ssid", ""),
+                    "stratum_url": api_data.get("stratumURL", ""),
+                    "stratum_port": api_data.get("stratumPort", 0),
+                    "stratum_user": api_data.get("stratumUser", ""),
+                    "fallback_stratum_url": api_data.get("fallbackStratumURL", ""),
+                    "fallback_stratum_port": api_data.get("fallbackStratumPort", 0),
+                    "fallback_stratum_user": api_data.get("fallbackStratumUser", ""),
+                    "is_using_fallback_stratum": api_data.get("isUsingFallbackStratum", 0),
+                    "version": api_data.get("version", ""),
+                    "flipscreen": api_data.get("flipscreen", 0),
+                    "allow_update": api_data.get("allowUpdate", 0),
+                    "init_miner": api_data.get("initMiner", "")
+                }
+                
+                return metrics
             else:
-                # Fall back to status page if stats page doesn't exist
-                return await self.get_status()
+                return {}
         except MinerConnectionError as e:
             logger.error(f"Connection error getting metrics from Magic Miner", {
                 'ip_address': self.ip_address,
@@ -228,10 +303,62 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
         Returns:
             Dict[str, Any]: Dictionary containing device information
         """
-        if not self.device_info:
+        if not self.device_info or not self.device_info.get("validated"):
             try:
                 logger.debug(f"Attempting Magic Miner validation at {self.ip_address}")
                 
+                # ENHANCED: Try to detect Magic Miner via Bitaxe-like API first
+                # Some Magic Miners respond to /api/system/info with identifiable characteristics
+                try:
+                    api_response = await self._http_get("/api/system/info")
+                    if api_response and isinstance(api_response, dict):
+                        logger.debug(f"Got API response from {self.ip_address}: {list(api_response.keys())}")
+                        
+                        # Check for Magic Miner characteristics in API response
+                        hostname = str(api_response.get("hostname", "")).lower()
+                        asic_count = api_response.get("asicCount", 0)
+                        asic_model = str(api_response.get("ASICModel", "")).lower()
+                        
+                        # Magic Miner BG02 indicators via API
+                        magic_api_indicators = [
+                            "magic" in hostname,
+                            "magicminer" in hostname,
+                            asic_count >= 9,  # Magic Miners typically have 9+ ASICs
+                            (asic_count >= 9 and "bm1368" in asic_model),  # BG02 specific pattern
+                        ]
+                        
+                        if any(magic_api_indicators):
+                            logger.info(f"Magic Miner detected via API at {self.ip_address} (hostname: '{hostname}', ASICs: {asic_count})")
+                            
+                            # Return immediately - we found it via API
+                            device_info = {
+                                "type": "Magic Miner",
+                                "model": "BG02",
+                                "hostname": api_response.get("hostname", "Unknown"),
+                                "asic_count": asic_count,
+                                "asic_model": api_response.get("ASICModel", "Unknown"),
+                                "firmware_version": api_response.get("version", "Unknown"),
+                                "hash_rate": api_response.get("hashRate", 0),
+                                "detection_method": "api"
+                            }
+                            
+                            # Set internal state for future calls
+                            self.device_info = {
+                                "validated": True,
+                                "detection_method": "api",
+                                **device_info  # Include all device info
+                            }
+                            
+                            logger.debug(f"Returning Magic Miner device info: {device_info}")
+                            return device_info
+                        else:
+                            logger.debug(f"API response from {self.ip_address} does not match Magic Miner pattern")
+                    
+                except Exception as api_e:
+                    logger.debug(f"API detection failed for {self.ip_address}: {str(api_e)}")
+                    # Continue with HTML-based detection
+                
+                # FALLBACK: Original HTML-based detection for older Magic Miners
                 # First, try to get the main page to see if it's a web interface
                 main_html = await self._http_get_text("/")
                 if not main_html:
@@ -285,9 +412,10 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
                 found_generic = sum(1 for indicator in generic_indicators if indicator in combined_html)
                 
                 if found_generic >= 2:
-                    logger.info(f"Magic Miner BG02 detected at {self.ip_address} (BG02 indicator + {found_generic} generic indicators)")
+                    logger.info(f"Magic Miner BG02 detected via HTML at {self.ip_address} (BG02 indicator + {found_generic} generic indicators)")
                     self.device_info = {
                         "validated": True,
+                        "detection_method": "html",
                         "found_bg02_indicator": True,
                         "found_generic_count": found_generic
                     }
@@ -328,10 +456,38 @@ class MagicMiner(HTTPClientMixin, MinerInterface):
             List[Dict[str, Any]]: List of dictionaries containing pool information
         """
         try:
-            # Get the pool configuration page
-            html = await self._http_get_text("/pool")
-            if html:
-                return await self._extract_pool_info(html)
+            # Magic Miner provides pool info via API
+            api_data = await self._http_get("/api/system/info")
+            if api_data and isinstance(api_data, dict):
+                pools = []
+                
+                # Primary pool
+                primary_pool = {
+                    "url": api_data.get("stratumURL", ""),
+                    "port": api_data.get("stratumPort", 0),
+                    "user": api_data.get("stratumUser", ""),
+                    "status": "Connected" if not api_data.get("isUsingFallbackStratum", 0) else "Standby",
+                    "active": not bool(api_data.get("isUsingFallbackStratum", 0)),
+                    "type": "primary"
+                }
+                
+                if primary_pool["url"]:
+                    pools.append(primary_pool)
+                
+                # Fallback pool
+                fallback_pool = {
+                    "url": api_data.get("fallbackStratumURL", ""),
+                    "port": api_data.get("fallbackStratumPort", 0),
+                    "user": api_data.get("fallbackStratumUser", ""),
+                    "status": "Connected" if api_data.get("isUsingFallbackStratum", 0) else "Standby",
+                    "active": bool(api_data.get("isUsingFallbackStratum", 0)),
+                    "type": "fallback"
+                }
+                
+                if fallback_pool["url"]:
+                    pools.append(fallback_pool)
+                
+                return pools
             else:
                 return []
         except MinerConnectionError as e:

@@ -223,87 +223,159 @@ class MinerFactory:
         
         # Try to detect miners on port 80 (both Bitaxe and Magic Miner use this port)
         if 80 in ports:
-            logger.info(f"Trying Bitaxe detection on {ip_address}:80")
+            logger.info(f"Trying advanced detection on {ip_address}:80 (Bitaxe/Magic Miner)")
             
-            # First, try Bitaxe detection (more specific API)
-            bitaxe = None
-            bitaxe_detected = False
+            # ENHANCED: Use device fingerprinting for accurate identification
             try:
+                from src.backend.models.device_fingerprinting import DeviceFingerprinter, DeviceType
+                
+                fingerprinter = DeviceFingerprinter(ip_address, 80)
+                fingerprint = await fingerprinter.fingerprint_device()
+                
+                if fingerprint and fingerprint.confidence >= 0.5:
+                    logger.info(f"Device fingerprinting successful: {fingerprint.device_type.value} "
+                               f"(confidence: {fingerprint.confidence:.2f}) at {ip_address}:80")
+                    
+                    # Create appropriate miner instance based on fingerprint
+                    if fingerprint.device_type == DeviceType.MAGIC_MINER:
+                        magic = MagicMiner(ip_address, 80)
+                        try:
+                            connected = await magic.connect()
+                            if connected:
+                                device_info = await magic.get_device_info()
+                                await magic.disconnect()
+                                
+                                if device_info:
+                                    # Enhance device_info with fingerprint data
+                                    device_info.update({
+                                        "fingerprint_confidence": fingerprint.confidence,
+                                        "detection_method": fingerprint.detection_method
+                                    })
+                                    
+                                    logger.info(f"Magic Miner confirmed at {ip_address}:80")
+                                    return {
+                                        "type": "magic_miner",
+                                        "ip_address": ip_address,
+                                        "port": 80,
+                                        "device_info": device_info
+                                    }
+                        except Exception as e:
+                            logger.debug(f"Magic Miner connection failed after fingerprinting: {str(e)}")
+                        finally:
+                            try:
+                                await magic.disconnect()
+                                from src.backend.services.http_session_manager import get_session_manager
+                                session_manager = await get_session_manager()
+                                await session_manager.close_session(ip_address, 80)
+                            except:
+                                pass
+                    
+                    elif fingerprint.device_type in [DeviceType.BITAXE, DeviceType.NERDQAXE]:
+                        bitaxe = BitaxeMiner(ip_address, 80)
+                        try:
+                            connected = await bitaxe.connect()
+                            if connected:
+                                device_info = await bitaxe.get_device_info()
+                                await bitaxe.disconnect()
+                                
+                                if device_info:
+                                    # Enhance device_info with fingerprint data
+                                    device_info.update({
+                                        "fingerprint_confidence": fingerprint.confidence,
+                                        "detection_method": fingerprint.detection_method
+                                    })
+                                    
+                                    device_type = device_info.get("type", "Bitaxe")
+                                    logger.info(f"{device_type} confirmed at {ip_address}:80")
+                                    return {
+                                        "type": "bitaxe",
+                                        "ip_address": ip_address,
+                                        "port": 80,
+                                        "device_info": device_info
+                                    }
+                        except Exception as e:
+                            logger.debug(f"Bitaxe connection failed after fingerprinting: {str(e)}")
+                        finally:
+                            try:
+                                await bitaxe.disconnect()
+                                from src.backend.services.http_session_manager import get_session_manager
+                                session_manager = await get_session_manager()
+                                await session_manager.close_session(ip_address, 80)
+                            except:
+                                pass
+                
+                # Fallback: If fingerprinting fails or is inconclusive, try traditional detection
+                logger.debug(f"Fingerprinting inconclusive for {ip_address}:80, trying traditional detection")
+                
+            except Exception as e:
+                logger.debug(f"Device fingerprinting failed for {ip_address}:80: {str(e)}")
+            
+            # FALLBACK: Traditional detection method
+            bitaxe = None
+            magic = None
+            bitaxe_device_info = None
+            magic_device_info = None
+            
+            # Try Bitaxe detection
+            try:
+                logger.debug(f"Attempting traditional Bitaxe detection on {ip_address}:80")
                 bitaxe = BitaxeMiner(ip_address, 80)
                 connected = await bitaxe.connect()
                 if connected:
-                    device_info = await bitaxe.get_device_info()
-                    # Only consider it a Bitaxe if we got valid device info with required fields
-                    # Note: device_info.get("type") could be "Bitaxe" or "NerdQaxe++" or other variants
-                    if device_info and device_info.get("type"):
-                        logger.info(f"{device_info.get('type')} miner detected at {ip_address}:80")
-                        await bitaxe.disconnect()
-                        return {
-                            "type": "bitaxe",
-                            "ip_address": ip_address,
-                            "port": 80,
-                            "device_info": device_info
-                        }
-                    else:
-                        logger.debug(f"Device at {ip_address}:80 responded but is not a valid Bitaxe/NerdQaxe")
-            except MinerConnectionError as e:
-                logger.debug(f"Bitaxe connection failed at {ip_address}:80 - {str(e)}")
-            except MinerError as e:
-                logger.debug(f"Bitaxe detection failed at {ip_address}:80 - {str(e)}")
-            except (RuntimeError, MemoryError) as e:
-                logger.debug(f"System error during Bitaxe detection at {ip_address}:80 - {str(e)}")
+                    bitaxe_device_info = await bitaxe.get_device_info()
+                    logger.debug(f"Traditional Bitaxe detection result: {bool(bitaxe_device_info)}")
+            except Exception as e:
+                logger.debug(f"Traditional Bitaxe detection error at {ip_address}:80: {str(e)}")
             finally:
-                # Ensure cleanup
                 if bitaxe:
                     try:
                         await bitaxe.disconnect()
-                        # Cleanup any active sessions
                         from src.backend.services.http_session_manager import get_session_manager
                         session_manager = await get_session_manager()
                         await session_manager.close_session(ip_address, 80)
-                    except Exception as cleanup_error:
-                        logger.debug(f"Error during Bitaxe detection cleanup: {cleanup_error}")
+                    except:
+                        pass
             
-            # If Bitaxe detection failed, try Magic Miner detection
-            if not bitaxe_detected:
-                logger.info(f"Bitaxe detection failed on {ip_address}, trying Magic Miner")
-                magic = None
-                try:
-                    magic = MagicMiner(ip_address, 80)
-                    connected = await magic.connect()
-                    if connected:
-                        device_info = await magic.get_device_info()
-                        # Only return if we got valid Magic Miner device info
-                        if device_info and device_info.get("type") == "Magic Miner":
-                            logger.info(f"Magic Miner detected at {ip_address}:80")
-                            await magic.disconnect()
-                            return {
-                                "type": "magic_miner",
-                                "ip_address": ip_address,
-                                "port": 80,
-                                "device_info": device_info
-                            }
-                        else:
-                            logger.debug(f"Device at {ip_address}:80 responded but is not a valid Magic Miner")
-                    else:
-                        logger.debug(f"Magic Miner connection failed at {ip_address}:80")
-                except MinerConnectionError as e:
-                    logger.debug(f"Magic Miner connection failed at {ip_address}:80 - {str(e)}")
-                except MinerError as e:
-                    logger.debug(f"Magic Miner detection failed at {ip_address}:80 - {str(e)}")
-                except (RuntimeError, MemoryError) as e:
-                    logger.debug(f"System error during Magic Miner detection at {ip_address}:80 - {str(e)}")
-                finally:
-                    # Ensure cleanup
-                    if magic:
-                        try:
-                            await magic.disconnect()
-                            # Cleanup any active sessions
-                            from src.backend.services.http_session_manager import get_session_manager
-                            session_manager = await get_session_manager()
-                            await session_manager.close_session(ip_address, 80)
-                        except Exception as cleanup_error:
-                            logger.debug(f"Error during Magic Miner detection cleanup: {cleanup_error}")
+            # Try Magic Miner detection
+            try:
+                logger.debug(f"Attempting traditional Magic Miner detection on {ip_address}:80")
+                magic = MagicMiner(ip_address, 80)
+                connected = await magic.connect()
+                if connected:
+                    magic_device_info = await magic.get_device_info()
+                    logger.debug(f"Traditional Magic Miner detection result: {bool(magic_device_info)}")
+            except Exception as e:
+                logger.debug(f"Traditional Magic Miner detection error at {ip_address}:80: {str(e)}")
+            finally:
+                if magic:
+                    try:
+                        await magic.disconnect()
+                        from src.backend.services.http_session_manager import get_session_manager
+                        session_manager = await get_session_manager()
+                        await session_manager.close_session(ip_address, 80)
+                    except:
+                        pass
+            
+            # Determine which traditional detection succeeded
+            if magic_device_info and magic_device_info.get("type") == "Magic Miner":
+                logger.info(f"Magic Miner detected via traditional method at {ip_address}:80")
+                return {
+                    "type": "magic_miner",
+                    "ip_address": ip_address,
+                    "port": 80,
+                    "device_info": magic_device_info
+                }
+            elif bitaxe_device_info and bitaxe_device_info.get("type"):
+                device_type = bitaxe_device_info.get("type")
+                logger.info(f"{device_type} detected via traditional method at {ip_address}:80")
+                return {
+                    "type": "bitaxe",
+                    "ip_address": ip_address,
+                    "port": 80,
+                    "device_info": bitaxe_device_info
+                }
+            else:
+                logger.debug(f"No valid miner detected at {ip_address}:80")
         
         # Try Bitcoin Node detection (check ONLY Bitcoin-specific ports, NOT port 80)
         bitcoin_ports = [8332, 18332, 8333, 18333]

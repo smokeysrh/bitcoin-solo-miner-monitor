@@ -136,15 +136,51 @@
             </v-chip>
           </v-card-title>
           <v-card-text>
-            <v-row v-if="!networkHealthLoading && Object.keys(networkHealthData).length > 0">
+            <v-row v-if="!networkHealthLoading && networkHealthData && Object.keys(networkHealthData).length > 0">
               <v-col cols="12" md="3">
-                <div class="text-subtitle-1">Avg Miner Latency:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Avg Miner Latency:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Miner Latency</strong><br>
+                      Time it takes to communicate with your miners. Lower is better for solo mining as it reduces the chance of stale shares and improves your ability to quickly submit valid blocks to the network.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h5" :style="{ color: getLatencyColor(averageMinerLatency) }">
                   {{ averageMinerLatency !== null ? `${averageMinerLatency.toFixed(1)} ms` : 'N/A' }}
                 </div>
               </v-col>
               <v-col cols="12" md="3">
-                <div class="text-subtitle-1">Avg Pool Latency:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Avg Pool Latency:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Pool Latency</strong><br>
+                      Time to reach your mining pool or Bitcoin node. Critical for solo mining - high latency can cause you to mine on stale blocks, wasting hashpower and reducing your chances of finding valid blocks.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h5" :style="{ color: getPoolLatencyColor(averagePoolLatency) }">
                   {{ averagePoolLatency !== null ? `${averagePoolLatency.toFixed(1)} ms` : 'N/A' }}
                 </div>
@@ -153,27 +189,99 @@
                 </div>
               </v-col>
               <v-col cols="12" md="3">
-                <div class="text-subtitle-1">Avg Total Path:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Avg Total Path:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Total Path Latency</strong><br>
+                      Combined time from your device to miners to pool/node. This represents the complete round-trip time for mining operations. Lower values mean faster block template updates and share submissions.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h5" :style="{ color: getLatencyColor(averageTotalPathLatency) }">
                   {{ averageTotalPathLatency !== null ? `${averageTotalPathLatency.toFixed(1)} ms` : 'N/A' }}
                 </div>
               </v-col>
               <v-col cols="12" md="3">
-                <div class="text-subtitle-1">Healthy Miners:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Healthy Miners:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Healthy Miners</strong><br>
+                      Number of miners with good network performance (low latency, minimal packet loss). Healthy miners maximize your solo mining efficiency by ensuring optimal communication with the Bitcoin network.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h5" style="color: #43A047">
-                  {{ healthyMinersCount }} / {{ Object.keys(networkHealthData).length }}
+                  {{ healthyMinersCount }} / {{ networkHealthData ? Object.keys(networkHealthData).length : 0 }}
                 </div>
               </v-col>
             </v-row>
-            <v-row v-if="!networkHealthLoading && Object.keys(networkHealthData).length > 0" class="mt-2">
+            <v-row v-if="!networkHealthLoading && networkHealthData && Object.keys(networkHealthData).length > 0" class="mt-2">
               <v-col cols="12" md="6">
-                <div class="text-subtitle-1">Average Packet Loss:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Average Packet Loss:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Packet Loss</strong><br>
+                      Percentage of network packets that fail to reach their destination. Any packet loss can cause missed block templates or failed share submissions, directly impacting your solo mining success rate.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h6" :style="{ color: getPacketLossColor(averagePacketLoss) }">
                   {{ averagePacketLoss !== null ? `${averagePacketLoss.toFixed(2)}%` : 'N/A' }}
                 </div>
               </v-col>
               <v-col cols="12" md="6">
-                <div class="text-subtitle-1">Average Jitter:</div>
+                <div class="text-subtitle-1 d-flex align-center">
+                  Average Jitter:
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props }">
+                      <v-icon 
+                        v-bind="props"
+                        size="small" 
+                        class="ml-1"
+                        color="info"
+                      >
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                    <div class="pa-2" style="max-width: 300px;">
+                      <strong>Network Jitter</strong><br>
+                      Variation in network latency over time. High jitter indicates unstable network conditions that can cause inconsistent mining performance and timing issues with block submissions.
+                    </div>
+                  </v-tooltip>
+                </div>
                 <div class="text-h6" :style="{ color: getJitterColor(averageJitter) }">
                   {{ averageJitter !== null ? `${averageJitter.toFixed(1)} ms` : 'N/A' }}
                 </div>
@@ -263,7 +371,12 @@
     </v-row>
 
     <!-- Miner Details Dialog -->
-    <v-dialog v-model="showMinerDetails" max-width="700px">
+    <v-dialog 
+      v-model="showMinerDetails" 
+      max-width="700px"
+      scrollable
+      :attach="false"
+    >
       <v-card v-if="selectedMiner">
         <v-card-title>
           {{
@@ -403,7 +516,12 @@
     </v-dialog>
 
     <!-- Pool Details Dialog -->
-    <v-dialog v-model="showPoolDetails" max-width="600px">
+    <v-dialog 
+      v-model="showPoolDetails" 
+      max-width="600px"
+      scrollable
+      :attach="false"
+    >
       <v-card v-if="selectedPool">
         <v-card-title>
           Pool Server Details
@@ -464,7 +582,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { useMinersStore } from "../stores/miners";
 import { useSettingsStore } from "../stores/settings";
 import { usePollingManager } from "../composables/usePollingManager";
@@ -850,6 +968,39 @@ export default {
         showMinerDetails.value = true;
       }
     };
+
+    // Function to fix dialog positioning for viewport centering
+    const fixDialogPositioning = () => {
+      nextTick(() => {
+        const overlays = document.querySelectorAll('.v-overlay__content');
+        overlays.forEach(overlay => {
+          const rect = overlay.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) { // Only visible dialogs
+            overlay.style.position = 'fixed';
+            overlay.style.top = '50%';
+            overlay.style.left = '50%';
+            overlay.style.transform = 'translate(-50%, -50%)';
+            overlay.style.zIndex = '2000';
+            overlay.style.maxHeight = '90vh';
+          }
+        });
+      });
+    };
+
+    // Watch for dialog state changes and apply positioning fix
+    watch(showMinerDetails, (newValue) => {
+      if (newValue) {
+        // Dialog is opening, apply fix after a short delay
+        setTimeout(fixDialogPositioning, 100);
+      }
+    });
+
+    watch(showPoolDetails, (newValue) => {
+      if (newValue) {
+        // Dialog is opening, apply fix after a short delay
+        setTimeout(fixDialogPositioning, 100);
+      }
+    });
 
     const updateNetworkLayout = () => {
       updateNetworkVisualization();
@@ -2280,7 +2431,44 @@ export default {
       hasHealthWarning,
       getMinerNetworkHealth,
       navigateToMiner,
+      fixDialogPositioning,
     };
   },
 };
 </script>
+
+<style scoped>
+/* Fix dialog viewport centering - target all dialogs in this component */
+:deep(.v-overlay__content) {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  max-height: 90vh !important;
+  z-index: 2000 !important;
+}
+
+/* Ensure dialog cards are properly sized and scrollable */
+:deep(.v-dialog .v-card) {
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Make card content scrollable */
+:deep(.v-dialog .v-card-text) {
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
+}
+
+/* Ensure card title and actions stay fixed */
+:deep(.v-dialog .v-card-title) {
+  flex-shrink: 0 !important;
+}
+
+:deep(.v-dialog .v-card-actions) {
+  flex-shrink: 0 !important;
+}
+</style>

@@ -7,6 +7,7 @@ This module implements the MinerInterface for Avalon Nano miners using the cgmin
 import asyncio
 import json
 import logging
+import re
 import socket
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -146,17 +147,20 @@ class AvalonNanoMiner(MinerInterface):
                     "best_share": summary_data.get("Best Share", 0),
                 })
             
-            # Extract additional metrics from stats if available
+            # Extract additional metrics from stats by parsing MM ID0 string
             if "STATS" in stats:
                 for stat in stats["STATS"]:
-                    if "temperature" in stat:
-                        metrics["temperature"] = stat["temperature"]
-                    if "fan_percent" in stat:
-                        metrics["fan_speed"] = stat["fan_percent"]
-                    if "frequency" in stat:
-                        metrics["frequency"] = stat["frequency"]
-                    if "voltage" in stat:
-                        metrics["voltage"] = stat["voltage"]
+                    # Parse the MM ID0 string for temperature, fan, and other metrics
+                    if "MM ID0" in stat:
+                        parsed_metrics = self._parse_mm_id_string(stat["MM ID0"])
+                        if "temperature" in parsed_metrics:
+                            metrics["temperature"] = parsed_metrics["temperature"]
+                        if "fan_speed" in parsed_metrics:
+                            metrics["fan_speed"] = parsed_metrics["fan_speed"]
+                        if "fan_rpm" in parsed_metrics:
+                            metrics["fan_rpm"] = parsed_metrics["fan_rpm"]
+                        if "frequency" in parsed_metrics:
+                            metrics["frequency"] = parsed_metrics["frequency"]
             
             return metrics
         except Exception as e:
@@ -178,17 +182,26 @@ class AvalonNanoMiner(MinerInterface):
             version = await self._send_command("version")
             if version and "VERSION" in version:
                 version_data = version["VERSION"][0]
-                miner_type = version_data.get("Miner", "")
+                
+                # Use correct field names from cgminer API
+                product = version_data.get("PROD", "")      # e.g., "Avalonnano"
+                model_name = version_data.get("MODEL", "")  # e.g., "nano3"
+                hw_type = version_data.get("HWTYPE", "")    # e.g., "PMMv1_X1"
                 
                 # Check if this is actually an Avalon device
-                if "avalon" in miner_type.lower():
+                if "avalon" in product.lower():
                     device_type = "Avalon Nano"
-                    model = miner_type
+                    # Build a descriptive model name
+                    if model_name:
+                        model = f"Avalon Nano {model_name.upper()}"
+                    else:
+                        model = "Avalon Nano"
+                    logger.info(f"Detected {model} at {self.ip_address}")
                 else:
                     # It's a cgminer device, but not Avalon
                     device_type = "cgminer Device"
-                    model = miner_type if miner_type else "Unknown"
-                    logger.info(f"Detected cgminer device (not Avalon): {miner_type} at {self.ip_address}")
+                    model = product if product else "Unknown"
+                    logger.info(f"Detected cgminer device (not Avalon): {product} at {self.ip_address}")
             else:
                 device_type = "cgminer Device"
                 model = "Unknown"
@@ -204,9 +217,10 @@ class AvalonNanoMiner(MinerInterface):
             "api": "cgminer",
             "cgminer_version": self.device_info.get("cgminer_version", "Unknown"),
             "api_version": self.device_info.get("api_version", "Unknown"),
+            "firmware_version": self.device_info.get("firmware_version", "Unknown"),
         }
         
-        # Add additional details
+        # Add additional details from device_info
         device_info.update(self.device_info)
         
         return device_info
@@ -327,6 +341,76 @@ class AvalonNanoMiner(MinerInterface):
         """
         return self.last_updated
     
+    def _parse_mm_id_string(self, mm_id_string: str) -> Dict[str, Any]:
+        """
+        Parse the MM ID0 string from Avalon Nano stats to extract metrics.
+        
+        Avalon Nano miners embed critical metrics in a proprietary string format
+        within the "MM ID0" field. This method extracts temperature, fan speed,
+        frequency, and other metrics using regex patterns.
+        
+        Example string:
+        "...Temp[38] OTemp[38] TMax[87] TAvg[85]...Fan1[2430] FanR[32%]...MGHS[3090.53]..."
+        
+        Args:
+            mm_id_string (str): The MM ID0 string from cgminer stats response
+            
+        Returns:
+            Dict[str, Any]: Dictionary containing parsed metrics
+        """
+        parsed_data = {}
+        
+        try:
+            # Extract current temperature (Temp[XX])
+            temp_match = re.search(r'Temp\[(\d+)\]', mm_id_string)
+            if temp_match:
+                parsed_data['temperature'] = int(temp_match.group(1))
+            
+            # Extract average temperature (TAvg[XX])
+            tavg_match = re.search(r'TAvg\[(\d+)\]', mm_id_string)
+            if tavg_match:
+                parsed_data['temperature_avg'] = int(tavg_match.group(1))
+            
+            # Extract max temperature (TMax[XX])
+            tmax_match = re.search(r'TMax\[(\d+)\]', mm_id_string)
+            if tmax_match:
+                parsed_data['temperature_max'] = int(tmax_match.group(1))
+            
+            # Extract fan RPM (Fan1[XXXX])
+            fan_rpm_match = re.search(r'Fan1\[(\d+)\]', mm_id_string)
+            if fan_rpm_match:
+                parsed_data['fan_rpm'] = int(fan_rpm_match.group(1))
+            
+            # Extract fan percentage (FanR[XX%])
+            fan_percent_match = re.search(r'FanR\[(\d+)%\]', mm_id_string)
+            if fan_percent_match:
+                parsed_data['fan_speed'] = int(fan_percent_match.group(1))
+            
+            # Extract average hashrate in MH/s (MGHS[XXXX.XX])
+            mghs_match = re.search(r'MGHS\[(\d+\.?\d*)\]', mm_id_string)
+            if mghs_match:
+                parsed_data['hashrate_mghs'] = float(mghs_match.group(1))
+            
+            # Extract frequency (Freq[XXX.XX])
+            freq_match = re.search(r'Freq\[(\d+\.?\d*)\]', mm_id_string)
+            if freq_match:
+                parsed_data['frequency'] = float(freq_match.group(1))
+            
+            # Extract hardware version (HVer[...])
+            hver_match = re.search(r'HVer\[([^\]]+)\]', mm_id_string)
+            if hver_match:
+                parsed_data['hardware_version'] = hver_match.group(1)
+            
+            # Extract DNA/serial (DNA[...])
+            dna_match = re.search(r'DNA\[([^\]]+)\]', mm_id_string)
+            if dna_match:
+                parsed_data['dna'] = dna_match.group(1)
+                
+        except Exception as e:
+            logger.debug(f"Error parsing MM ID string: {e}")
+        
+        return parsed_data
+    
     async def _send_command(self, command: str) -> Optional[Dict[str, Any]]:
         """
         Send a command to the cgminer API and get the response.
@@ -414,19 +498,16 @@ class AvalonNanoMiner(MinerInterface):
                 if "ID" in stat and stat["ID"] == "STATS":
                     continue
                 
-                # Extract device information
+                # Parse the MM ID0 string which contains temperature, fan, and other metrics
+                if "MM ID0" in stat:
+                    parsed_metrics = self._parse_mm_id_string(stat["MM ID0"])
+                    device_details.update(parsed_metrics)
+                
+                # Extract device information from standard fields
                 if "Type" in stat:
                     device_details["model"] = stat["Type"]
                 if "Elapsed" in stat:
                     device_details["uptime"] = stat["Elapsed"]
-                if "temperature" in stat:
-                    device_details["temperature"] = stat["temperature"]
-                if "fan_percent" in stat:
-                    device_details["fan_speed"] = stat["fan_percent"]
-                if "frequency" in stat:
-                    device_details["frequency"] = stat["frequency"]
-                if "voltage" in stat:
-                    device_details["voltage"] = stat["voltage"]
                 if "Hardware Errors" in stat:
                     device_details["hardware_errors"] = stat["Hardware Errors"]
                 if "Device Hardware%" in stat:
@@ -438,6 +519,7 @@ class AvalonNanoMiner(MinerInterface):
                 version_data = version["VERSION"][0]
                 device_details["cgminer_version"] = version_data.get("CGMiner", "Unknown")
                 device_details["api_version"] = version_data.get("API", "Unknown")
+                device_details["firmware_version"] = version_data.get("VERSION", "Unknown")
             
             return device_details
         except Exception as e:

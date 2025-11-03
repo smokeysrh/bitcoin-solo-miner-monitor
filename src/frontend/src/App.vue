@@ -11,29 +11,24 @@
     >
       <v-list-item>
         <template #prepend>
-          <BitcoinLogo 
-            size="md" 
-            variant="default" 
+          <BitcoinLogo
+            size="md"
+            variant="default"
             :animated="false"
             aria-label="Bitcoin Solo Miner Monitor Logo"
             alt-text="Bitcoin Logo"
             class="mr-3"
           />
         </template>
-        <v-list-item-title class="text-h6">
-          Bitcoin Solo Miner Monitor
+        <v-list-item-title class="text-h6" style="white-space: normal; line-height: 1.2;">
+          Solo Miner Monitor
         </v-list-item-title>
-        <v-list-item-subtitle>
-          Monitor your mining fleet
-        </v-list-item-subtitle>
+        <v-list-item-subtitle> Monitor your mining fleet </v-list-item-subtitle>
       </v-list-item>
 
       <v-divider></v-divider>
 
-      <v-list
-        dense
-        nav
-      >
+      <v-list dense nav>
         <v-list-item
           v-for="item in menuItems"
           :key="item.title"
@@ -44,14 +39,10 @@
           <v-list-item-title>{{ item.title }}</v-list-item-title>
         </v-list-item>
       </v-list>
-      
+
       <template #append>
         <div class="pa-2">
-          <v-btn
-            block
-            color="primary"
-            @click="navigateToMinersPage"
-          >
+          <v-btn block color="primary" @click="navigateToMinersPage">
             <template #prepend>
               <v-icon>mdi-plus</v-icon>
             </template>
@@ -63,9 +54,9 @@
 
     <v-app-bar v-if="!isSetupRoute" app class="app-header-fixed">
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-      <BitcoinLogo 
-        size="sm" 
-        variant="default" 
+      <BitcoinLogo
+        size="sm"
+        variant="default"
         :animated="false"
         aria-label="Bitcoin Solo Miner Monitor Logo"
         alt-text="Bitcoin Logo"
@@ -73,19 +64,15 @@
       />
       <v-toolbar-title>{{ currentPageTitle }}</v-toolbar-title>
       <v-spacer></v-spacer>
-      
+
       <!-- WebSocket Connection Status -->
-      <v-chip
-        :color="connectionStatusColor"
-        size="small"
-        class="mr-2"
-      >
+      <v-chip :color="connectionStatusColor" size="small" class="mr-2">
         <v-icon start size="small">{{ connectionStatusIcon }}</v-icon>
         {{ connectionStatusText }}
       </v-chip>
-      
-      <v-btn 
-        icon 
+
+      <v-btn
+        icon
         @click="refreshData"
         :loading="refreshing"
         :disabled="refreshing"
@@ -93,12 +80,14 @@
       >
         <v-icon :class="{ 'refresh-spinning': refreshing }">mdi-refresh</v-icon>
       </v-btn>
-      <v-btn 
-        icon 
+      <v-btn
+        icon
         @click="checkForUpdates"
         :loading="checkingUpdates"
         :disabled="checkingUpdates"
-        :title="checkingUpdates ? 'Checking for updates...' : 'Check for updates'"
+        :title="
+          checkingUpdates ? 'Checking for updates...' : 'Check for updates'
+        "
       >
         <v-icon>mdi-download</v-icon>
       </v-btn>
@@ -114,17 +103,10 @@
       <router-view v-else />
     </v-main>
 
-
-
     <!-- Settings Dialog -->
-    <v-dialog
-      v-model="settingsDialog"
-      max-width="500px"
-    >
+    <v-dialog v-model="settingsDialog" max-width="500px">
       <v-card>
-        <v-card-title>
-          Settings
-        </v-card-title>
+        <v-card-title> Settings </v-card-title>
         <v-card-text>
           <v-form ref="settingsForm" v-model="settingsFormValid">
             <v-text-field
@@ -133,8 +115,8 @@
               type="number"
               required
               :rules="[
-                v => !!v || 'Polling interval is required',
-                v => v >= 5 || 'Polling interval must be at least 5 seconds'
+                (v) => !!v || 'Polling interval is required',
+                (v) => v >= 5 || 'Polling interval must be at least 5 seconds',
               ]"
             ></v-text-field>
             <v-text-field
@@ -143,8 +125,8 @@
               type="number"
               required
               :rules="[
-                v => !!v || 'Refresh interval is required',
-                v => v >= 1 || 'Refresh interval must be at least 1 second'
+                (v) => !!v || 'Refresh interval is required',
+                (v) => v >= 1 || 'Refresh interval must be at least 1 second',
               ]"
             ></v-text-field>
             <v-text-field
@@ -153,13 +135,16 @@
               type="number"
               required
               :rules="[
-                v => !!v || 'Chart retention is required',
-                v => v >= 1 || 'Chart retention must be at least 1 day'
+                (v) => !!v || 'Chart retention is required',
+                (v) => v >= 1 || 'Chart retention must be at least 1 day',
               ]"
             ></v-text-field>
             <v-select
               v-model="settings.theme"
-              :items="[{title: 'Dark', value: 'dark'}, {title: 'Light', value: 'light'}]"
+              :items="[
+                { title: 'Dark', value: 'dark' },
+                { title: 'Light', value: 'light' },
+              ]"
               label="Theme"
               item-title="title"
               item-value="value"
@@ -168,12 +153,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn
-            variant="text"
-            @click="settingsDialog = false"
-          >
-            Cancel
-          </v-btn>
+          <v-btn variant="text" @click="settingsDialog = false"> Cancel </v-btn>
           <v-btn
             color="primary"
             variant="text"
@@ -199,12 +179,7 @@
     >
       {{ snackbar.text }}
       <template #actions>
-        <v-btn
-          variant="text"
-          @click="snackbar.show = false"
-        >
-          Close
-        </v-btn>
+        <v-btn variant="text" @click="snackbar.show = false"> Close </v-btn>
       </template>
     </v-snackbar>
 
@@ -222,9 +197,9 @@
           </v-col>
           <v-col cols="auto" class="text-center">
             <span class="text-caption text-medium-emphasis">
-              If you find value in this app, please consider leaving a tip! 
-              <span 
-                class="donation-address" 
+              If you find value in this app, please consider leaving a tip!
+              <span
+                class="donation-address"
                 @click="copyDonationAddress"
                 title="Click to copy address to clipboard"
               >
@@ -232,10 +207,38 @@
               </span>
             </span>
           </v-col>
-          <v-col cols="auto">
+          <v-col cols="auto" class="d-flex align-center">
+            <v-btn
+              icon
+              size="small"
+              href="https://discord.gg/GzNsNnh4yT"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mr-2"
+              title="Join our Discord community"
+              variant="text"
+            >
+              <v-icon color="#5865F2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  height="24"
+                >
+                  <path
+                    fill="currentColor"
+                    d="M22,24L16.75,19L17.38,21H4.5A2.5,2.5 0 0,1 2,18.5V3.5A2.5,2.5 0 0,1 4.5,1H19.5A2.5,2.5 0 0,1 22,3.5V24M12,6.8C9.32,6.8 7.44,7.95 7.44,7.95C8.47,7.03 10.27,6.5 10.27,6.5L10.1,6.33C8.41,6.36 6.88,7.53 6.88,7.53C5.16,11.12 5.27,14.22 5.27,14.22C6.67,16.03 8.75,15.9 8.75,15.9L9.46,15C8.21,14.73 7.42,13.62 7.42,13.62C7.42,13.62 9.3,14.9 12,14.9C14.7,14.9 16.58,13.62 16.58,13.62C16.58,13.62 15.79,14.73 14.54,15L15.25,15.9C15.25,15.9 17.33,16.03 18.73,14.22C18.73,14.22 18.84,11.12 17.12,7.53C17.12,7.53 15.59,6.36 13.9,6.33L13.73,6.5C13.73,6.5 15.53,7.03 16.56,7.95C16.56,7.95 14.68,6.8 12,6.8M9.93,10.59C10.58,10.59 11.11,11.16 11.1,11.86C11.1,12.55 10.58,13.13 9.93,13.13C9.29,13.13 8.77,12.55 8.77,11.86C8.77,11.16 9.28,10.59 9.93,10.59M14.1,10.59C14.75,10.59 15.27,11.16 15.27,11.86C15.27,12.55 14.75,13.13 14.1,13.13C13.46,13.13 12.94,12.55 12.94,11.86C12.94,11.16 13.45,10.59 14.1,10.59Z"
+                  />
+                </svg>
+              </v-icon>
+            </v-btn>
             <span class="text-caption text-medium-emphasis">
               Est. 1986
-              <span class="gaming-hint easter-egg-hint" title="Patterns from gaming's golden age still hold power">🎮</span>
+              <span
+                class="gaming-hint easter-egg-hint"
+                title="Patterns from gaming's golden age still hold power"
+                >🎮</span
+              >
             </span>
           </v-col>
         </v-row>
@@ -245,397 +248,448 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useDisplay } from 'vuetify'
-import { useMinersStore } from './stores/miners'
-import { useSettingsStore } from './stores/settings'
-import { useAlertsStore } from './stores/alerts'
-import { isFirstRun, getDiscoveredMiners, getInitialRoute } from './services/firstRunService'
-import { connectionStatus, forceReconnect } from './services/websocket'
-import { useEasterEgg } from './composables/useEasterEgg'
-import { useUpdateChecker } from './composables/useUpdateChecker'
-import { useClipboard } from './composables/useClipboard'
-import { useGlobalSnackbar } from './composables/useGlobalSnackbar'
-import BitcoinLogo from './components/BitcoinLogo.vue'
-import UpdateNotification from './components/UpdateNotification.vue'
-
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
+import { useMinersStore } from "./stores/miners";
+import { useSettingsStore } from "./stores/settings";
+import { useAlertsStore } from "./stores/alerts";
+import {
+  isFirstRun,
+  getDiscoveredMiners,
+  getInitialRoute,
+} from "./services/firstRunService";
+import { connectionStatus, forceReconnect } from "./services/websocket";
+import { useEasterEgg } from "./composables/useEasterEgg";
+import { useUpdateChecker } from "./composables/useUpdateChecker";
+import { useClipboard } from "./composables/useClipboard";
+import { useGlobalSnackbar } from "./composables/useGlobalSnackbar";
+import BitcoinLogo from "./components/BitcoinLogo.vue";
+import UpdateNotification from "./components/UpdateNotification.vue";
 
 export default {
-  name: 'App',
-  
+  name: "App",
+
   components: {
     BitcoinLogo,
-    UpdateNotification
+    UpdateNotification,
   },
-  
+
   setup() {
-    const route = useRoute()
-    const router = useRouter()
-    const minersStore = useMinersStore()
-    const settingsStore = useSettingsStore()
-    const alertsStore = useAlertsStore()
-    const { mobile } = useDisplay()
-    
+    const route = useRoute();
+    const router = useRouter();
+    const minersStore = useMinersStore();
+    const settingsStore = useSettingsStore();
+    const alertsStore = useAlertsStore();
+    const { mobile } = useDisplay();
+
     // Initialize easter egg
-    const easterEgg = useEasterEgg()
-    
+    const easterEgg = useEasterEgg();
+
     // Initialize clipboard functionality
-    const clipboard = useClipboard()
-    
+    const clipboard = useClipboard();
+
     // Initialize global snackbar
-    const { snackbar, showSnackbar } = useGlobalSnackbar()
-    
+    const { snackbar, showSnackbar } = useGlobalSnackbar();
+
     // Initialize update checker
-    let checkUpdates, checkingUpdates
+    let checkUpdates, checkingUpdates;
     try {
-      const updateChecker = useUpdateChecker()
-      checkUpdates = updateChecker.checkForUpdates
-      checkingUpdates = updateChecker.isChecking
+      const updateChecker = useUpdateChecker();
+      checkUpdates = updateChecker.checkForUpdates;
+      checkingUpdates = updateChecker.isChecking;
     } catch (error) {
-      console.error('Failed to initialize update checker:', error)
+      console.error("Failed to initialize update checker:", error);
       // Provide fallback values
-      checkUpdates = async () => { console.warn('Update checker not available') }
-      checkingUpdates = ref(false)
+      checkUpdates = async () => {
+        console.warn("Update checker not available");
+      };
+      checkingUpdates = ref(false);
     }
-    
+
     // Navigation drawer state - responsive behavior
-    const drawer = ref(false)
-    
+    const drawer = ref(false);
+
     // Watch for screen size changes and adjust drawer accordingly
-    watch(mobile, (isMobile) => {
-      if (!isMobile) {
-        // On desktop, keep drawer open by default
-        drawer.value = true
-      } else {
-        // On mobile, close drawer to save space
-        drawer.value = false
-      }
-    }, { immediate: true })
-    
+    watch(
+      mobile,
+      (isMobile) => {
+        if (!isMobile) {
+          // On desktop, keep drawer open by default
+          drawer.value = true;
+        } else {
+          // On mobile, close drawer to save space
+          drawer.value = false;
+        }
+      },
+      { immediate: true }
+    );
+
     // Check for UI mode preference
-    const uiMode = ref(localStorage.getItem('uiMode') || 'advanced')
-    
+    const uiMode = ref(localStorage.getItem("uiMode") || "advanced");
+
     // Watch for localStorage changes to uiMode
     const updateUIMode = () => {
-      const newMode = localStorage.getItem('uiMode') || 'advanced'
+      const newMode = localStorage.getItem("uiMode") || "advanced";
       if (uiMode.value !== newMode) {
-        uiMode.value = newMode
+        uiMode.value = newMode;
       }
-    }
-    
+    };
+
     // Listen for storage events (when localStorage is changed from other tabs/components)
-    window.addEventListener('storage', updateUIMode)
-    
+    window.addEventListener("storage", updateUIMode);
+
     // Also watch for route changes to update UI mode if needed
-    watch(() => route.path, () => {
-      updateUIMode()
-    })
-    
+    watch(
+      () => route.path,
+      () => {
+        updateUIMode();
+      }
+    );
+
     // Menu items
     const menuItems = computed(() => {
       const items = [
-        { 
-          title: 'Dashboard', 
-          icon: 'mdi-view-dashboard', 
-          to: uiMode.value === 'simple' ? '/dashboard-simple' : '/' 
+        {
+          title: "Dashboard",
+          icon: "mdi-view-dashboard",
+          to: uiMode.value === "simple" ? "/dashboard-simple" : "/",
         },
-        { title: 'Miners', icon: 'mdi-server', to: '/miners' },
-        { title: 'Analytics', icon: 'mdi-chart-line', to: '/analytics' },
-        { title: 'Network', icon: 'mdi-network', to: '/network' },
-        { title: 'Settings', icon: 'mdi-cog', to: '/settings' },
-        { title: 'About', icon: 'mdi-information', to: '/about' },
-      ]
-      
-      return items
-    })
-    
+        { title: "Miners", icon: "mdi-server", to: "/miners" },
+        { title: "Analytics", icon: "mdi-chart-line", to: "/analytics" },
+        { title: "Network", icon: "mdi-network", to: "/network" },
+        { title: "Settings", icon: "mdi-cog", to: "/settings" },
+        { title: "About", icon: "mdi-information", to: "/about" },
+      ];
+
+      return items;
+    });
+
     // Current page title
     const currentPageTitle = computed(() => {
-      const currentRoute = route.path
-      const items = menuItems.value
-      if (!Array.isArray(items)) return 'Bitcoin Solo Miner Monitor'
-      const currentMenuItem = items.find(item => item.to === currentRoute)
-      return currentMenuItem ? currentMenuItem.title : 'Bitcoin Solo Miner Monitor'
-    })
-    
+      const currentRoute = route.path;
+      const items = menuItems.value;
+      if (!Array.isArray(items)) return "Bitcoin Solo Miner Monitor";
+      const currentMenuItem = items.find((item) => item.to === currentRoute);
+      return currentMenuItem
+        ? currentMenuItem.title
+        : "Bitcoin Solo Miner Monitor";
+    });
+
     // Check if current route is setup
     const isSetupRoute = computed(() => {
-      return route.path === '/setup'
-    })
-    
+      return route.path === "/setup";
+    });
 
-    
     // Settings dialog
-    const settingsDialog = ref(false)
-    const settingsFormValid = ref(true) // Initialize as true since we load valid settings
-    const settingsForm = ref(null)
+    const settingsDialog = ref(false);
+    const settingsFormValid = ref(true); // Initialize as true since we load valid settings
+    const settingsForm = ref(null);
     const settings = ref({
       polling_interval: 30,
       refresh_interval: 10,
-      chart_retention_days: 30
-    })
-    
+      chart_retention_days: 30,
+    });
+
     // Computed property for settings loading state
     const settingsLoading = computed(() => {
-      return settingsStore?.loading || false
-    })
-    
+      return settingsStore?.loading || false;
+    });
 
-    
     // Refresh state
-    const refreshing = ref(false)
-    
+    const refreshing = ref(false);
+
     // Snackbar is now handled by the global composable
-    
+
     // Methods
     const navigateToMinersPage = () => {
       // Only close drawer on mobile devices after navigation
       if (mobile.value) {
-        drawer.value = false
+        drawer.value = false;
       }
-      router.push('/miners')
-    }
-    
+      router.push("/miners");
+    };
+
     const navigateToPage = (path) => {
       // Only close drawer on mobile devices after navigation
       if (mobile.value) {
-        drawer.value = false
+        drawer.value = false;
       }
-      router.push(path)
-    }
-    
+      router.push(path);
+    };
+
     const openSettingsDialog = () => {
       // Load current settings from store
       settings.value = {
         polling_interval: settingsStore.settings.polling_interval || 30,
         refresh_interval: settingsStore.settings.refresh_interval || 10,
         chart_retention_days: settingsStore.settings.chart_retention_days || 30,
-        theme: settingsStore.settings.theme || 'dark'
-      }
-      console.log('Opening settings dialog with current settings:', settings.value)
-      settingsDialog.value = true
-      
+        theme: settingsStore.settings.theme || "dark",
+      };
+      console.log(
+        "Opening settings dialog with current settings:",
+        settings.value
+      );
+      settingsDialog.value = true;
+
       // Ensure form validation is triggered after dialog opens
       setTimeout(() => {
         if (settingsForm.value) {
-          settingsForm.value.validate()
+          settingsForm.value.validate();
         }
-      }, 100)
-    }
-    
+      }, 100);
+    };
+
     const saveSettings = async () => {
-      console.log('saveSettings method called!')
-      console.log('settingsFormValid:', settingsFormValid.value)
-      console.log('settingsStore.loading:', settingsStore?.loading)
-      
+      console.log("saveSettings method called!");
+      console.log("settingsFormValid:", settingsFormValid.value);
+      console.log("settingsStore.loading:", settingsStore?.loading);
+
       if (settingsStore?.loading) {
-        console.log('Settings save already in progress, skipping...')
-        return
+        console.log("Settings save already in progress, skipping...");
+        return;
       }
-      
+
       try {
         // Convert string values to appropriate types before saving
         const settingsToSave = {
           ...settings.value,
           polling_interval: parseInt(settings.value.polling_interval) || 30,
           refresh_interval: parseInt(settings.value.refresh_interval) || 10,
-          chart_retention_days: parseInt(settings.value.chart_retention_days) || 30
-        }
-        
-        console.log('Saving settings:', settingsToSave)
-        await settingsStore.updateSettings(settingsToSave)
-        
+          chart_retention_days:
+            parseInt(settings.value.chart_retention_days) || 30,
+        };
+
+        console.log("Saving settings:", settingsToSave);
+        await settingsStore.updateSettings(settingsToSave);
+
         // Auto-close dialog on successful save
-        settingsDialog.value = false
-        
+        settingsDialog.value = false;
+
         // Show success notification
-        showSnackbar('Settings saved successfully', 'success')
-        
-        console.log('Settings saved and applied successfully')
+        showSnackbar("Settings saved successfully", "success");
+
+        console.log("Settings saved and applied successfully");
       } catch (error) {
-        console.error('Error saving settings:', error)
-        showSnackbar(`Error saving settings: ${error.message}`, 'error')
+        console.error("Error saving settings:", error);
+        showSnackbar(`Error saving settings: ${error.message}`, "error");
       }
-    }
-    
+    };
+
     const refreshData = async () => {
       if (refreshing.value) {
-        console.log('Refresh already in progress, skipping...')
-        return
+        console.log("Refresh already in progress, skipping...");
+        return;
       }
-      
+
       try {
-        refreshing.value = true
-        const currentPath = route.path
-        console.log('Starting data refresh for current page:', currentPath)
-        
+        refreshing.value = true;
+        const currentPath = route.path;
+        console.log("Starting data refresh for current page:", currentPath);
+
         // Handle WebSocket reconnection for disconnected states
-        if (connectionStatus.value === 'disconnected' || connectionStatus.value === 'error') {
-          console.log('Refresh: WebSocket disconnected, forcing reconnection...')
-          showSnackbar('Reconnecting...', 'warning')
-          
+        if (
+          connectionStatus.value === "disconnected" ||
+          connectionStatus.value === "error"
+        ) {
+          console.log(
+            "Refresh: WebSocket disconnected, forcing reconnection..."
+          );
+          showSnackbar("Reconnecting...", "warning");
+
           try {
-            forceReconnect()
-            
+            forceReconnect();
+
             // Wait for reconnection to start with timeout
-            let reconnectTimeout = 0
-            const maxReconnectWait = 2000 // 2 seconds max wait
-            
-            while (connectionStatus.value === 'disconnected' && reconnectTimeout < maxReconnectWait) {
-              await new Promise(resolve => setTimeout(resolve, 100))
-              reconnectTimeout += 100
+            let reconnectTimeout = 0;
+            const maxReconnectWait = 2000; // 2 seconds max wait
+
+            while (
+              connectionStatus.value === "disconnected" &&
+              reconnectTimeout < maxReconnectWait
+            ) {
+              await new Promise((resolve) => setTimeout(resolve, 100));
+              reconnectTimeout += 100;
             }
-            
-            if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
-              console.log('WebSocket reconnection initiated successfully')
+
+            if (
+              connectionStatus.value === "connecting" ||
+              connectionStatus.value === "reconnecting"
+            ) {
+              console.log("WebSocket reconnection initiated successfully");
             } else {
-              console.warn('WebSocket reconnection may have failed, continuing with data refresh')
+              console.warn(
+                "WebSocket reconnection may have failed, continuing with data refresh"
+              );
             }
           } catch (reconnectError) {
-            console.error('Error during WebSocket reconnection:', reconnectError)
-            showSnackbar('Reconnection failed, refreshing data only', 'warning')
+            console.error(
+              "Error during WebSocket reconnection:",
+              reconnectError
+            );
+            showSnackbar(
+              "Reconnection failed, refreshing data only",
+              "warning"
+            );
           }
         }
-        
+
         // Determine what to refresh based on current route
-        const refreshPromises = []
-        
+        const refreshPromises = [];
+
         // Route-specific refresh logic
-        if (currentPath === '/' || currentPath === '/dashboard-simple' || 
-            currentPath === '/miners' || currentPath === '/network' || 
-            currentPath === '/analytics' || currentPath.startsWith('/miners/')) {
+        if (
+          currentPath === "/" ||
+          currentPath === "/dashboard-simple" ||
+          currentPath === "/miners" ||
+          currentPath === "/network" ||
+          currentPath === "/analytics" ||
+          currentPath.startsWith("/miners/")
+        ) {
           // Pages that display miner data - use the refresh endpoint
-          console.log('Refreshing miners data via refresh endpoint...')
+          console.log("Refreshing miners data via refresh endpoint...");
           refreshPromises.push(
-            minersStore.refreshMiners().catch(error => {
-              console.error('Failed to refresh miners:', error)
-              console.warn('Miners refresh failed, continuing with other data')
+            minersStore.refreshMiners().catch((error) => {
+              console.error("Failed to refresh miners:", error);
+              console.warn("Miners refresh failed, continuing with other data");
             })
-          )
+          );
         }
-        
+
         // Settings page - refresh settings
-        if (currentPath === '/settings') {
-          console.log('Refreshing settings data...')
+        if (currentPath === "/settings") {
+          console.log("Refreshing settings data...");
           refreshPromises.push(
-            settingsStore.fetchSettings().catch(error => {
-              console.error('Failed to refresh settings:', error)
-              console.warn('Settings refresh failed')
+            settingsStore.fetchSettings().catch((error) => {
+              console.error("Failed to refresh settings:", error);
+              console.warn("Settings refresh failed");
             })
-          )
+          );
         }
-        
+
         // Always refresh alerts as they may appear across pages
-        console.log('Refreshing alerts data...')
+        console.log("Refreshing alerts data...");
         refreshPromises.push(
-          alertsStore.fetchAlerts().catch(error => {
-            console.error('Failed to refresh alerts:', error)
-            console.warn('Alerts refresh failed')
+          alertsStore.fetchAlerts().catch((error) => {
+            console.error("Failed to refresh alerts:", error);
+            console.warn("Alerts refresh failed");
           })
-        )
-        
+        );
+
         // If no specific refresh actions were added, default to refreshing miners
-        if (refreshPromises.length === 1) { // Only alerts was added
-          console.log('No specific page refresh, defaulting to miners refresh...')
+        if (refreshPromises.length === 1) {
+          // Only alerts was added
+          console.log(
+            "No specific page refresh, defaulting to miners refresh..."
+          );
           refreshPromises.unshift(
-            minersStore.refreshMiners().catch(error => {
-              console.error('Failed to refresh miners:', error)
-              console.warn('Miners refresh failed')
+            minersStore.refreshMiners().catch((error) => {
+              console.error("Failed to refresh miners:", error);
+              console.warn("Miners refresh failed");
             })
-          )
+          );
         }
-        
+
         // Execute all refresh operations with timeout
-        const refreshTimeout = 10000 // 10 seconds timeout
+        const refreshTimeout = 10000; // 10 seconds timeout
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Refresh operation timed out')), refreshTimeout)
-        })
-        
-        let refreshResults
+          setTimeout(
+            () => reject(new Error("Refresh operation timed out")),
+            refreshTimeout
+          );
+        });
+
+        let refreshResults;
         try {
           refreshResults = await Promise.race([
             Promise.allSettled(refreshPromises),
-            timeoutPromise
-          ])
+            timeoutPromise,
+          ]);
         } catch (timeoutError) {
-          console.error('Refresh operation timed out:', timeoutError)
-          throw new Error('Refresh timed out - please try again')
+          console.error("Refresh operation timed out:", timeoutError);
+          throw new Error("Refresh timed out - please try again");
         }
-        
+
         // Log results
-        let successCount = 0
-        let failureCount = 0
+        let successCount = 0;
+        let failureCount = 0;
         refreshResults.forEach((result, index) => {
-          if (result.status === 'rejected') {
-            console.warn(`Refresh operation ${index} failed:`, result.reason)
-            failureCount++
+          if (result.status === "rejected") {
+            console.warn(`Refresh operation ${index} failed:`, result.reason);
+            failureCount++;
           } else {
-            console.log(`Refresh operation ${index} succeeded`)
-            successCount++
+            console.log(`Refresh operation ${index} succeeded`);
+            successCount++;
           }
-        })
-        
+        });
+
         // Show appropriate message based on results
         if (successCount > 0 && failureCount === 0) {
-          if (connectionStatus.value === 'connected') {
-            showSnackbar('Data refreshed successfully', 'success')
-          } else if (connectionStatus.value === 'connecting' || connectionStatus.value === 'reconnecting') {
-            showSnackbar('Data refreshed, reconnecting...', 'info')
+          if (connectionStatus.value === "connected") {
+            showSnackbar("Data refreshed successfully", "success");
+          } else if (
+            connectionStatus.value === "connecting" ||
+            connectionStatus.value === "reconnecting"
+          ) {
+            showSnackbar("Data refreshed, reconnecting...", "info");
           } else {
-            showSnackbar('Data refreshed (offline mode)', 'warning')
+            showSnackbar("Data refreshed (offline mode)", "warning");
           }
         } else if (successCount > 0 && failureCount > 0) {
-          showSnackbar('Data partially refreshed', 'warning')
+          showSnackbar("Data partially refreshed", "warning");
         } else {
-          showSnackbar('Refresh failed', 'error')
+          showSnackbar("Refresh failed", "error");
         }
-        
       } catch (error) {
-        console.error('Error during data refresh:', error)
-        showSnackbar(`Refresh failed: ${error.message}`, 'error')
+        console.error("Error during data refresh:", error);
+        showSnackbar(`Refresh failed: ${error.message}`, "error");
       } finally {
-        refreshing.value = false
-        console.log('Data refresh completed')
+        refreshing.value = false;
+        console.log("Data refresh completed");
       }
-    }
-    
+    };
+
     // showSnackbar is now provided by the global composable
-    
+
     const copyDonationAddress = async () => {
       try {
-        const result = await clipboard.copyDonationAddress()
-        
+        const result = await clipboard.copyDonationAddress();
+
         if (result.success) {
-          showSnackbar(result.message, 'success')
+          showSnackbar(result.message, "success");
         } else {
-          showSnackbar(result.message, 'error')
+          showSnackbar(result.message, "error");
         }
       } catch (error) {
-        console.error('Error copying donation address:', error)
-        showSnackbar('Failed to copy donation address. Please copy manually.', 'error')
+        console.error("Error copying donation address:", error);
+        showSnackbar(
+          "Failed to copy donation address. Please copy manually.",
+          "error"
+        );
       }
-    }
-    
+    };
+
     const checkForUpdates = async () => {
       try {
-        await checkUpdates(true) // Force refresh
-        showSnackbar('Update check completed', 'info')
+        await checkUpdates(true); // Force refresh
+        showSnackbar("Update check completed", "info");
       } catch (error) {
-        showSnackbar(`Update check failed: ${error.message}`, 'error')
+        showSnackbar(`Update check failed: ${error.message}`, "error");
       }
-    }
-    
+    };
+
     const addDiscoveredMiners = async () => {
       // Temporarily disabled to prevent connection timeouts during testing phase
-      console.log('addDiscoveredMiners disabled during testing phase to prevent unresponsiveness')
-      
+      console.log(
+        "addDiscoveredMiners disabled during testing phase to prevent unresponsiveness"
+      );
+
       // Clear any existing discovered miners to prevent future issues
-      localStorage.removeItem('discoveredMiners')
-      console.log('Cleared discovered miners from localStorage')
-      
-      return
-      
+      localStorage.removeItem("discoveredMiners");
+      console.log("Cleared discovered miners from localStorage");
+
+      return;
+
       /* Original implementation - re-enable after testing phase
       try {
         const discoveredMiners = getDiscoveredMiners()
@@ -681,51 +735,62 @@ export default {
         showSnackbar('Error adding discovered miners', 'error')
       }
       */
-    }
-    
+    };
+
     // Lifecycle hooks - MINIMAL FOR PHASE 1 TESTING
     onMounted(async () => {
       // Check if this is the first run and redirect accordingly
-      console.log('=== APP MOUNTED - FIRST RUN CHECK ===')
-      console.log('localStorage firstRunComplete:', localStorage.getItem('firstRunComplete'))
-      console.log('Current route path:', route.path)
-      
+      console.log("=== APP MOUNTED - FIRST RUN CHECK ===");
+      console.log(
+        "localStorage firstRunComplete:",
+        localStorage.getItem("firstRunComplete")
+      );
+      console.log("Current route path:", route.path);
+
       try {
-        console.log('About to call isFirstRun()...')
-        const firstRun = await isFirstRun()
-        console.log('isFirstRun() returned:', firstRun, 'type:', typeof firstRun)
-        
+        console.log("About to call isFirstRun()...");
+        const firstRun = await isFirstRun();
+        console.log(
+          "isFirstRun() returned:",
+          firstRun,
+          "type:",
+          typeof firstRun
+        );
+
         if (firstRun === true) {
-          console.log('First run detected, redirecting to setup')
-          await router.push('/setup')
+          console.log("First run detected, redirecting to setup");
+          await router.push("/setup");
         } else {
-          console.log('Not a first run, current path:', route.path)
+          console.log("Not a first run, current path:", route.path);
           // Not a first run, ensure we're not on the setup page
-          if (route.path === '/setup') {
-            console.log('On setup page but first run is complete, redirecting...')
+          if (route.path === "/setup") {
+            console.log(
+              "On setup page but first run is complete, redirecting..."
+            );
             // Redirect to appropriate dashboard based on user preferences
-            const initialRoute = getInitialRoute()
-            console.log('Initial route determined:', initialRoute)
-            await router.push(initialRoute)
-            console.log('Redirect completed to:', initialRoute)
+            const initialRoute = getInitialRoute();
+            console.log("Initial route determined:", initialRoute);
+            await router.push(initialRoute);
+            console.log("Redirect completed to:", initialRoute);
           } else {
-            console.log('Not on setup page, staying on current route:', route.path)
+            console.log(
+              "Not on setup page, staying on current route:",
+              route.path
+            );
           }
         }
       } catch (error) {
-        console.error('Error in first run check:', error)
+        console.error("Error in first run check:", error);
       }
-      
 
-      
-      console.log('=== APP MOUNTED COMPLETE ===')
-    })
-    
+      console.log("=== APP MOUNTED COMPLETE ===");
+    });
+
     // Cleanup event listeners
     onUnmounted(() => {
-      window.removeEventListener('storage', updateUIMode)
-    })
-    
+      window.removeEventListener("storage", updateUIMode);
+    });
+
     // Original complex onMounted logic (disabled for Phase 1):
     /*
     onMounted(async () => {
@@ -778,43 +843,57 @@ export default {
       }, 5000)
     })
     */
-    
+
     // WebSocket connection status
     const connectionStatusColor = computed(() => {
       switch (connectionStatus.value) {
-        case 'connected': return 'success'
-        case 'connecting': 
-        case 'reconnecting': return 'warning'
-        case 'disconnected': return 'error'
-        case 'error': return 'error'
-        default: return 'info'
+        case "connected":
+          return "success";
+        case "connecting":
+        case "reconnecting":
+          return "warning";
+        case "disconnected":
+          return "error";
+        case "error":
+          return "error";
+        default:
+          return "info";
       }
-    })
-    
+    });
+
     const connectionStatusIcon = computed(() => {
       switch (connectionStatus.value) {
-        case 'connected': return 'mdi-wifi'
-        case 'connecting': 
-        case 'reconnecting': return 'mdi-wifi-sync'
-        case 'disconnected': return 'mdi-wifi-off'
-        case 'error': return 'mdi-wifi-alert'
-        default: return 'mdi-wifi-off'
+        case "connected":
+          return "mdi-wifi";
+        case "connecting":
+        case "reconnecting":
+          return "mdi-wifi-sync";
+        case "disconnected":
+          return "mdi-wifi-off";
+        case "error":
+          return "mdi-wifi-alert";
+        default:
+          return "mdi-wifi-off";
       }
-    })
-    
+    });
+
     const connectionStatusText = computed(() => {
       switch (connectionStatus.value) {
-        case 'connected': return 'Connected'
-        case 'connecting': return 'Connecting'
-        case 'reconnecting': return 'Reconnecting'
-        case 'disconnected': return 'Disconnected'
-        case 'error': return 'Connection Error'
-        default: return 'Unknown'
+        case "connected":
+          return "Connected";
+        case "connecting":
+          return "Connecting";
+        case "reconnecting":
+          return "Reconnecting";
+        case "disconnected":
+          return "Disconnected";
+        case "error":
+          return "Connection Error";
+        default:
+          return "Unknown";
       }
-    })
+    });
 
-
-    
     return {
       drawer,
       mobile,
@@ -840,12 +919,12 @@ export default {
       connectionStatusIcon,
       connectionStatusText,
       checkingUpdates,
-      
+
       // Easter egg (for development debugging)
-      easterEgg
-    }
-  }
-}
+      easterEgg,
+    };
+  },
+};
 </script>
 
 <style scoped>
@@ -957,7 +1036,7 @@ export default {
   color: rgb(255, 152, 0) !important;
   cursor: pointer;
   text-decoration: underline;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 0.75rem;
 }
 
@@ -1045,6 +1124,30 @@ export default {
 
 :deep(.v-dialog .v-card-text) {
   color: var(--color-text-primary) !important;
+}
+
+/* Global dialog viewport positioning fix - ensure dialogs are centered in viewport */
+:deep(.v-dialog > .v-overlay__content) {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  margin: 0 !important;
+}
+
+/* Ensure dialog cards are properly sized within viewport */
+:deep(.v-dialog .v-card) {
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Make dialog card content scrollable */
+:deep(.v-dialog .v-card-text) {
+  overflow-y: auto !important;
+  flex: 1 1 auto !important;
 }
 
 /* Form styling */
@@ -1140,7 +1243,7 @@ export default {
     max-height: 64px !important;
     padding: 8px 12px !important;
   }
-  
+
   :deep(.v-footer .text-caption) {
     font-size: 11px !important;
   }
@@ -1206,7 +1309,7 @@ export default {
     transition: none;
     transform: none !important;
   }
-  
+
   :deep(.v-btn:hover),
   .easter-egg-hint:hover {
     transform: none !important;
@@ -1234,7 +1337,7 @@ export default {
   :deep(.v-dialog .v-card) {
     border-width: 2px;
   }
-  
+
   :deep(.v-btn) {
     border: 1px solid var(--color-text-primary);
   }
@@ -1245,13 +1348,13 @@ export default {
   .refresh-spinning {
     animation: none;
   }
-  
+
   :deep(.v-btn),
   .easter-egg-hint {
     transition: none;
     transform: none !important;
   }
-  
+
   :deep(.v-btn:hover),
   .easter-egg-hint:hover {
     transform: none !important;
@@ -1260,7 +1363,7 @@ export default {
 
 /* Donation address styling */
 .donation-address {
-  color: #F7931A !important; /* Bitcoin orange */
+  color: #f7931a !important; /* Bitcoin orange */
   text-decoration: underline;
   cursor: pointer;
   font-weight: 500;
@@ -1268,7 +1371,7 @@ export default {
 }
 
 .donation-address:hover {
-  color: #FF8C00 !important; /* Slightly brighter orange on hover */
+  color: #ff8c00 !important; /* Slightly brighter orange on hover */
   text-decoration: underline;
   opacity: 0.8;
 }
@@ -1282,7 +1385,7 @@ export default {
   .donation-address {
     transition: none;
   }
-  
+
   .donation-address:active {
     transform: none;
   }

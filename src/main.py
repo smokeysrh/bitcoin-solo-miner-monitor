@@ -69,10 +69,8 @@ class Application:
         logger.info("Starting Bitcoin Solo Miner Monitoring App")
         
         # Start API service (which will initialize data storage and start miner manager)
+        # Note: API service startup already loads saved miners via load_miners_from_storage()
         await self.api_service.start()
-        
-        # Load saved miners
-        await self._load_saved_miners()
         
         # Start API server
         config = uvicorn.Config(
@@ -98,43 +96,7 @@ class Application:
         # Shutdown HTTP session manager
         await shutdown_session_manager()
     
-    async def _load_saved_miners(self):
-        """
-        Load saved miners from the database.
-        """
-        try:
-            # Get all miner configurations
-            configs = await self.data_storage.get_all_miner_configs()
-            
-            # Add each miner
-            for config in configs:
-                miner_id = config.get("id")
-                miner_type = config.get("type")
-                ip_address = config.get("ip_address")
-                port = config.get("port")
-                name = config.get("name")
-                
-                if miner_id and miner_type and ip_address:
-                    logger.info(f"Loading saved miner: {miner_id}")
-                    await self.miner_manager.add_miner(miner_type, ip_address, port, name)
-        except DatabaseError as e:
-            logger.error(f"Database error loading saved miners", {
-                'error_type': 'database_error',
-                'operation': 'load_saved_miners'
-            })
-            # Don't fail startup for this - just log the error
-        except MinerManagerError as e:
-            logger.error(f"Miner manager error loading saved miners", {
-                'error_type': 'miner_manager_error',
-                'operation': 'load_saved_miners'
-            })
-            # Don't fail startup for this - just log the error
-        except AppError as e:
-            logger.error(f"Application error loading saved miners", {
-                'error_type': 'app_error',
-                'operation': 'load_saved_miners'
-            })
-            # Don't fail startup for this - just log the error
+
     
     def _validate_configuration(self):
         """

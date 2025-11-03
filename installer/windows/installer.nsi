@@ -472,18 +472,44 @@ Section "Start Menu Shortcuts" SecStartMenu
   DetailPrint "Creating Start Menu shortcuts..."
   
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.bat"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
   
-  DetailPrint "Start Menu shortcuts created"
+  ; Create application shortcut with Bitcoin icon
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" \
+      "$INSTDIR\BitcoinSoloMinerMonitor.bat" \
+      "" \
+      "$INSTDIR\bitcoin-symbol.ico" \
+      0 \
+      SW_SHOWMINIMIZED \
+      "" \
+      "Bitcoin Solo Miner Monitor"
+  
+  ; Create uninstaller shortcut with Bitcoin icon
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall.lnk" \
+      "$INSTDIR\Uninstall.exe" \
+      "" \
+      "$INSTDIR\bitcoin-symbol.ico" \
+      0 \
+      SW_SHOWNORMAL \
+      "" \
+      "Uninstall Bitcoin Solo Miner Monitor"
+  
+  DetailPrint "Start Menu shortcuts created with icons"
 SectionEnd
 
 Section "Desktop Shortcut" SecDesktop
   DetailPrint "Creating Desktop shortcut..."
   
-  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\BitcoinSoloMinerMonitor.bat"
+  ; Create desktop shortcut with Bitcoin icon
+  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" \
+      "$INSTDIR\BitcoinSoloMinerMonitor.bat" \
+      "" \
+      "$INSTDIR\bitcoin-symbol.ico" \
+      0 \
+      SW_SHOWMINIMIZED \
+      "" \
+      "Bitcoin Solo Miner Monitor"
   
-  DetailPrint "Desktop shortcut created"
+  DetailPrint "Desktop shortcut created with icon"
 SectionEnd
 
 Section "Start with Windows" SecStartup
@@ -607,6 +633,24 @@ Section "Uninstall"
   
   ; Remove README
   Delete "$INSTDIR\README.md"
+  
+  ; Remove application icon
+  DetailPrint "Removing application icon..."
+  Delete "$INSTDIR\bitcoin-symbol.ico"
+  ${If} ${FileExists} "$INSTDIR\bitcoin-symbol.ico"
+    DetailPrint "⚠ Warning: Could not remove application icon"
+  ${Else}
+    DetailPrint "✓ Application icon removed"
+  ${EndIf}
+  
+  ; Remove assets directory
+  DetailPrint "Removing assets directory..."
+  RMDir /r "$INSTDIR\assets"
+  ${If} ${FileExists} "$INSTDIR\assets"
+    DetailPrint "⚠ Warning: Could not completely remove assets directory"
+  ${Else}
+    DetailPrint "✓ Assets directory removed"
+  ${EndIf}
   
   ; Remove Python runtime directory
   DetailPrint "Removing Python runtime..."

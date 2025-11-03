@@ -450,6 +450,32 @@
       </v-col>
     </v-row>
 
+    <!-- Community -->
+    <v-row class="mt-4">
+      <v-col cols="12">
+        <v-card>
+          <v-card-text class="text-center py-8">
+            <v-icon size="64" color="#5865F2" class="mb-4">mdi-discord</v-icon>
+            <h3 class="text-h5 mb-3">Join Our Community</h3>
+            <p class="text-body-1 mb-4">
+              Connect with other solo miners, share tips, get support, and stay updated on the latest features!
+            </p>
+            <v-btn
+              color="#5865F2"
+              size="large"
+              href="https://discord.gg/GzNsNnh4yT"
+              target="_blank"
+              rel="noopener noreferrer"
+              prepend-icon="mdi-discord"
+              variant="elevated"
+            >
+              Join Discord Server
+            </v-btn>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <!-- Credits -->
     <v-row class="mt-4">
       <v-col cols="12">

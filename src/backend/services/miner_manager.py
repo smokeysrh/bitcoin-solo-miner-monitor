@@ -1252,10 +1252,15 @@ class MinerManager:
         """
         open_ports = []
         
+        logger.debug(f"Checking ports {ports} on {ip_address} with timeout {timeout}s")
+        
         async def check_port(port: int) -> Optional[int]:
             try:
-                # Use a shorter timeout for initial port checking (1/3 of the main timeout)
-                port_timeout = max(1, timeout // 3)
+                # Use a more reasonable timeout for port checking
+                # Magic Miners and some devices can be slow to respond
+                port_timeout = max(2, timeout // 2)  # At least 2 seconds, or half the main timeout
+                
+                logger.debug(f"Checking port {port} on {ip_address} with timeout {port_timeout}s")
                 
                 # Use asyncio to create connection with timeout
                 future = asyncio.open_connection(ip_address, port)
@@ -1265,10 +1270,16 @@ class MinerManager:
                 writer.close()
                 await writer.wait_closed()
                 
+                logger.debug(f"Port {port} is open on {ip_address}")
                 return port
-            except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+            except asyncio.TimeoutError:
+                logger.debug(f"Port {port} timeout on {ip_address} after {port_timeout}s")
                 return None
-            except Exception:
+            except (ConnectionRefusedError, OSError) as e:
+                logger.debug(f"Port {port} connection failed on {ip_address}: {str(e)}")
+                return None
+            except Exception as e:
+                logger.debug(f"Port {port} check error on {ip_address}: {str(e)}")
                 return None
         
         # Check all ports concurrently
@@ -1280,4 +1291,5 @@ class MinerManager:
             if isinstance(result, int):
                 open_ports.append(result)
         
+        logger.debug(f"Found open ports on {ip_address}: {open_ports}")
         return open_ports

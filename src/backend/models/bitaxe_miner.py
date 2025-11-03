@@ -212,6 +212,20 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
                 asic_model = self.device_info.get("ASICModel", "").lower()
                 hash_rate = self.device_info.get("hashRate", 0)
                 
+                # CRITICAL: Reject Magic Miners that might be responding to Bitaxe API
+                # Magic Miners have distinctive characteristics that should exclude them
+                magic_miner_indicators = [
+                    "magic" in hostname,
+                    "magicminer" in hostname,
+                    asic_count >= 9,  # Magic Miners typically have 9+ ASICs
+                    (asic_count >= 9 and "bm1368" in asic_model),  # Magic Miner BG02 pattern
+                ]
+                
+                if any(magic_miner_indicators):
+                    logger.info(f"Device at {self.ip_address} appears to be a Magic Miner, not a Bitaxe")
+                    logger.debug(f"Magic Miner indicators: hostname='{hostname}', asicCount={asic_count}, asicModel='{asic_model}'")
+                    return {}
+                
                 # Validate ASIC model
                 valid_asic_models = ["bm1366", "bm1368", "bm1397", "bm1370", "bitaxe"]
                 if not any(model in asic_model for model in valid_asic_models):
@@ -230,19 +244,10 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
                     # This is a standard Bitaxe (NO deviceModel field)
                     device_type = "Bitaxe"
                     
-                    # Determine Bitaxe model based on ASIC chip
-                    if "bm1366" in asic_model:
-                        model = "Bitaxe Ultra"
-                    elif "bm1368" in asic_model:
-                        model = "Bitaxe Supra"
-                    elif "bm1397" in asic_model:
-                        model = "Bitaxe Gamma"
-                    elif "bm1370" in asic_model:
-                        model = "Bitaxe Hex"
-                    else:
-                        model = "Bitaxe"
+                    # IMPROVED: Determine Bitaxe model using multiple factors
+                    model = self._determine_bitaxe_model(asic_model, asic_count, hash_rate, hostname)
                     
-                    logger.info(f"Detected {model} at {self.ip_address} (asicCount: {asic_count})")
+                    logger.info(f"Detected {model} at {self.ip_address} (asicCount: {asic_count}, hashRate: {hash_rate})")
                 
                 return {
                     "type": device_type,
@@ -262,6 +267,136 @@ class BitaxeMiner(HTTPClientMixin, MinerInterface):
                 return {}
         
         return {}
+    
+    def _determine_bitaxe_model(self, asic_model: str, asic_count: int, hash_rate: float, hostname: str) -> str:
+        """
+        Determine the specific Bitaxe model using multiple factors.
+        
+        Args:
+            asic_model (str): ASIC chip model (e.g., "BM1370")
+            asic_count (int): Number of ASIC chips
+            hash_rate (float): Current hashrate in GH/s
+            hostname (str): Device hostname
+            
+        Returns:
+            str: Specific Bitaxe model name
+        """
+        asic_model = asic_model.lower()
+        hostname = hostname.lower()
+        
+        # BM1366 - Bitaxe Ultra (typically ~0.5 TH/s)
+        if "bm1366" in asic_model:
+            return "Bitaxe Ultra"
+        
+        # BM1368 - Bitaxe Supra (typically ~15-20 TH/s, single ASIC)
+        # Note: Magic Miners also use BM1368 but have 9+ ASICs and should be filtered out above
+        elif "bm1368" in asic_model:
+            if asic_count == 1:
+                return "Bitaxe Supra"
+            else:
+                # Multiple BM1368 ASICs - this might be a different variant or misidentified device
+                logger.warning(f"Unusual BM1368 configuration: {asic_count} ASICs, hashrate: {hash_rate}")
+                return "Bitaxe Supra"
+        
+        # BM1397 - Bitaxe Gamma (typically ~0.4-0.6 TH/s)
+        elif "bm1397" in asic_model:
+            return "Bitaxe Gamma"
+        
+        # BM1370 - Multiple models use this chip, need sophisticated differentiation
+        elif "bm1370" in asic_model:
+            return self._differentiate_bm1370_models(hash_rate, asic_count, hostname)
+        
+        # Fallback for unknown ASIC models
+        else:
+            logger.warning(f"Unknown ASIC model for Bitaxe: {asic_model}")
+            return "Bitaxe"
+    
+    def _differentiate_bm1370_models(self, hash_rate: float, asic_count: int, hostname: str) -> str:
+        """
+        Differentiate between Bitaxe models that use BM1370 chips.
+        
+        CORRECTED LOGIC: Based on real device feedback, modern Gammas can have high 
+        performance and 600+ board versions. Uses conservative approach that defaults 
+        to Gamma and requires strong evidence for Hex identification.
+        
+        Args:
+            hash_rate (float): Current hashrate in GH/s
+            asic_count (int): Number of ASIC chips
+            hostname (str): Device hostname
+            
+        Returns:
+            str: Specific Bitaxe model name
+        """
+        hostname = hostname.lower()
+        
+        # Get additional device characteristics
+        board_version = str(self.device_info.get("boardVersion", ""))
+        power = self.device_info.get("power", 0)
+        core_count = self.device_info.get("smallCoreCount", 0)
+        frequency = self.device_info.get("frequency", 0)
+        firmware = str(self.device_info.get("version", ""))
+        
+        # Calculate efficiency if power data available
+        hashrate_th = hash_rate / 1000 if hash_rate > 0 else 0
+        efficiency = power / hashrate_th if hashrate_th > 0 and power > 0 else 0
+        
+        # PRIORITY 1: Explicit hostname hints (most reliable when present)
+        if "gamma" in hostname:
+            logger.info(f"BM1370 identified as Gamma via hostname: {hostname}")
+            return "Bitaxe Gamma"
+        elif "hex" in hostname:
+            logger.info(f"BM1370 identified as Hex via hostname: {hostname}")
+            return "Bitaxe Hex"
+        
+        # PRIORITY 2: Look for very strong Hex indicators
+        # Modern Gammas can have high performance, so need multiple strong indicators for Hex
+        hex_indicators = 0
+        hex_reasons = []
+        
+        # Very high hashrate (significantly above typical Gamma range)
+        if hashrate_th >= 1.5:  # 1.5+ TH/s is exceptionally high
+            hex_indicators += 1
+            hex_reasons.append(f"exceptionally high hashrate ({hashrate_th:.2f}TH/s)")
+        
+        # Exceptional efficiency (much better than typical Gamma)
+        if efficiency > 0 and efficiency < 15:  # <15 W/TH is exceptional
+            hex_indicators += 1
+            hex_reasons.append(f"exceptional efficiency ({efficiency:.1f}W/TH)")
+        
+        # Very high frequency (significantly above typical)
+        if frequency >= 600:  # 600+ MHz is very high
+            hex_indicators += 1
+            hex_reasons.append(f"very high frequency ({frequency}MHz)")
+        
+        # Multiple ASICs (unusual configuration that might indicate Hex)
+        if asic_count > 1:
+            hex_indicators += 1
+            hex_reasons.append(f"multiple ASICs ({asic_count})")
+        
+        # Very high board version (much higher than known Gamma range)
+        try:
+            board_ver_int = int(board_version) if board_version else 0
+            if board_ver_int >= 700:  # Much higher threshold
+                hex_indicators += 1
+                hex_reasons.append(f"very high board version ({board_version})")
+        except (ValueError, TypeError):
+            pass
+        
+        # Require at least 2 strong indicators for Hex identification
+        if hex_indicators >= 2:
+            logger.info(f"BM1370 identified as Hex via multiple strong indicators: {', '.join(hex_reasons)}")
+            return "Bitaxe Hex"
+        
+        # PRIORITY 3: Conservative default to Gamma
+        # Based on real feedback: modern Gammas can have high performance (1+ TH/s, 600+ board versions)
+        logger.info(f"BM1370 defaulting to Gamma (conservative approach)")
+        
+        if hex_indicators > 0:
+            logger.info(f"Some Hex indicators present but insufficient for confident identification: {', '.join(hex_reasons)}")
+            logger.debug(f"BM1370 context: hashrate={hash_rate}GH/s, board={board_version}, "
+                        f"cores={core_count}, freq={frequency}MHz, efficiency={efficiency:.1f}W/TH")
+        
+        return "Bitaxe Gamma"  # Conservative default - confirmed by real device feedback
     
     async def get_pool_info(self) -> List[Dict[str, Any]]:
         """
