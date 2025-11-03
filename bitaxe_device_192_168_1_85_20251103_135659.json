@@ -1,0 +1,55 @@
+{
+  "ip_address": "192.168.1.85",
+  "port": 80,
+  "timestamp": "2025-11-03T13:53:49.483008",
+  "endpoints": {
+    "/api/system/info": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/api/system/statistics/dashboard": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/api/system": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/api/system/statistics": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/api/swarm/info": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/api/swarm": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/status": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/config": {
+      "success": false,
+      "error": "Empty response"
+    },
+    "/info": {
+      "success": false,
+      "error": "Empty response"
+    }
+  },
+  "analysis": {
+    "device_identified": false,
+    "likely_model": "Unknown",
+    "confidence": 0.0,
+    "key_indicators": {},
+    "all_fields": "set()",
+    "unique_fields": "set()"
+  }
+}

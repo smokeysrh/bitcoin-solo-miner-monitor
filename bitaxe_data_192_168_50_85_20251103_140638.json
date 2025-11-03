@@ -1,0 +1,109 @@
+{
+  "collection_data": {
+    "ip_address": "192.168.50.85",
+    "timestamp": "2025-11-03T14:06:37.663136",
+    "endpoints": {
+      "/api/system/info": {
+        "power": 20.157012939453125,
+        "voltage": 5101.5625,
+        "current": 13234.375,
+        "temp": 60.25,
+        "vrTemp": 60,
+        "maxPower": 40,
+        "nominalVoltage": 5,
+        "hashRate": 1008.6899733822869,
+        "bestDiff": "1.25G",
+        "bestSessionDiff": "1G",
+        "stratumDiff": 2048,
+        "isUsingFallbackStratum": 0,
+        "isPSRAMAvailable": 1,
+        "freeHeap": 8391812,
+        "coreVoltage": 1150,
+        "coreVoltageActual": 1131,
+        "frequency": 525,
+        "ssid": "chefuup1",
+        "macAddr": "FC:01:2C:DB:D3:4C",
+        "hostname": "bitaxe",
+        "wifiStatus": "Connected!",
+        "wifiRSSI": -42,
+        "apEnabled": 0,
+        "sharesAccepted": 692388,
+        "sharesRejected": 191,
+        "sharesRejectedReasons": [
+          {
+            "message": "Difficulty too low",
+            "count": 31
+          },
+          {
+            "message": "Job not found",
+            "count": 160
+          }
+        ],
+        "uptimeSeconds": 6453997,
+        "asicCount": 1,
+        "smallCoreCount": 2040,
+        "ASICModel": "BM1370",
+        "stratumURL": "192.168.50.79",
+        "fallbackStratumURL": "btc.viabtc.io",
+        "stratumPort": 2018,
+        "fallbackStratumPort": 3333,
+        "stratumUser": "bc1q02ng3yert9j5e8yfwv9e8lqc0wzs6u0qmjwjzf.bitaxe2",
+        "fallbackStratumUser": "Chefuupsrh.bitaxe2",
+        "version": "v2.7.1",
+        "idfVersion": "v5.4.1",
+        "boardVersion": "602",
+        "runningPartition": "factory",
+        "flipscreen": 1,
+        "overheat_mode": 0,
+        "overclockEnabled": 0,
+        "invertscreen": 0,
+        "displayTimeout": -1,
+        "autofanspeed": 1,
+        "fanspeed": 99,
+        "temptarget": 60,
+        "fanrpm": 7725
+      },
+      "/api/system/statistics/dashboard": {
+        "_raw_text": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n\n<head>\n  <meta charset=\"utf-8\">\n  <title>AxeOS</title>\n  <base href=\"/\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
+      },
+      "/api/system": {
+        "_raw_text": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n\n<head>\n  <meta charset=\"utf-8\">\n  <title>AxeOS</title>\n  <base href=\"/\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
+      },
+      "/": {
+        "_raw_text": "<!doctype html>\n<html lang=\"en\" data-critters-container>\n\n<head>\n  <meta charset=\"utf-8\">\n  <title>AxeOS</title>\n  <base href=\"/\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\""
+      }
+    }
+  },
+  "analysis": {
+    "device_type": "Bitaxe",
+    "model": "Bitaxe Hex",
+    "confidence": 0.8,
+    "key_fields": {
+      "ASICModel": "BM1370",
+      "asicCount": 1,
+      "hashRate": 1008.6899733822869,
+      "hostname": "bitaxe",
+      "version": "v2.7.1",
+      "boardVersion": "602",
+      "deviceModel": null,
+      "macAddr": "FC:01:2C:DB:D3:4C",
+      "idfVersion": "v5.4.1",
+      "smallCoreCount": 2040,
+      "frequency": 525,
+      "power": 20.157012939453125,
+      "temp": 60.25,
+      "voltage": 5101.5625,
+      "current": 13234.375,
+      "fanspeed": 99,
+      "fanrpm": 7725,
+      "uptimeSeconds": 6453997,
+      "sharesAccepted": 692388,
+      "sharesRejected": 191,
+      "bestDiff": "1.25G",
+      "stratumURL": "192.168.50.79",
+      "stratumUser": "bc1q02ng3yert9j5e8yfwv9e8lqc0wzs6u0qmjwjzf.bitaxe2",
+      "stratumDiff": 2048
+    },
+    "detection_method": "BM1370 + high hashrate (1008.6899733822869 GH/s)"
+  }
+}

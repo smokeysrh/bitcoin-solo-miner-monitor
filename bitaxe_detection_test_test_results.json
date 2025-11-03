@@ -1,0 +1,13 @@
+{
+  "type": "Bitaxe",
+  "model": "Bitaxe Gamma",
+  "asic_model": "BM1370",
+  "asic_count": 1,
+  "firmware_version": "v2.7.1",
+  "board_version": "602",
+  "hostname": "bitaxe",
+  "mac_address": "FC:01:2C:DB:D3:4C",
+  "hash_rate": 1084.592425414065,
+  "idf_version": "v5.4.1",
+  "core_count": 2040
+}

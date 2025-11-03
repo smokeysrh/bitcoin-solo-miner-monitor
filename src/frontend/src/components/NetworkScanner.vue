@@ -144,6 +144,17 @@
           <v-card-title class="pb-2">
             <v-icon left color="success">mdi-check-circle</v-icon>
             Found {{ scanResults.length }} Miner{{ scanResults.length === 1 ? '' : 's' }}
+            <v-spacer></v-spacer>
+            <v-btn
+              color="primary"
+              variant="outlined"
+              @click="handleAddAllMiners"
+              :disabled="isAddingAll || scanResults.every(miner => miner.adding)"
+              :loading="isAddingAll"
+            >
+              <v-icon left>mdi-plus-box-multiple</v-icon>
+              Add All
+            </v-btn>
           </v-card-title>
           <v-card-text>
             <v-data-table
@@ -272,6 +283,7 @@ export default {
     const isStarting = ref(false)
     const isStopping = ref(false)
     const addMinerDialog = ref(false)
+    const isAddingAll = ref(false)
 
     // Use foundMiners from composable as scanResults
     const scanResults = foundMiners
@@ -466,6 +478,87 @@ export default {
       }
     }
 
+    const handleAddAllMiners = async () => {
+      if (scanResults.value.length === 0) {
+        showWarning('No miners to add')
+        return
+      }
+
+      isAddingAll.value = true
+      let addedCount = 0
+      let skippedCount = 0
+      let errorCount = 0
+
+      try {
+        // Process miners sequentially to avoid overwhelming the system
+        for (const minerInfo of scanResults.value) {
+          try {
+            // Check if miner already exists
+            const existingMiner = minersStore.miners.find(m => 
+              m.ip_address === minerInfo.ip_address && m.port === minerInfo.port
+            )
+
+            if (existingMiner) {
+              console.log(`Skipping existing miner: ${minerInfo.ip_address}:${minerInfo.port}`)
+              skippedCount++
+              continue
+            }
+
+            // Validate miner info
+            if (!minerInfo.type || !minerInfo.ip_address || !minerInfo.port) {
+              console.error('Invalid miner info:', minerInfo)
+              errorCount++
+              continue
+            }
+
+            const minerData = {
+              type: minerInfo.type,
+              ip_address: minerInfo.ip_address,
+              port: minerInfo.port,
+              name: minerInfo.name || `${minerInfo.type} (${minerInfo.ip_address})`
+            }
+
+            console.log('Adding miner:', minerData)
+            await minersStore.addMiner(minerData)
+            addedCount++
+            console.log('Miner added successfully:', minerData.name)
+
+          } catch (error) {
+            console.error('Error adding individual miner:', error)
+            errorCount++
+          }
+        }
+
+        // Show summary message
+        let message = ''
+        if (addedCount > 0) {
+          message += `${addedCount} miner${addedCount === 1 ? '' : 's'} added successfully`
+        }
+        if (skippedCount > 0) {
+          if (message) message += ', '
+          message += `${skippedCount} already existed`
+        }
+        if (errorCount > 0) {
+          if (message) message += ', '
+          message += `${errorCount} failed to add`
+        }
+
+        if (addedCount > 0) {
+          showSuccess(message)
+        } else if (skippedCount > 0 && errorCount === 0) {
+          showWarning(message)
+        } else {
+          showError(message || 'Failed to add miners')
+        }
+
+      } catch (error) {
+        console.error('Error in handleAddAllMiners:', error)
+        showError(`Failed to add miners: ${error.message}`)
+      } finally {
+        isAddingAll.value = false
+      }
+    }
+
     const openAddMinerDialog = () => {
       addMinerDialog.value = true
     }
@@ -509,6 +602,7 @@ export default {
       scanResults,
       addMinerDialog,
       errorMessage,
+      isAddingAll,
 
       // Table headers
       resultHeaders,
@@ -529,6 +623,7 @@ export default {
       startScan,
       stopScan,
       handleAddMiner,
+      handleAddAllMiners,
       openAddMinerDialog,
       handleMinerAdded,
       handleMinerError,

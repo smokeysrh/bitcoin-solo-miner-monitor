@@ -1,0 +1,19 @@
+{
+  "collection_data": {
+    "ip_address": "192.168.1.85",
+    "timestamp": "2025-11-03T14:04:24.456869",
+    "endpoints": {
+      "/api/system/info": null,
+      "/api/system/statistics/dashboard": null,
+      "/api/system": null,
+      "/": null
+    }
+  },
+  "analysis": {
+    "device_type": "Unknown",
+    "model": "Unknown",
+    "confidence": 0.0,
+    "key_fields": {},
+    "detection_method": "None"
+  }
+}
