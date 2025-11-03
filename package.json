@@ -1,6 +1,6 @@
 {
   "name": "bitcoin-solo-miner-monitor",
-  "version": "0.9.1",
+  "version": "0.9.3",
   "description": "Bitcoin Solo Miner Monitoring Application",
   "devDependencies": {
     "jsdom": "^26.1.0"

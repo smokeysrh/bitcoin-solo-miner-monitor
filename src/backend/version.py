@@ -2,11 +2,12 @@
 Bitcoin Solo Miner Monitor - Version Information
 """
 
-__version__ = "0.9.2"
-__version_info__ = (0, 9, 2)
+__version__ = "0.9.3"
+__version_info__ = (0, 9, 3)
 
 # Version history
 VERSION_HISTORY = {
+    "0.9.3": "Bug fixes and improvements - Enhanced Avalon Nano 3 device detection and metrics parsing",
     "0.9.2": "Installer simplification refactor - Complete overhaul of Windows installer system",
     "0.9.1": "Bug fixes and code cleanup - Fixed MinerDetail page refresh bug",
     "0.9.0": "Network topology page and enhanced monitoring features",
