@@ -751,6 +751,44 @@ def migrate_legacy(
 
 
 @app.command()
+def capture(
+    host: Annotated[str, typer.Argument(help="IP address or host name of the miner")],
+    out: Annotated[Path | None, typer.Option("--out", "-o", help="Save the raw replies to this file")] = None,
+    no_redact: Annotated[bool, typer.Option("--no-redact", help="Keep Wi-Fi name, MAC, pool users and addresses in the capture")] = False,
+    timeout: Annotated[float, typer.Option(help="Seconds to wait for each reply")] = 4.0,
+    as_json: JSON = False,
+) -> None:
+    """What does the app think this miner is, and why? Optionally save its replies (private data removed) to add a model.
+
+    Read-only: it only asks questions, never changes anything on the miner.
+    """
+    from bsmm.capture import capture_sync
+
+    result = capture_sync(host, timeout=timeout, scrub=not no_redact)
+    if out:
+        out.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+        out.chmod(0o600)
+
+    def show(r: dict[str, Any]) -> None:
+        if not r["recognised"]:
+            console.print(f"[yellow]Nothing at {host} answered like a supported miner.[/]")
+            console.print("[dim]Check the address, that the miner is on, and that it is on the same network as this computer.[/]")
+        for p in r["recognised"]:
+            mc = p.get("model_confidence")
+            how = f"{round(mc * 100)}% sure of the model" if mc is not None else "model taken from what the device reports"
+            console.print(f"[bold]{p['model']}[/]  ({p['driver']} on port {p['port']}, {how})")
+            for line in p["model_evidence"] or p["evidence"]:
+                console.print(f"  [dim]because[/] {line}")
+        if out:
+            note = "" if no_redact else " Private data was removed, but look it over before you share it."
+            console.print(f"\nSaved the raw replies to {out}.{note}")
+        else:
+            console.print("\n[dim]Add --out FILE to save the raw replies, for example to ask for support for a new model.[/]")
+
+    _emit(result, as_json, show)
+
+
+@app.command()
 def version() -> None:
     """Print the version."""
     console.print(__version__)

@@ -23,6 +23,7 @@ import httpx
 
 from bsmm.bitcoin_address import split_stratum_user
 from bsmm.drivers.base import BadResponse, Driver, DriverError, Unreachable
+from bsmm.drivers.catalog import avalon_model_name
 from bsmm.models import (
     DeviceInfo,
     PoolInfo,
@@ -148,18 +149,8 @@ def classify(version: dict[str, Any]) -> tuple[str, str]:
     model = str(version.get("MODEL", ""))
     mtype = str(version.get("Type", ""))
     if "avalon" in blob or "canaan" in blob:
-        key = re.sub(r"[\s_\-]", "", f"{prod}{model}").lower()
-        for needle, label in (
-            ("nano3s", "Avalon Nano 3S"),
-            ("nano3", "Avalon Nano 3"),
-            ("nano", "Avalon Nano"),
-            ("mini3", "Avalon Mini 3"),
-            ("avalonq", "Avalon Q"),
-            ("home", "Avalon Home"),
-        ):
-            if needle in key:
-                return "avalon", label
-        return "avalon", f"{prod} {model}".strip() or "Avalon"
+        legacy = str(version.get("Miner") or mtype)
+        return "avalon", avalon_model_name(prod, model, legacy)
     if "bosminer" in blob or "braiins" in blob:
         return "braiins", mtype or "Braiins OS miner"
     if "antminer" in blob or "bmminer" in blob or "bitmain" in blob:

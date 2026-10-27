@@ -99,9 +99,9 @@ def test_gamma_old_firmware_rejected_reasons_and_string_diffs():
     assert t.temp_asic_c == pytest.approx(60.375)
     assert t.pool_difficulty == 2048  # legacy `stratumDiff`
     info = build_info("192.168.1.30", 80, d)
-    # chip + count settle this one: a single BM1370 is a Gamma, regardless of how fast it runs
+    # board 602 is a Gamma in ESP-Miner's table, regardless of how fast it runs (an older rule called it a Hex)
     assert info.model == "Bitaxe Gamma"
-    assert info.extra["model_certain"] is False
+    assert info.extra["model_certain"] is True
     assert info.board_version == "602"
 
 

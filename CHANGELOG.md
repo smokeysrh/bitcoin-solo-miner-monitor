@@ -21,6 +21,14 @@ A ground-up rewrite. The 0.9 code base is gone; see [docs/AUDIT.md](docs/AUDIT.m
 - `bsmm migrate-legacy` imports miners from a 0.9 database.
 - Docker image (amd64, arm64), compose file, Umbrel template (untested), CI and release workflows (not yet run on GitHub).
 
+### Miner identification
+Based on the `feature/home-miner-identification` work on the 0.9 code base, ported to the new drivers.
+- Models are named from what the device reports, in a fixed order, with a confidence and the evidence: ESP-Miner's board-version table for stock Bitaxe boards (Max, Ultra, Hex, Supra, Gamma, Gamma Duo, Supra Hex, GT, Naja Duo, Gamma Hex), the firmware's own family name, forks (NerdQAxe, NerdAxe...) kept as they name themselves, Lucky Miner LV06/LV07/LV08 and Magic Miner BG02 by hostname or chip layout. Hashrate never decides a model.
+- A chip layout shared by several families (2x BM1370) is reported as ambiguous instead of guessed. A Bitaxe Gamma on board 602 can no longer be taken for a Hex.
+- Avalon Nano 3 / 3S, Mini 3, Q and full-size models are named from the cgminer reply; other cgminer devices are never labelled Avalon.
+- The miner page shows why the app chose a model, and says "best guess" when it is not sure.
+- New `bsmm capture <host> [--out FILE]`: read-only, shows how a miner was recognised and saves its raw replies with Wi-Fi name, MAC, serial, pool users and wallet addresses removed, for adding support for new models. See [docs/miner-identification.md](docs/miner-identification.md).
+
 ### Changed
 - Python 3.11+, FastAPI, SQLite (WAL), Vue 3 + TypeScript + Tailwind v4.
 - Secrets (RPC logins, webhook URLs, bot tokens) are encrypted at rest and write-only.

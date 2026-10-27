@@ -22,6 +22,12 @@ const toasts = useToasts()
 const session = useSession()
 const router = useRouter()
 const actions = useMinerActions()
+/** Why the app thinks this is the model it says: the facts the miner reported about itself. */
+const evidence = computed(() => {
+  const e = props.device.extra.model_evidence
+  return Array.isArray(e) ? e.filter((x): x is string => typeof x === 'string') : []
+})
+const bestGuess = computed(() => props.device.extra.model_certain === false)
 
 interface Form {
   name: string
@@ -158,6 +164,13 @@ async function remove(): Promise<void> {
       <MetricCard title="Identity">
         <dl class="space-y-2 text-sm">
           <div class="flex justify-between gap-3"><dt class="text-muted">Type</dt><dd class="text-right font-medium text-fg">{{ device.model }}</dd></div>
+          <div v-if="evidence.length" class="flex justify-between gap-3" data-testid="model-evidence">
+            <dt class="text-muted">Because</dt>
+            <dd class="text-right text-xs text-fg">
+              <span v-if="bestGuess" class="mb-0.5 block font-medium text-warn">Best guess. If it is wrong, set the right name under Model name override.</span>
+              {{ evidence.join('; ') }}
+            </dd>
+          </div>
           <div class="flex justify-between gap-3"><dt class="text-muted">Driver</dt><dd class="text-right font-mono text-[13px] text-fg">{{ device.driver }}</dd></div>
           <div v-if="device.mac" class="flex justify-between gap-3"><dt class="text-muted">MAC</dt><dd class="text-right font-mono text-[13px] text-fg">{{ device.mac }}</dd></div>
           <div v-if="device.serial" class="flex justify-between gap-3"><dt class="text-muted">Serial</dt><dd class="truncate text-right font-mono text-[13px] text-fg">{{ device.serial }}</dd></div>

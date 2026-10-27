@@ -45,6 +45,7 @@ test('open a miner, switch tabs, charts draw', async ({ page }) => {
   await expect(page.getByTestId('pool-list')).toBeVisible()
   await page.getByRole('tab', { name: 'Settings' }).click()
   await expect(page.getByTestId('device-name')).not.toHaveValue('')
+  await expect(page.getByTestId('model-evidence')).toContainText(/\w+=|boardVersion/) // why the app named this model
   await page.getByRole('tab', { name: 'Raw data' }).click()
   await expect(page.getByText('Raw reply')).toBeVisible()
   expect(w.errors).toEqual([])

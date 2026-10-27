@@ -42,7 +42,7 @@ class Profile:
 PROFILES: dict[str, Profile] = {
     "gamma": Profile("gamma", "Gamma", "BM1370", 1, "601", 1150.0, 18.0, 525, 1150, 2040, temp_per_w=1.0),
     "supra": Profile("supra", "Supra", "BM1368", 1, "402", 690.0, 15.0, 490, 1166, 1276, temp_per_w=1.2),
-    "gt": Profile("gt", "GT", "BM1370", 2, "800", 2300.0, 34.0, 575, 1150, 2040, temp_per_w=0.55),
+    "gt": Profile("gt", "GT", "BM1370", 2, "801", 2300.0, 34.0, 575, 1150, 2040, temp_per_w=0.55),
     "nerdqaxe": Profile("nerdqaxe", "NerdQAxe++", "BM1370", 4, "", 4800.0, 91.0, 600, 1150, 2040, version="v1.0.30", temp_per_w=0.2),
 }
 

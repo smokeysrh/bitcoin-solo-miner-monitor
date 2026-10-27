@@ -93,7 +93,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 
 ### Adding support for a new miner
 
-1. Capture its real replies (read-only) and save a sanitised copy in `tests/fixtures/`. Replace payout addresses with `bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq` and drop MAC/serial/SSID.
+1. Capture its real replies (read-only): `bsmm capture <host> --out my-miner.json`. It shows what the app thinks the miner is and why, and removes Wi-Fi name, MAC, serial, pool users and addresses. Save a reviewed copy in `tests/fixtures/` (use the example payout address `bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq`). Identification rules are explained in `docs/miner-identification.md`.
 2. Extend the nearest driver (`drivers/axeos.py` for AxeOS-like HTTP APIs, `drivers/cgminer.py` for the cgminer TCP API) or add one and register it in `drivers/registry.py`. Add the model to `drivers/catalog.py`.
 3. Add or extend a simulator in `src/bsmm/sim` so the full path is testable.
 4. Fingerprinting must be conservative: a wrong guess is worse than "unknown miner".

@@ -82,12 +82,12 @@ Agents are told to ask before touching a miner, never to guess credentials or pa
 
 | Family | Status |
 | --- | --- |
-| NerdQAxe++, Magic Miner BG02 | Tested on real hardware (read-only) |
-| Bitaxe (Ultra, Supra, Gamma, GT), other AxeOS devices | Driver + simulator + fixtures |
+| NerdQAxe++, Magic Miner BG02, Bitaxe Gamma (board 602) | Tested on real hardware (read-only) |
+| Other Bitaxe (Max, Ultra, Supra, Hex, GT...), Lucky Miner LV06/07/08, other AxeOS devices | Driver + simulator + fixtures, named from the firmware's own board table |
 | Avalon Nano 3 and other cgminer-API devices | Driver + simulator + fixtures |
 | Antminer, Braiins OS | Driver + simulator + fixtures |
 
-Tested on real hardware means I ran it against actual miners. The rest follow the same documented APIs and are covered by recorded replies, but I haven't owned every one. If yours misbehaves, run `bsmm doctor` and open an issue; adding a model is a small change (see [`AGENTS.md`](AGENTS.md)).
+Tested on real hardware means I ran it against actual miners. The rest follow the same documented APIs and are covered by recorded replies, but I haven't owned every one. If yours misbehaves, run `bsmm doctor` and `bsmm capture <ip> --out miner.json` (read-only, private data removed) and open an issue; adding a model is a small change (see [`AGENTS.md`](AGENTS.md)).
 
 The Umbrel template and the GitHub release workflow have not been run yet.
 
@@ -108,7 +108,7 @@ Your miners are imported and the old database is left untouched. The rewrite cha
 
 ## Docs
 
-[`docs/PACKAGING.md`](docs/PACKAGING.md) install and release · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) how it's built · [`AGENTS.md`](AGENTS.md) for agents · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
+[`docs/PACKAGING.md`](docs/PACKAGING.md) install and release · [`docs/miner-identification.md`](docs/miner-identification.md) how models are recognised · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) how it's built · [`AGENTS.md`](AGENTS.md) for agents · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
 
 ## License
 

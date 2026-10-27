@@ -286,7 +286,7 @@ def build_info(host: str, port: int, data: dict[str, Any], asic: dict[str, Any] 
     if count is None and asic:
         count = to_int(asic.get("asicCount"))
     firmware = data.get("axeOSVersion") or data.get("version")
-    extra: dict[str, Any] = {"model_evidence": list(guess.evidence), "model_certain": guess.certain}
+    extra: dict[str, Any] = {"model_evidence": list(guess.evidence), "model_certain": guess.certain, "model_confidence": guess.confidence}
     for k in ("idfVersion", "runningPartition", "deviceModel", "minerModel", "smallCoreCount", "defaultFrequency"):
         if data.get(k) is not None:
             extra[k] = data[k]
