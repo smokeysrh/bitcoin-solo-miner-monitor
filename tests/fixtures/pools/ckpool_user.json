@@ -1,0 +1,39 @@
+{
+  "hashrate1m": "0",
+  "hashrate5m": "0",
+  "hashrate1hr": "221M",
+  "hashrate1d": "312T",
+  "hashrate7d": "261T",
+  "lastshare": 1785855033,
+  "workers": 0,
+  "shares": 49431395661,
+  "bestshare": 555308116519205.1,
+  "bestever": 555308116519205,
+  "authorised": 1785722599,
+  "worker": [
+    {
+      "workername": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq.rig1",
+      "hashrate1m": "0",
+      "hashrate5m": "0",
+      "hashrate1hr": "0",
+      "hashrate1d": "301T",
+      "hashrate7d": "258T",
+      "lastshare": 1785724711,
+      "shares": 49005939134,
+      "bestshare": 555308116519205.1,
+      "bestever": 555308116519205
+    },
+    {
+      "workername": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq.rig2",
+      "hashrate1m": "0",
+      "hashrate5m": "0",
+      "hashrate1hr": "479K",
+      "hashrate1d": "140G",
+      "hashrate7d": "36.4G",
+      "lastshare": 1785844322,
+      "shares": 5664830,
+      "bestshare": 30811576.522450734,
+      "bestever": 30811576
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "bestDifficulty": 122008164580.62956,
+  "workersCount": 2,
+  "workers": [
+    {
+      "sessionId": "bb5b4ce7",
+      "name": "MagicM",
+      "bestDifficulty": "15333752177.82",
+      "hashRate": 7217307095145,
+      "startTime": "2026-09-02T15:00:38.000Z",
+      "lastSeen": "2026-10-19T15:34:09.000Z"
+    },
+    {
+      "sessionId": "8af88ba0",
+      "name": "nerdquaxe1",
+      "bestDifficulty": "50999706655.81",
+      "hashRate": 4845751844569,
+      "startTime": "2026-10-09T05:38:48.000Z",
+      "lastSeen": "2026-10-19T15:33:10.000Z"
+    }
+  ]
+}

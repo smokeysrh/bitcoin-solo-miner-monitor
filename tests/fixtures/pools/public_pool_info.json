@@ -1,0 +1,25 @@
+{
+  "blockData": [],
+  "userAgents": [
+    {
+      "userAgent": "NerdQAxe++",
+      "count": 1,
+      "bestDifficulty": 50999706655.80737,
+      "totalHashRate": 4507606388604.812
+    },
+    {
+      "userAgent": "LuckyMiner",
+      "count": 1,
+      "bestDifficulty": 15333752177.81828,
+      "totalHashRate": 6445484594176.967
+    }
+  ],
+  "highScores": [
+    {
+      "updatedAt": "2026-01-20 03:41:51",
+      "bestDifficulty": 122008164580.62956,
+      "bestDifficultyUserAgent": "LuckyMiner"
+    }
+  ],
+  "uptime": "2026-09-02T15:00:27.122Z"
+}

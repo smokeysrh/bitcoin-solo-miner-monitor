@@ -1,0 +1,73 @@
+# Bitcoin Solo Miner Monitor
+
+> Self-hosted dashboard, REST API and MCP server for people who solo mine Bitcoin with ASIC miners (Bitaxe, NerdQAxe, Lucky/Magic Miner, Avalon Nano/Q, Antminer and other cgminer-API miners). It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), computes the odds of finding a block, sends alerts, and lets an agent control miners within safe limits. Version 1.1.0.
+
+This server: http://YOUR-SERVER:8420
+Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/agent/guide.
+
+## Set it up for a user (about two minutes)
+
+1. Learn what this server is and how far setup has got: `GET /api/v1/meta`
+   No login needed. Look at auth.mode and setup.*
+2. Get a token (only if auth.mode is 'password'): `POST /api/v1/auth/tokens` with body `{"name":"my agent","scope":"admin"}`
+   Needs an admin session or an existing admin token. On the server itself you can run: bsmm token create --name agent --scope admin
+3. Find the user's miners: `POST /api/v1/discovery` with body `{}`
+   Returns a job id. Poll GET /api/v1/discovery/{id} until status is 'finished' (about 20 s). Only private networks are scanned. If the server runs in Docker bridge mode pass the user's LAN, e.g. {"cidrs": ["192.168.1.0/24"]}.
+4. Start monitoring what was found: `POST /api/v1/discovery/{id}/adopt` with body `{}`
+   Adds every new miner; a miner that answers on two IPs is added once. Add one by hand with POST /api/v1/devices {"host": "192.168.1.50"}.
+5. Connect the user's Bitcoin node or solo pool (optional but recommended): `POST /api/v1/sources` with body `{"kind":"public_pool","url":"http://umbrel.local:2019"}`
+   The discovery result lists likely candidates under 'sources'. kinds: bitcoin_core (needs rpc_user/rpc_password in 'secret'), public_pool, ckpool, mempool_space. Ask the user for node credentials; never guess them.
+6. Set the electricity price so costs are right: `PATCH /api/v1/settings` with body `{"energy":{"price_per_kwh":0.12}}`
+   Currency units are the user's local currency.
+7. Set up an alert channel: `POST /api/v1/notifications/channels` with body `{"kind":"ntfy","name":"Phone","config":{"topic":"pick-a-secret-topic"}}`
+   GET /api/v1/notifications/channel-types lists every kind and its fields. Then POST /api/v1/notifications/channels/{id}/test.
+8. Protect the dashboard (recommended if others share the network): `POST /api/v1/auth/password` with body `{"new_password":"<ask the user>"}`
+   Then create a token for yourself.
+9. Verify: `GET /api/v1/overview`
+   One call with fleet totals, odds, network, alerts, events. Also GET /api/v1/system/diagnostics.
+
+## Authentication
+
+- Read http://YOUR-SERVER:8420/api/v1/meta first (no login). If `auth.mode` is `none`, no credentials are needed.
+- Otherwise send `Authorization: Bearer <token>`. Scopes: `read` < `control` < `admin`.
+- On the machine running the app: `bsmm token create --name agent --scope admin` prints a token once.
+
+## Common tasks
+
+- How are my miners doing? -> GET /api/v1/overview, then GET /api/v1/devices
+- What are my odds of finding a block? -> GET /api/v1/odds (add ?hashrate_ths=50 for a what-if)
+- Is anything wrong? -> GET /api/v1/alerts/active and GET /api/v1/insights
+- Restart a miner -> POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)
+- Point miners at my own pool/node -> POST /api/v1/devices/actions {"action":"set_pool","all":true,"params":{...}} previews by default; send dry_run=false to apply
+- History / charts -> GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w
+- Live updates -> GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)
+- Prometheus / Grafana -> GET /metrics
+- Report a bug -> Attach the output of GET /api/v1/system/diagnostics to a GitHub issue
+
+## Safety rules for agents
+
+- Control actions are audited and can be switched off in Settings > Safety (allow_control). Frequency/voltage changes are OFF until the user enables allow_tuning.
+- Bulk actions preview by default (dry_run: true). Show the user the preview before sending dry_run=false.
+- Secrets (RPC passwords, bot tokens, webhook URLs) are write-only: they are never returned by any endpoint.
+- Do not guess node credentials, wallet addresses or passwords. Ask the user.
+- Network scans are limited to private address ranges.
+- Restarting a miner interrupts hashing for about a minute. Solo mining odds are not affected by short outages.
+
+## Conventions
+
+- Field names carry units: `hashrate_hs` (H/s), `power_w`, `temp_asic_c`, `efficiency_j_th`.
+- Errors are always `{"error": {"code", "message", "hint", "status"}}`.
+- Bulk and destructive operations take `dry_run`.
+- Live updates: `GET http://YOUR-SERVER:8420/api/v1/stream?topics=device,fleet,event` (Server-Sent Events).
+
+## Docs
+
+- [OpenAPI schema](http://YOUR-SERVER:8420/openapi.json): every endpoint with descriptions and examples
+- [Interactive API docs](http://YOUR-SERVER:8420/docs)
+- [MCP server](http://YOUR-SERVER:8420/mcp): streamable HTTP; or run `bsmm mcp --url http://YOUR-SERVER:8420 --token <token>` for stdio
+- [Source and issues](https://github.com/smokeysrh/bitcoin-solo-miner-monitor): attach `GET http://YOUR-SERVER:8420/api/v1/system/diagnostics` to bug reports
+
+## Optional
+
+- [Prometheus metrics](http://YOUR-SERVER:8420/metrics)
+- [Agent guide as JSON](http://YOUR-SERVER:8420/api/v1/agent/guide) (9 setup steps)

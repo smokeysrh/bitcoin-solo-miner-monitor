@@ -1,188 +1,115 @@
-# Bitcoin Solo Miner Monitoring App
+# Bitcoin Solo Miner Monitor
 
-A comprehensive monitoring application for Bitcoin solo miners, supporting multiple miner types including Bitaxe, Avalon Nano, and Magic Miner.
+**One dashboard for every solo miner you own.** It finds your miners, shows how they're doing, tells you your real odds of finding a block, and pings your phone when something breaks. It runs on your own computer. Nothing is sent anywhere, and there are no accounts.
 
-## Dependencies
+Works with miners that solo-mine to **your own node**, to a **public solo pool** (Public Pool, ckpool, solo.ckpool.org and friends) or to a **shared node**.
 
-### Python Backend Dependencies
+![Dashboard](docs/screenshots/dashboard.png)
 
-The Python backend requires the following packages (see `requirements.txt`):
+## Try it in 30 seconds
 
-- **FastAPI** (0.104.*) - Modern web framework for building APIs
-- **Uvicorn** (0.24.*) - ASGI server for FastAPI
-- **aiohttp** (3.9.*) - Async HTTP client for miner communication
-- **aiosqlite** (0.19.*) - Async SQLite database interface
-- **influxdb-client** (1.38.*) - InfluxDB client for time-series data
-- **PyJWT** (2.8.*) - JSON Web Token implementation
-- **pydantic** (2.5.*) - Data validation using Python type annotations
-- **bcrypt** (4.1.*) - Password hashing library
-- **psutil** (5.9.*) - System and process monitoring
-- **beautifulsoup4** (4.12.*) - HTML parsing for Magic Miner web scraping
-- **websockets** (12.0) - WebSocket support
-- **pytest** (7.4.*) - Testing framework
+No miners? No problem. The demo runs a simulated fleet and saves nothing.
 
-### Frontend Dependencies
-
-The Vue.js frontend requires the following packages (see `src/frontend/package.json`):
-
-- **Vue.js** (^3.3.8) - Progressive JavaScript framework
-- **Vue Router** (^4.2.5) - Official router for Vue.js
-- **Pinia** (^2.1.7) - State management for Vue.js
-- **Vuetify** (^3.4.4) - Material Design component framework
-- **Axios** (^1.6.2) - HTTP client for API communication
-- **Chart.js** (^4.4.0) - Charting library
-- **Vue Chart.js** (^5.2.0) - Vue.js wrapper for Chart.js
-
-## Installation
-
-### Backend Setup
-
-1. Install Python dependencies:
 ```bash
-pip install -r requirements.txt
+pipx install bitcoin-solo-miner-monitor
+bsmm demo
 ```
 
-2. Run the application:
+Open <http://localhost:8420>. Or with Docker: `docker run --rm -p 8420:8420 ghcr.io/smokeysrh/bitcoin-solo-miner-monitor serve --demo`.
+
+## Install for real
+
+| You have | Do this |
+| --- | --- |
+| A NAS, Raspberry Pi, home server | `docker compose up -d` using [`docker-compose.yml`](docker-compose.yml) |
+| Windows, macOS, Linux desktop | `pipx install bitcoin-solo-miner-monitor`, then `bsmm setup` |
+| Umbrel | Template in [`packaging/umbrel/`](packaging/umbrel) (untested, see below) |
+
+Open `http://<that computer>:8420`. The setup wizard scans your network, adopts the miners it finds, connects your node or pool and asks what you pay for electricity. Everything it asks can also be done later in Settings.
+
+Details, environment variables and autostart are in [`docs/PACKAGING.md`](docs/PACKAGING.md). Python 3.11+.
+
+> There is no one-click Windows installer in 1.0. The old 0.9 installer is gone on purpose. Use `pipx` or Docker Desktop.
+
+## What you get
+
+**Fleet**
+- Automatic discovery (and add-by-address), with model and firmware recognised.
+- Live hashrate, power, temperature, fan, shares, best share, pool, uptime, per miner and for the fleet. Updates stream in without refreshing.
+- Safe controls: restart, identify, pause/resume, change pool, fan and (opt-in) frequency/voltage. Bulk actions preview first. Every action is audited.
+- Per-miner pages with history, pool settings, logs and an events timeline.
+- History is kept in compact rollups, so a year of data stays small.
+
+**Your node and pools**
+- Sources: Bitcoin Core (RPC), Public Pool, ckpool, mempool.space.
+- Block height, sync state, mempool, fee estimates, recent blocks, difficulty-adjustment countdown.
+
+**Odds and money**
+- Chance of finding a block per day, month and year, in plain English and without hype. Solo mining is a lottery and the app says so.
+- Electricity cost, efficiency (J/TH), break-even and "cost per lottery ticket" with your own tariff.
+
+**Alerts**
+- 15 ready-made rules: offline, hot, fan stopped, hashrate drop, fleet drop, high reject rate, pool fallback, node down or behind, new best share, **block found**, restarts, difficulty change, firmware change and more.
+- 8 channels: Discord, Telegram, ntfy, Slack, Pushover, email, generic webhook, and Apprise (which reaches nearly everything else).
+- Quiet hours (mutes info and success only, never a critical alert), cooldowns, "Resolved" messages, and a Test button on every channel.
+
+**UI that fits you**
+- Customizable dashboard: 16 widgets you drag, hide and resize. Layout is saved.
+- Dark, black (OLED) and light themes, accent colours, density, units, 12/24 hour.
+- Command palette (`Ctrl/Cmd+K`), keyboard shortcuts, installable as an app (PWA), phone layout, and a wall-display **Kiosk** mode at `/kiosk`.
+- Jargon is explained in place. Accessibility is checked in all three themes with axe.
+
+![Miner page](docs/screenshots/miner.png)
+
+| Odds | Miners table | Phone |
+| --- | --- | --- |
+| ![Odds](docs/screenshots/odds.png) | ![Miners](docs/screenshots/miners-table.png) | ![Phone](docs/screenshots/phone.png) |
+
+## Built for AI agents too
+
+Point your agent at the app and it can set everything up for the user.
+
+- **`GET /llms.txt`**: a step-by-step setup recipe and the safety rules. Same text from `bsmm agent-guide`.
+- **MCP server** (27 tools) at `POST /mcp`, or `bsmm mcp --url ... --token ...` for stdio clients.
+- **REST API** with a full OpenAPI schema at `/openapi.json` and `/docs`. Errors carry a `hint` that says what to do next.
+- **Scoped tokens**: `read`, `control`, `admin` (`bsmm token create --name agent --scope read`).
+- **CLI that works unattended**: `bsmm setup --yes ...`, `bsmm status --json`, `bsmm doctor`.
+- A [`skills/solo-miner-monitor`](skills/solo-miner-monitor/SKILL.md) skill and [`AGENTS.md`](AGENTS.md).
+
+Agents are told to ask before touching a miner, never to guess credentials or payout addresses, and not to tell anyone they're "due" a block.
+
+## Hardware, honestly
+
+| Family | Status |
+| --- | --- |
+| NerdQAxe++, Magic Miner BG02 | Tested on real hardware (read-only) |
+| Bitaxe (Ultra, Supra, Gamma, GT), other AxeOS devices | Driver + simulator + fixtures |
+| Avalon Nano 3 and other cgminer-API devices | Driver + simulator + fixtures |
+| Antminer, Braiins OS | Driver + simulator + fixtures |
+
+Tested on real hardware means I ran it against actual miners. The rest follow the same documented APIs and are covered by recorded replies, but I haven't owned every one. If yours misbehaves, run `bsmm doctor` and open an issue; adding a model is a small change (see [`AGENTS.md`](AGENTS.md)).
+
+The Umbrel template and the GitHub release workflow have not been run yet.
+
+## Safety
+
+- Never writes to a miner unless you (or a token with `control`) ask, and tuning stays off until you switch it on.
+- Passwords, RPC logins, bot tokens and webhook URLs are stored encrypted and are write-only: no endpoint returns them.
+- Network scans stay inside private ranges.
+- Details and how to report a problem: [`SECURITY.md`](SECURITY.md).
+
+## Coming from 0.9?
+
 ```bash
-python src/main.py
+bsmm migrate-legacy path/to/old/data/config.db
 ```
 
-### Frontend Setup
+Your miners are imported and the old database is left untouched. The rewrite changed the app completely; see the [CHANGELOG](CHANGELOG.md) and [`docs/AUDIT.md`](docs/AUDIT.md).
 
-1. Navigate to the frontend directory:
-```bash
-cd src/frontend
-```
+## Docs
 
-2. Install Node.js dependencies:
-```bash
-npm install
-```
+[`docs/PACKAGING.md`](docs/PACKAGING.md) install and release · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) how it's built · [`AGENTS.md`](AGENTS.md) for agents · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
 
-3. Start the development server:
-```bash
-npm run dev
-```
+## License
 
-4. Build for production:
-```bash
-npm run build
-```
-
-## Development
-
-### Development Tools
-
-The project includes various development and utility tools in the `tools/` directory:
-
-- **Build Tools** (`tools/build/`) - Scripts for building installers from source and reproducible builds
-- **Verification Tools** (`tools/verification/`) - Tools for verifying checksums and build integrity
-- **Utility Scripts** - Development helpers like miner reload scripts
-
-See `tools/README.md` for detailed information about available tools.
-
-### Backend Development
-
-The backend is built with FastAPI and uses:
-- SQLite for configuration storage
-- InfluxDB for time-series metrics data
-- Async/await patterns for non-blocking operations
-- WebSocket for real-time updates
-
-### Frontend Development
-
-The frontend is built with Vue.js 3 and uses:
-- Composition API for reactive state management
-- Vuetify for Material Design components
-- Pinia for state management
-- Vite for fast development and building
-
-## Architecture
-
-The application follows a modern async architecture:
-- **Backend**: FastAPI with async database operations
-- **Frontend**: Vue.js 3 with Composition API
-- **Communication**: REST API + WebSocket for real-time updates
-- **Data Storage**: SQLite + InfluxDB for different data types
-
-## Supported Miners
-
-- **Bitaxe**: HTTP API-based communication
-- **Avalon Nano**: Socket-based CGMiner API
-- **Magic Miner**: Web scraping-based data extraction
-
-## Installation
-
-### Windows Installer (Recommended)
-
-Professional Windows installer with fast, offline installation:
-
-- **Download:** Single `.exe` file (~55MB)
-- **Installation Time:** <60 seconds
-- **Requirements:** Windows 10 or later (no additional software needed)
-- **Features:** 
-  - Pre-bundled Python runtime (no internet required)
-  - Automatic dependency management
-  - Desktop and Start Menu shortcuts
-  - Clean uninstaller
-  - Optional auto-start with Windows
-
-**Get the latest installer from [GitHub Releases](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases)**
-
-For building the installer yourself, see `BUILD_INSTALLER_FOR_RELEASE.md`.
-
-### Installation from Source
-
-For development or other platforms, install from source:
-
-#### Backend Setup
-
-1. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Run the application:
-```bash
-python src/main.py
-```
-
-#### Frontend Setup
-
-1. Navigate to the frontend directory:
-```bash
-cd src/frontend
-```
-
-2. Install Node.js dependencies:
-```bash
-npm install
-```
-
-3. Start the development server:
-```bash
-npm run dev
-```
-
-4. Build for production:
-```bash
-npm run build
-```
-
-### Future Platform Support
-
-**macOS and Linux:** Installers for these platforms are planned but not yet implemented. The current focus has been on creating a solid, maintainable Windows installer as a foundation. Community contributions for macOS and Linux installers are welcome!
-
-## Project Philosophy
-
-This application has been developed entirely through "vibe-coding" by a first-time developer using the Kiro IDE and Claude AI assistants. While this unconventional approach may have resulted in some over-engineering or redundancies, the goal is to create a fully functional, standalone application that serves the solo mining community.
-
-As a solo miner building for solo miners, this project aims to contribute meaningfully to the Bitcoin ecosystem. The application is designed to be the best open-source solo miner monitoring solution available, built with passion and dedication to the community.
-
-**Community Contributions Welcome!** Whether you're helping to test on different platforms, reporting bugs, suggesting features, or contributing code, your involvement helps make this application better for everyone in the solo mining community.
-
-## Community Support
-
-- **[Discord Server](https://discord.gg/GzNsNnh4yT)** - Real-time community support and discussions
-- **[GitHub Issues](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/issues)** - Bug reports and feature requests
-- **[GitHub Discussions](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/discussions)** - Community support and general discussions
+MIT. See [LICENSE](LICENSE).

@@ -1,0 +1,27 @@
+manifestVersion: 1
+id: bitcoin-solo-miner-monitor
+category: bitcoin
+name: Solo Miner Monitor
+version: "1.1.0"
+tagline: Mission control for your solo Bitcoin miners
+description: >-
+  Find and monitor your Bitaxe, NerdQAxe, Avalon, Antminer and similar miners from one dashboard.
+  See their health, your real odds of finding a block, electricity costs, and get alerts on your phone.
+  Works with your own node and with Public Pool. Includes a REST API and MCP server for AI agents.
+
+
+  Note: automatic network scanning cannot see your home network from inside Umbrel. Add your miners by address,
+  or type your network range (for example 192.168.1.0/24) in the scan box.
+developer: smokeysrh
+website: https://github.com/smokeysrh/bitcoin-solo-miner-monitor
+dependencies: []
+repo: https://github.com/smokeysrh/bitcoin-solo-miner-monitor
+support: https://github.com/smokeysrh/bitcoin-solo-miner-monitor/issues
+port: 8420
+gallery: []
+path: ""
+defaultUsername: ""
+defaultPassword: ""
+releaseNotes: First stable release.
+submitter: smokeysrh
+submission: ""

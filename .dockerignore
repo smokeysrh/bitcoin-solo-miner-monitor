@@ -1,0 +1,23 @@
+.git
+.github
+.kiro
+.venv
+**/__pycache__
+**/node_modules
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.hypothesis
+htmlcov
+web/e2e/shots
+web/test-results
+web/playwright-report
+tests
+docs
+data
+*.db
+*.db-wal
+*.db-shm
+# the UI is rebuilt inside the image
+src/bsmm/web/*
+!src/bsmm/web/.gitkeep

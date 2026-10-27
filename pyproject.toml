@@ -1,0 +1,124 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bitcoin-solo-miner-monitor"
+dynamic = ["version"]
+description = "Mission control for solo Bitcoin miners: find, monitor and tune your miners, watch your node, know your odds. Agent-ready (REST, MCP, CLI)."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "smokeysrh", email = "noreply@users.noreply.github.com" }]
+keywords = [
+  "bitcoin", "solo-mining", "bitaxe", "nerdqaxe", "avalon", "asic", "miner-monitor",
+  "dashboard", "mcp", "umbrel", "public-pool", "ckpool", "axeos",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: System :: Monitoring",
+]
+dependencies = [
+  "fastapi>=0.148,<0.160",
+  "uvicorn>=0.54,<0.70",
+  "httpx>=0.28,<0.30",
+  "pydantic>=2.12,<3",
+  "aiosqlite>=0.22,<0.30",
+  "cryptography>=45",
+  "platformdirs>=4.3,<5",
+  "ifaddr>=0.2,<1",
+  "packaging>=24",
+  "typer>=0.27,<0.40",
+  "mcp>=2.3,<3",
+]
+
+[project.optional-dependencies]
+mdns = ["zeroconf>=0.151,<0.200"]
+apprise = ["apprise>=2,<3"]
+tray = ["pystray>=0.19.5", "pillow>=11"]
+dev = [
+  "pytest>=9,<10",
+  "pytest-asyncio>=1.4,<2",
+  "pytest-cov>=7,<8",
+  "hypothesis>=6.170,<7",
+  "ruff>=0.17,<0.30",
+  "mypy>=2.4,<3",
+  "pyinstaller>=6.22,<7",
+]
+
+[project.scripts]
+bsmm = "bsmm.cli.main:main"
+bitcoin-solo-miner-monitor = "bsmm.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
+Issues = "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/issues"
+Changelog = "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/bsmm/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bsmm"]
+# The built web UI is generated into src/bsmm/web by `npm run build` (see web/vite.config.ts).
+artifacts = ["src/bsmm/web/**"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/bsmm", "web", "tests", "docs", "README.md", "LICENSE", "CHANGELOG.md", "AGENTS.md", "llms.txt", "pyproject.toml"]
+exclude = ["web/node_modules", "web/dist"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "-q -ra --strict-markers"
+markers = [
+  "live: talks to real hardware / services on the LAN (opt-in with BSMM_LIVE=1)",
+  "slow: slower tests",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "S", "SIM", "RUF", "PL"]
+ignore = [
+  "PLR0913", "PLR0912", "PLR0915", "PLR2004", "PLR0911", "PLC0415",
+  "S101",    # asserts are fine in tests / invariants
+  "S104",    # binding 0.0.0.0 is a documented option
+  "S311",    # random is used for jitter / demo data only
+  "S110", "S112",
+  "RUF012", "RUF001", "RUF002", "RUF003",
+  "E501",
+  "B008",     # FastAPI's Depends(...)/Query(...) in defaults is the framework's idiom
+  "PLR0917",  # positional-argument counts are a style call; the public API uses keyword args where it matters
+  "ASYNC109", # a `timeout` parameter on an async function is deliberate (it is passed to httpx/asyncio)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PLR", "B011", "ASYNC", "RUF059", "SIM300"]
+"src/bsmm/demo.py" = ["S"]
+"src/bsmm/sim/**" = ["S105", "S107", "S311", "UP031"]  # simulators carry fake credentials and random numbers by design
+# table/column names here come from fixed registries (storage/metrics.py) and are validated; every value is a bound parameter
+"src/bsmm/storage/*" = ["S608"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+files = ["src/bsmm"]
+exclude = ["src/bsmm/web/"]

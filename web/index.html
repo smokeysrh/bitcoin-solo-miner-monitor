@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Solo Miner Monitor</title>
+    <meta name="description" content="Mission control for solo Bitcoin miners: find, monitor and tune your miners, watch your node, know your odds." />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0c10" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Applies the saved theme before first paint. External file on purpose: the server's CSP forbids inline scripts. -->
+    <script src="/theme-init.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>Solo Miner Monitor needs JavaScript. The API still works: see /docs and /llms.txt.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

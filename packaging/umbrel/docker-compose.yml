@@ -1,0 +1,19 @@
+version: "3.7"
+
+services:
+  app_proxy:
+    environment:
+      APP_HOST: bitcoin-solo-miner-monitor_web_1
+      APP_PORT: 8420
+
+  web:
+    # Replace the tag with a digest (image:tag@sha256:...) when submitting to the app store.
+    image: ghcr.io/smokeysrh/bitcoin-solo-miner-monitor:1.1.0
+    restart: on-failure
+    stop_grace_period: 15s
+    volumes:
+      - ${APP_DATA_DIR}/data:/data
+    environment:
+      # Umbrel's app proxy already asks for the Umbrel password, so a second one is not needed here.
+      BSMM_AUTH: none
+      BSMM_NO_UPDATE_CHECK: "1"

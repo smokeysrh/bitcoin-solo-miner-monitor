@@ -5,6 +5,50 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-27
+A ground-up rewrite. The 0.9 code base is gone; see [docs/AUDIT.md](docs/AUDIT.md) for why. (`1.0.0rc1` was the development build of this release and was never published.)
+
+### Added
+- **Fleet monitoring** for AxeOS miners (Bitaxe, NerdQAxe, and relatives) and cgminer-API miners (Avalon, Antminer, Braiins), with automatic discovery, fingerprinting and live updates over Server-Sent Events.
+- **Sources**: Bitcoin Core (RPC), Public Pool, ckpool, mempool.space.
+- **Odds and economics** in plain English: block probability per day/month/year, electricity cost, J/TH, break-even.
+- **Control** with safety rails: restart, identify, pause/resume, pool change, fan, opt-in frequency/voltage. Bulk actions preview first; everything is audited.
+- **Alerts**: 15 rule types, 8 channels (Discord, Telegram, ntfy, Slack, Pushover, email, webhook, Apprise), quiet hours, cooldowns, "Resolved" messages. Active alert state survives restarts.
+- **New UI**: customizable dashboard (16 widgets, drag to arrange), miner pages, analytics, Bitcoin page, odds page, setup wizard, kiosk mode, command palette, PWA install, phone layout, dark / black / light themes with axe-checked contrast.
+- **Agent support**: `/llms.txt`, MCP server (27 tools), scoped API tokens, OpenAPI with actionable error hints, unattended CLI (`bsmm setup --yes`, `bsmm status --json`, `bsmm doctor`), `AGENTS.md` and a skill.
+- **Demo mode** (`bsmm demo`) with simulators of real miners.
+- **History** stored as 1-minute, hourly and daily rollups.
+- `bsmm migrate-legacy` imports miners from a 0.9 database.
+- Docker image (amd64, arm64), compose file, Umbrel template (untested), CI and release workflows (not yet run on GitHub).
+
+### Changed
+- Python 3.11+, FastAPI, SQLite (WAL), Vue 3 + TypeScript + Tailwind v4.
+- Secrets (RPC logins, webhook URLs, bot tokens) are encrypted at rest and write-only.
+- The app is open on first start and offers to set a password in setup.
+
+### Removed
+- The Windows installer. Use `pipx` or Docker Desktop.
+- The old REST API. The new one lives at `/api/v1`.
+- The hard-coded `Bearer dev-key-12345` development key that the 0.9 frontend sent and the backend accepted.
+- Roughly 1,000 tracked files of debug scripts, data dumps, a committed SQLite WAL, duplicated source copies and an unused easter-egg module.
+
+### Fixed (found during the rewrite)
+- A Bitcoin Core node that refuses this computer (`rpcallowip`, HTTP 403) was reported as "wrong user name or password". It now says the node refused the computer, names this computer's address and suggests the `rpcallowip` line to add.
+- On phones the miners table view widened the whole page.
+- Demo mode crashed on start when rollup rows had different columns; unknown columns are now rejected explicitly.
+- A fresh demo showed a 40% reject rate off five shares.
+- Fleet "performance" was misleading with a mixed fleet; it is now computed only over miners that report an expected hashrate.
+- Loopback scans were silently skipped even when asked for.
+- Telegram messages could break on `<`/`&`; HTML is escaped after trimming. A 3xx reply from a webhook now counts as a failure.
+- `migrate-legacy` missed changes still sitting in the old database's WAL file.
+- A missing `.js`/`.png` was answered with the app's HTML page instead of a 404.
+- Light-theme status colours failed contrast; table sort state is announced to screen readers.
+
+### Known gaps
+- Only the NerdQAxe++ and Magic Miner BG02 were tested on real hardware. Other families are covered by recorded replies and simulators.
+- No one-click Windows installer.
+- The Umbrel template and release workflows have not been run.
+
 ## [0.9.2] - 2025-10-27
 
 ### 🚀 Major Improvements
@@ -79,29 +123,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved template structure for better null safety
   - Added proper loading state handling when store is empty
 - Resolved Vue rendering errors on component initialization
-
-## [Unreleased]
-
-### 🚀 New Features
-
-- Enhanced automated release publishing system with comprehensive release notes
-- Automated documentation synchronization with releases
-- Community verification and transparency features
-
-### ⚡ Improvements
-
-- Professional installer distribution for Windows, macOS, and Linux
-- Comprehensive GitHub Actions CI/CD pipeline
-- Enhanced security scanning and validation
-- Reproducible build system for community verification
-
-### 🔧 Build & Infrastructure
-
-- Automated release note generation from commit history
-- Documentation update automation
-- Cross-platform installer testing and validation
-- Community trust and transparency systems
-
----
-
-_This changelog is automatically updated during the release process._

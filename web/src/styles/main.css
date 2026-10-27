@@ -1,0 +1,402 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *, [data-theme='amoled'], [data-theme='amoled'] *));
+@custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
+
+/* ------------------------------------------------------------------------------------------------
+   Design tokens. Components use the semantic names (surface, line, fg, accent...) so a theme is
+   nothing more than a different set of values here; no component knows which theme is active.
+   ------------------------------------------------------------------------------------------------ */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --accent-base: #f7931a;
+  --bg: #090b10;
+  --bg-glow: rgb(247 147 26 / 0.07);
+  --surface-1: #0f1219;
+  --surface-2: #151922;
+  --surface-3: #1c212c;
+  --overlay: rgb(5 7 11 / 0.72);
+  --line: rgb(255 255 255 / 0.075);
+  --line-strong: rgb(255 255 255 / 0.15);
+  --fg: #eceef4;
+  --fg-muted: #a1aabd;
+  --fg-subtle: #7b8599;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --info: #60a5fa;
+  --violet: #a78bfa;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 18px 50px -12px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --chart-grid: rgb(255 255 255 / 0.06);
+  --chart-axis: #7b8599;
+}
+
+:root[data-theme='amoled'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-glow: rgb(247 147 26 / 0.05);
+  --surface-1: #07080b;
+  --surface-2: #0d0f14;
+  --surface-3: #14171e;
+  --overlay: rgb(0 0 0 / 0.8);
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.18);
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02) inset;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f4f5f8;
+  --bg-glow: rgb(247 147 26 / 0.09);
+  --surface-1: #ffffff;
+  --surface-2: #f6f7fa;
+  --surface-3: #eceef3;
+  --overlay: rgb(20 24 34 / 0.45);
+  --line: rgb(16 24 40 / 0.1);
+  --line-strong: rgb(16 24 40 / 0.22);
+  --fg: #12151c;
+  --fg-muted: #4a5366;
+  --fg-subtle: #667085;
+  /* status colours double as text colours on their own 15% tint, so each is darkened until it clears 5:1 there */
+  --ok: #036247;
+  --warn: #7a4a05;
+  --bad: #a61919;
+  --info: #1b49cb;
+  --violet: #6926d0;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 6px 18px -10px rgb(16 24 40 / 0.16);
+  --shadow-pop: 0 18px 50px -12px rgb(16 24 40 / 0.35), 0 0 0 1px rgb(16 24 40 / 0.08);
+  --chart-grid: rgb(16 24 40 / 0.08);
+  --chart-axis: #667085;
+}
+
+/* Everything derived from the accent: set --accent-base (and optionally --accent-fg) and the rest follows. */
+:root {
+  --accent: var(--accent-base);
+  --accent-fg: #1b1203;
+  --accent-text: var(--accent);
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 38%, transparent);
+  --ok-soft: color-mix(in oklab, var(--ok) 14%, transparent);
+  --warn-soft: color-mix(in oklab, var(--warn) 15%, transparent);
+  --bad-soft: color-mix(in oklab, var(--bad) 15%, transparent);
+  --info-soft: color-mix(in oklab, var(--info) 15%, transparent);
+  --radius-card: 16px;
+  --pad-card: 1.25rem;
+  --gap-grid: 1rem;
+  --row-h: 2.75rem;
+}
+
+/* Orange/amber text on a white page is too pale to read, so text-sized accent gets darker in light mode. */
+:root[data-theme='light'] {
+  --accent-text: color-mix(in oklab, var(--accent) 62%, black);
+}
+
+:root[data-density='compact'] {
+  --radius-card: 12px;
+  --pad-card: 0.875rem;
+  --gap-grid: 0.75rem;
+  --row-h: 2.25rem;
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-softer: var(--accent-softer);
+  --color-accent-line: var(--accent-line);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-info: var(--info);
+  --color-violet: var(--violet);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad-soft: var(--bad-soft);
+  --color-info-soft: var(--info-soft);
+  --color-overlay: var(--overlay);
+
+  --radius-card: var(--radius-card);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  --animate-fade-up: fade-up 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade-in: fade-in 0.2s ease-out both;
+  --animate-pop-in: pop-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-slide-in-right: slide-in-right 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-ping-soft: ping-soft 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes ping-soft {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------ base */
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'tnum';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    min-height: 100dvh;
+    background:
+      radial-gradient(1200px 520px at 85% -10%, var(--bg-glow), transparent 70%),
+      radial-gradient(900px 480px at -5% 105%, color-mix(in oklab, var(--info) 5%, transparent), transparent 70%),
+      var(--bg);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 40%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  button,
+  [role='button'],
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* slim, theme-aware scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  code,
+  kbd,
+  pre,
+  .mono {
+    font-family: var(--font-mono);
+    font-feature-settings: normal;
+  }
+
+  /* inline code sits on a raised chip, so it needs full-strength text whatever paragraph colour it is in */
+  :not(pre) > code {
+    color: var(--fg);
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Motion: honour the OS setting and the in-app switch. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+:root[data-reduce-motion='1'] *,
+:root[data-reduce-motion='1'] *::before,
+:root[data-reduce-motion='1'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ------------------------------------------------------------------------------------------------ components */
+
+@layer components {
+  .card {
+    min-width: 0; /* a card in a grid or flex row must be allowed to shrink below its widest child */
+    background: linear-gradient(180deg, color-mix(in oklab, var(--surface-1) 100%, white 1.2%), var(--surface-1));
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+  :root[data-theme='light'] .card {
+    background: var(--surface-1);
+  }
+  .card-pad {
+    padding: var(--pad-card);
+  }
+  .card-hover {
+    transition:
+      border-color 0.18s ease,
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+  .card-hover:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-1px);
+  }
+
+  .eyebrow {
+    font-size: 0.6875rem;
+    line-height: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--fg-subtle);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.6s linear infinite;
+    border-radius: 8px;
+  }
+
+  .hairline {
+    height: 1px;
+    background: var(--line);
+  }
+
+  .glow-accent {
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.28) inset,
+      0 8px 20px -8px var(--accent);
+  }
+
+  /* Gradient text for the hero numbers. */
+  .text-gradient {
+    background: linear-gradient(180deg, var(--fg), color-mix(in oklab, var(--fg) 62%, transparent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .text-gradient-accent {
+    background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 88%, white), var(--accent) 55%, color-mix(in oklab, var(--accent) 80%, #ff4d00));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Prose-like blocks inside tooltips, the glossary and the guide. */
+.prose-mini p + p {
+  margin-top: 0.5rem;
+}
+.prose-mini a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ECharts renders to canvas; keep it crisp and let the container size it. */
+.chart-host {
+  width: 100%;
+  height: 100%;
+}
+
+/* Visually hidden but readable by screen readers. */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}

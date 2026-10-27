@@ -1,0 +1,30 @@
+# Bitcoin Solo Miner Monitor
+#   docker compose up -d      then open  http://<this computer>:8420
+#
+# Linux: host networking lets the app see your miners on the local network (scanning and miner discovery just work).
+# Docker Desktop (Windows/macOS) does not support host networking: delete `network_mode` and use the `ports` lines instead,
+# then add your miners by address or enter your network range (for example 192.168.1.0/24) in the scan box.
+
+services:
+  bsmm:
+    image: ghcr.io/smokeysrh/bitcoin-solo-miner-monitor:latest
+    # build: .                       # uncomment to build from this folder instead of pulling the image
+    container_name: bsmm
+    restart: unless-stopped
+    network_mode: host
+    # ports:
+    #   - "8420:8420"
+    volumes:
+      - bsmm-data:/data
+    environment:
+      TZ: ${TZ:-UTC}
+      # Optional. Anyone on your network can open the dashboard unless you set a password.
+      # BSMM_ADMIN_PASSWORD: change-me-please       # sets the password at start-up (never logged)
+      # BSMM_OFFLINE: "1"                           # never contact the internet (no mempool.space / prices / update check)
+      # BSMM_NO_UPDATE_CHECK: "1"
+    # The app only reads from the network and never needs extra privileges.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  bsmm-data:

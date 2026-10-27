@@ -1,0 +1,113 @@
+name: Release
+
+# Push a tag like v1.0.0 to publish: a GitHub release with the Python package attached,
+# a multi-architecture Docker image on ghcr.io (amd64 + arm64, so Raspberry Pi and Umbrel work), and,
+# when PyPI is set up (see docs/PACKAGING.md), the package on PyPI.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build the Python package (with the web UI inside)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+      - name: Check the tag matches the package version
+        run: |
+          version="$(python3 -c "import re;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/bsmm/__init__.py').read()).group(1))")"
+          tag="${GITHUB_REF_NAME#v}"
+          # PEP 440 writes 1.0.0rc1 where git tags usually say 1.0.0-rc.1
+          norm="$(echo "$tag" | sed -E 's/-?rc\.?/rc/; s/-?beta\.?/b/; s/-?alpha\.?/a/')"
+          if [ "$version" != "$norm" ]; then echo "tag $GITHUB_REF_NAME does not match package version $version"; exit 1; fi
+      - name: Build the web UI
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Build wheel and sdist
+        run: uv build
+      - name: The wheel must contain the UI
+        run: |
+          python3 - <<'EOF'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          assert "bsmm/web/index.html" in names and any(n.startswith("bsmm/web/assets/") for n in names), "web UI missing from the wheel"
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  github-release:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') || contains(github.ref_name, 'rc') }}
+
+  pypi:
+    needs: package
+    runs-on: ubuntu-latest
+    # Turn this on by adding the repository variable PUBLISH_PYPI=true after registering a trusted publisher on pypi.org
+    if: ${{ vars.PUBLISH_PYPI == 'true' }}
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  docker:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') && !contains(github.ref_name, 'rc') }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
