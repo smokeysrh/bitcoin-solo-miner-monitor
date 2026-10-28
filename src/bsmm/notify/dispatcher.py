@@ -66,10 +66,10 @@ class Notifier:
         if cls is None:
             return DeliveryResult(ch.id, ch.name, ch.kind, False, error=f"unknown channel type {ch.kind!r}")
         secret = secret if secret is not None else await self.store.channel_secret(ch.id)
-        impl = cls(ch.config, secret, self.http)
         last: str | None = None
         for attempt in range(2):
             try:
+                impl = cls(ch.config, secret, self.http)
                 await impl.send(n)
                 return DeliveryResult(ch.id, ch.name, ch.kind, True)
             except ChannelError as e:
@@ -79,7 +79,8 @@ class Notifier:
                     continue
                 break
             except Exception as e:
-                log.exception("channel %s crashed", ch.name)
+                # Arbitrary exception messages/chains may embed write-only secrets.
+                log.error("notification delivery failed (%s)", type(e).__name__)
                 last = f"{e.__class__.__name__}"
                 break
         return DeliveryResult(ch.id, ch.name, ch.kind, False, error=last)

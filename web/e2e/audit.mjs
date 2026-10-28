@@ -4,10 +4,12 @@
 import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
+import { requireDemo } from '../scripts/demo-preflight.mjs'
 
 const BASE = process.env.BASE ?? 'http://localhost:6001'
 const OUT = process.argv[2] ?? 'e2e/shots'
 const CHROME = process.env.CHROME
+await requireDemo(BASE)
 mkdirSync(OUT, { recursive: true })
 
 const ROUTES = (process.env.ROUTES ?? '/,/miners,/bitcoin,/odds,/analytics,/alerts,/alerts?tab=rules,/agents,/settings/general,/settings/appearance,/settings/sources,/settings/notifications,/settings/energy,/settings/safety,/settings/security,/settings/data,/settings/about,/kiosk,/setup').split(',')
@@ -21,6 +23,7 @@ let problems = 0
 for (const size of SIZES) {
   const ctx = await browser.newContext({ viewport: { width: size.width, height: size.height }, deviceScaleFactor: 1 })
   for (const route of ROUTES) {
+    await requireDemo(BASE)
     const page = await ctx.newPage()
     const errors = []
     page.on('console', (m) => ['error', 'warning'].includes(m.type()) && errors.push(`${m.type()}: ${m.text().slice(0, 240)}`))
@@ -34,6 +37,7 @@ for (const size of SIZES) {
       const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
       const bad = axe.violations.filter((v) => ['serious', 'critical'].includes(v.impact ?? ''))
       const file = `${OUT}/${size.name}${route.replace(/[/?=]/g, '_') || '_home'}.png`
+      await requireDemo(BASE)
       await page.screenshot({ path: file, fullPage: false })
       const flags = []
       if (overflow > 2) flags.push(`H-OVERFLOW +${overflow}px`)

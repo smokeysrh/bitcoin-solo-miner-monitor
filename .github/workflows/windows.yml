@@ -1,0 +1,80 @@
+name: Windows distribution
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Canonical package version required for this candidate
+        required: true
+        default: '1.1.2'
+  workflow_call:
+  pull_request:
+    paths: ['src/**', 'web/**', 'installer/windows/**', 'pyproject.toml', 'uv.lock', '.github/workflows/windows.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      BSMM_LIVE: '0'
+      BSMM_OFFLINE: '1'
+      BSMM_NO_UPDATE_CHECK: '1'
+      UV_PYTHON: '3.12'
+      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/bsmm-build-venv
+      UV_CACHE_DIR: ${{ runner.temp }}/bsmm-cache/uv
+      PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/bsmm-cache/pyinstaller
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/bsmm-cache/playwright
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false
+      - name: Isolated build environment
+        run: |
+          uv sync --frozen --extra dev
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
+          $version = uv run --no-sync python installer/windows/build.py --version
+          if ($LASTEXITCODE -ne 0) { throw 'Version lookup failed' }
+          if ($env:EXPECTED_VERSION -and $version -ne $env:EXPECTED_VERSION) { throw 'Canonical version does not match candidate' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag/version mismatch' }
+          "BSMM_BUILD_VERSION=$version" >> $env:GITHUB_ENV
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+      - name: Build real Vue assets
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund --cache "$env:RUNNER_TEMP/bsmm-cache/npm"
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'Vue build failed' }
+      - name: Install Inno Setup compiler
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup install failed' }
+          }
+      - name: Build CLI portable archive and installer
+        run: |
+          uv run --no-sync python installer/windows/build.py --installer --output dist/windows
+          if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+      - name: Native disposable lifecycle and installer smoke
+        run: |
+          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-dist
+          if-no-files-found: error
+          path: |
+            dist/windows/*.exe
+            dist/windows/*.zip
+            dist/windows/SHA256SUMS
