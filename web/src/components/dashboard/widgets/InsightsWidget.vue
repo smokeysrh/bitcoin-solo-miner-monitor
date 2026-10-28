@@ -23,6 +23,13 @@ function act(a: { type: string; target: string }): void {
 
 <template>
   <WidgetFrame title="Tips &amp; observations" subtitle="Plain-language notes about your setup">
+    <div v-if="insights.error" class="mb-3 text-sm text-warn" role="status">
+      <p>{{ insights.loaded ? 'Observations are stale.' : 'Could not load observations' }}</p>
+      <p v-if="insights.lastSuccess">Last checked: {{ new Date(insights.lastSuccess).toLocaleString() }}</p>
+      <p>{{ insights.error }}</p>
+      <Button size="xs" variant="outline" :loading="insights.loading" @click="insights.refresh(true)">Retry observations</Button>
+    </div>
+    <p v-else-if="!insights.loaded" class="text-sm text-muted" role="status">Checking observations…</p>
     <ul v-if="items.length" class="space-y-2.5" data-testid="widget-insights">
       <li v-for="i in items.slice(0, 5)" :key="i.id" class="flex items-start gap-3 rounded-xl border border-line bg-surface-2/60 p-3.5">
         <span :class="['grid size-8 shrink-0 place-items-center rounded-full', tones[i.level] ?? tones.info]">
@@ -41,7 +48,7 @@ function act(a: { type: string; target: string }): void {
         </button>
       </li>
     </ul>
-    <div v-else class="flex items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-4">
+    <div v-else-if="insights.loaded && !insights.error" class="flex items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-4">
       <CircleCheck class="size-5 shrink-0 text-ok" aria-hidden="true" />
       <p class="text-sm text-muted">Nothing to suggest. Your setup looks healthy.</p>
     </div>

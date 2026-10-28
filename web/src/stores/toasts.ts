@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useSession } from './session'
 
 export type ToastKind = 'info' | 'success' | 'warning' | 'error'
 
@@ -23,6 +24,8 @@ export const useToasts = defineStore('toasts', () => {
 
   function push(t: Omit<Toast, 'id' | 'timeout' | 'kind'> & { kind?: ToastKind; timeout?: number }): number {
     const id = ++seq
+    // Cancelled page actions can settle after logout; do not retain their details for the next session.
+    if (useSession().state !== 'ready') return id
     const kind = t.kind ?? 'info'
     const timeout = t.timeout ?? (kind === 'error' ? 9000 : 4500)
     items.value = [...items.value.slice(-4), { ...t, id, kind, timeout }]

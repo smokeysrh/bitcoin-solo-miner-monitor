@@ -33,33 +33,49 @@ const raw = ref<Record<string, (number | null)[]>>({})
 const perDev = ref<Record<string, Record<string, (number | null)[]>>>({})
 const loading = ref(true)
 const error = ref<unknown>(null)
+const queryKey = computed(() => JSON.stringify([props.deviceId, props.metrics, props.range, props.perDevice]))
+const successfulQuery = ref<string | null>(null)
+const lastSuccess = ref<number | null>(null)
 let ctrl: AbortController | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 
 async function load(initial = false): Promise<void> {
   ctrl?.abort()
   ctrl = new AbortController()
+  const request = ctrl
+  const key = queryKey.value
+  if (successfulQuery.value !== key) {
+    t.value = []
+    raw.value = {}
+    perDev.value = {}
+    error.value = null
+    lastSuccess.value = null
+  }
   if (initial) loading.value = true
   try {
     if (props.deviceId) {
-      const r = await api.deviceHistory(props.deviceId, { range: props.range, metrics: props.metrics }, ctrl.signal)
+      const r = await api.deviceHistory(props.deviceId, { range: props.range, metrics: props.metrics }, request.signal)
+      if (request.signal.aborted || ctrl !== request) return
       t.value = r.t
       raw.value = r.series
       perDev.value = {}
     } else {
-      const r = await api.fleetHistory({ range: props.range, metrics: props.metrics, per_device: props.perDevice }, ctrl.signal)
+      const r = await api.fleetHistory({ range: props.range, metrics: props.metrics, per_device: props.perDevice }, request.signal)
+      if (request.signal.aborted || ctrl !== request) return
       t.value = r.t
       raw.value = r.series
       perDev.value = r.devices ?? {}
     }
     error.value = null
+    successfulQuery.value = key
+    lastSuccess.value = Date.now()
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') return
-    if (ctrl?.signal.aborted) return
+    if (request.signal.aborted || ctrl !== request) return
     error.value = e
     if (e instanceof ApiError && e.isAuth) return
   } finally {
-    loading.value = false
+    if (ctrl === request && !request.signal.aborted) loading.value = false
   }
 }
 
@@ -126,8 +142,11 @@ const hasData = computed(() => series.value.some((s) => s.data.some((v) => typeo
 
 <template>
   <div :style="{ minHeight: `${height}px` }">
+    <p v-if="error && successfulQuery === queryKey && lastSuccess" class="mb-2 text-sm text-warn" role="status">
+      Chart is stale. Last updated: {{ new Date(lastSuccess).toLocaleString() }}.
+    </p>
     <Skeleton v-if="loading" class="w-full" :style="{ height: `${height}px` }" />
-    <ErrorState v-else-if="error && !t.length" compact :error="error" title="Could not load the chart" @retry="load(true)" />
+    <ErrorState v-else-if="error && (successfulQuery !== queryKey || !t.length)" compact :error="error" title="Could not load the chart" @retry="load(true)" />
     <EmptyState
       v-else-if="!hasData"
       compact

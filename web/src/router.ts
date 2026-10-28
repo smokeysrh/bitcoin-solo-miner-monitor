@@ -60,7 +60,7 @@ router.beforeEach((to) => {
   if (session.state === 'login' && !to.meta.public) {
     return { name: 'login', query: to.fullPath !== '/' ? { next: to.fullPath } : undefined }
   }
-  if (session.state === 'ready' && to.name === 'login') return { name: 'dashboard' }
+  if (session.authenticated && to.name === 'login') return { name: 'dashboard' }
 
   // First run: offer the guided setup once per visit, never in demo mode and never if they already have miners.
   if (session.state === 'ready' && !offeredSetup && to.name === 'dashboard') {

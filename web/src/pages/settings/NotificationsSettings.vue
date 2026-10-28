@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BellRing, CircleCheck, CircleX, Pencil, Plus, Send, Trash2 } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import SettingsCard from '@/components/settings/SettingsCard.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
@@ -49,6 +49,9 @@ const testing = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 const spec = computed(() => typeOf(form.kind) ?? null)
+const savedDraft = ref('')
+const needsSave = computed(() => !!editing.value && JSON.stringify(form) !== savedDraft.value)
+watch(form, () => { result.value = null }, { deep: true, flush: 'sync' })
 
 function seedValues(t: ChannelType | undefined, existing?: Record<string, unknown>): void {
   form.values = {}
@@ -70,6 +73,7 @@ function openEdit(c: Channel): void {
   editing.value = c
   Object.assign(form, { kind: c.kind, name: c.name, min_severity: c.min_severity })
   seedValues(typeOf(c.kind), c.config)
+  savedDraft.value = JSON.stringify(form)
   result.value = null
   error.value = null
   open.value = true
@@ -100,11 +104,18 @@ function missing(): string | null {
 }
 
 async function runTest(): Promise<void> {
+  if (testing.value || saving.value) return
+  if (needsSave.value) {
+    error.value = 'Save your changes before sending a test.'
+    return
+  }
   error.value = missing()
   if (error.value) return
   testing.value = true
   try {
-    result.value = editing.value && !Object.keys(payload().secret).length ? await api.testChannel(editing.value.id) : await api.testChannelInline(payload())
+    const testedDraft = JSON.stringify(form)
+    const response = editing.value ? await api.testChannel(editing.value.id) : await api.testChannelInline(payload())
+    if (testedDraft === JSON.stringify(form)) result.value = response
   } catch (e) {
     result.value = { ok: false, error: describeError(e) }
   } finally {
@@ -241,10 +252,11 @@ async function setQuietTime(which: 'start' | 'end', v: string | number | null): 
         <span class="text-fg">{{ result.ok ? 'Delivered. Check that it arrived.' : (result.error ?? 'It did not go through.') }}</span>
       </div>
       <p v-if="error" class="text-sm text-bad" role="alert">{{ error }}</p>
+      <p v-if="needsSave" class="text-sm text-muted" role="status">Save your changes before sending a test.</p>
     </form>
     <template #footer>
       <Button variant="ghost" @click="open = false">Cancel</Button>
-      <Button variant="secondary" :loading="testing" @click="runTest"><template #icon><Send class="size-4" /></template>Send a test</Button>
+      <Button variant="secondary" :loading="testing" :disabled="needsSave || saving" @click="runTest"><template #icon><Send class="size-4" /></template>Send a test</Button>
       <Button variant="primary" :loading="saving" data-testid="channel-save" @click="save">{{ editing ? 'Save' : 'Add channel' }}</Button>
     </template>
   </Dialog>

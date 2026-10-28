@@ -65,6 +65,8 @@ async function submit(): Promise<void> {
           Forgot it? On the computer running the app, run <code class="rounded bg-surface-3 px-1.5 py-0.5">bsmm password</code> to set a new one.
         </p>
       </form>
+      <p v-if="session.error" class="mt-4 text-sm text-warn" role="alert">{{ session.error }}</p>
+      <Button v-if="session.meta?.auth.public_read" class="mt-4 w-full" variant="ghost" @click="session.bootstrap().then(() => router.replace('/'))">Continue public monitoring</Button>
     </div>
   </main>
 </template>
