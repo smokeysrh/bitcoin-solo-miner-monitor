@@ -7,7 +7,8 @@ param(
 $ErrorActionPreference = 'Stop'
 # No exception text, paths, environment or arbitrary resource strings escape.
 function Safe-Version($Value) {
-    if ($Value -cmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}(\.\d{1,5}|(a|b|rc)\d{1,5})?$') { return $Value }
+    if ($Value -cmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}(\.\d{1,5}|(a|b|rc)\d{1,5})?$' -or
+        $Value -cmatch '^[0-9., \x00\r\n\t]{1,40}$') { return $Value }
     return 'withheld'
 }
 $diagnostic = [ordered]@{ stage = 'exe-resource'; ok = $false; shell_version = (Safe-Version $PSVersionTable.PSVersion.ToString()) }

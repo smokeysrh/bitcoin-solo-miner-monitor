@@ -45,7 +45,8 @@ def native_check(exe: str, installer: Path, version: str, env: dict[str, str]) -
                  and all((key == "stage" and value in stages)
                          or (key in flags and type(value) is bool)
                          or (key in versions and isinstance(value, str)
-                             and (value == "withheld" or re.fullmatch(r"\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5}|(?:a|b|rc)\d{1,5})?", value)))
+                             and (value == "withheld" or re.fullmatch(r"\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5}|(?:a|b|rc)\d{1,5})?", value)
+                                  or re.fullmatch(r"[0-9., \x00\r\n\t]{1,40}", value)))
                          for key, value in metadata.items()))
     except (ValueError, TypeError):
         valid = False
