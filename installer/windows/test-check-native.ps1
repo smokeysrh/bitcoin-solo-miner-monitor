@@ -48,4 +48,31 @@ foreach ($case in $cases) {
     }
 }
 Write-Output ('Resource verifier regression cases passed: ' + $cases.Count)
+. (Join-Path $PSScriptRoot 'native-path.ps1')
+$root = Join-Path ([System.IO.Path]::GetTempPath()) ('bsmm-path-test-' + [guid]::NewGuid().ToString('N'))
+$real = Join-Path $root 'real'
+$alias = Join-Path $root 'alias'
+try {
+    New-Item -ItemType Directory -Path $real -Force | Out-Null
+    $original = Join-Path $real 'bsmm.exe'
+    $other = Join-Path $real 'other.exe'
+    [System.IO.File]::WriteAllText($original, 'synthetic file identity fixture')
+    [System.IO.File]::WriteAllText($other, 'synthetic file identity fixture')
+    New-Item -ItemType Junction -Path $alias -Target $real | Out-Null
+    $expected = Get-FinalNativePath $original
+    if (-not [string]::Equals($expected, (Get-FinalNativePath (Join-Path $alias 'bsmm.exe')), [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Directory-junction identity was not preserved'
+    }
+    if ([string]::Equals($expected, (Get-FinalNativePath $other), [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Different file with identical bytes was accepted'
+    }
+    $missingRejected = $false
+    try { Get-FinalNativePath (Join-Path $root 'missing.exe') | Out-Null }
+    catch { $missingRejected = $true }
+    if (-not $missingRejected) { throw 'Missing shortcut target was accepted' }
+    Write-Output 'Native path regression cases passed: junction alias, distinct copy, missing target'
+} finally {
+    if ([System.IO.Directory]::Exists($alias)) { [System.IO.Directory]::Delete($alias) }
+    if ([System.IO.Directory]::Exists($root)) { [System.IO.Directory]::Delete($root, $true) }
+}
 exit 0
