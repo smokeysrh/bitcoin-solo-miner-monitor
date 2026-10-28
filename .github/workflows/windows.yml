@@ -83,6 +83,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Resource verifier regression failed' }
       - name: Native disposable lifecycle and installer smoke
         run: |
+          $ports = @(80, 4028, 8332, 2019, 3334, 3006)
+          $listeners = @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -in $ports } | ForEach-Object {
+            @{ port = $_.LocalPort; pid = $_.OwningProcess; loopback = $_.LocalAddress -in @('127.0.0.1', '::1'); wildcard = $_.LocalAddress -in @('0.0.0.0', '::') }
+          })
+          $services = @(Get-Service | Where-Object { $_.Name -in @('W3SVC', 'WAS', 'HTTP') } | ForEach-Object {
+            @{ name = $_.Name; status = $_.Status.ToString() }
+          })
+          @{ native_port_preflight = $true; listeners = $listeners; services = $services } | ConvertTo-Json -Depth 4 -Compress
           uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
           if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
       - uses: actions/upload-artifact@v4
