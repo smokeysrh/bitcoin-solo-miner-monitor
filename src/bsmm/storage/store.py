@@ -13,6 +13,7 @@ from typing import Any
 
 from bsmm.config import RuntimeConfig
 from bsmm.models import AlertRule, Channel, Device, DeviceInfo, Event, Severity, Source
+from bsmm.notify.channels import CHANNEL_CLASSES
 from bsmm.storage.db import Database
 from bsmm.storage.samples import SampleStore
 from bsmm.storage.secrets import SecretBox
@@ -50,7 +51,13 @@ class Store:
         config.ensure_dirs()
         db = Database(config.db_path)
         await db.connect()
-        return cls(db, SecretBox.load_or_create(config.key_path))
+        try:
+            store = cls(db, SecretBox.load_or_create(config.key_path))
+            await store._normalize_channel_secrets()
+            return store
+        except BaseException:
+            await db.close()
+            raise
 
     @classmethod
     async def open_memory(cls) -> Store:
@@ -381,6 +388,43 @@ class Store:
             min_severity=Severity(row["min_severity"]),
             created_at=row["created_at"],
         )
+
+    async def _normalize_channel_secrets(self) -> None:
+        """Upgrade old plaintext config before exposing the store to any consumers."""
+        async with self.db.tx() as conn:
+            async with conn.execute("SELECT id, kind, config, secret_enc FROM channels") as cur:
+                rows = await cur.fetchall()
+            for row in rows:
+                cls = CHANNEL_CLASSES.get(row["kind"])
+                if cls is None:
+                    continue
+                try:
+                    config = json.loads(row["config"])
+                    if not isinstance(config, dict):
+                        raise ValueError
+                    names = {f.name for f in cls.fields if f.secret}.intersection(config)
+                    if not names:
+                        continue
+                    enc = row["secret_enc"]
+                    secret = json.loads(self.box.decrypt(enc) or "null") if enc else {}
+                    if not isinstance(secret, dict) or not all(isinstance(v, str) for v in secret.values()):
+                        raise ValueError
+                except (ValueError, TypeError):
+                    # Never replace an unreadable encrypted credential or leak its contents.
+                    raise ValueError("Cannot safely upgrade notification credentials; restore valid channel data and its secret key.") from None
+                merged = dict(secret)
+                for name in names:
+                    value = config.pop(name)
+                    # Match BaseChannel.value's encrypted-first, nonempty fallback;
+                    # unlike presentation/delivery, storage must not strip strings.
+                    if not merged.get(name) and value is not None:
+                        merged[name] = str(value)
+                if merged != secret:
+                    enc = self.box.encrypt(_j(merged))
+                await conn.execute(
+                    "UPDATE channels SET config = ?, secret_enc = ? WHERE id = ?",
+                    (_j(config), enc, row["id"]),
+                )
 
     async def list_channels(self) -> list[Channel]:
         return [self._channel(r) for r in await self.db.fetchall("SELECT * FROM channels ORDER BY created_at")]
