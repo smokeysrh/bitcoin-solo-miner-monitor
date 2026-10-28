@@ -150,10 +150,10 @@ class NetworkService:
                 if not src.enabled or src.kind not in SOURCE_CLASSES:
                     continue
                 old = self._pollers.get(src.id)
-                if old and old.source == src:
+                secret = await self.store.source_secret(src.id)
+                if old and old.source == src and old.impl.secret == secret:
                     keep[src.id] = old
                     continue
-                secret = await self.store.source_secret(src.id)
                 keep[src.id] = _Poller(src, SOURCE_CLASSES[src.kind](src, secret, self.http), health=SourceHealth(
                     id=src.id, kind=src.kind, name=src.name))
             cfg = self.settings.current.network

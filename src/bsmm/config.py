@@ -54,6 +54,10 @@ class RuntimeConfig:
     cors_origins: list[str] = field(
         default_factory=lambda: [o.strip() for o in os.environ.get("BSMM_CORS_ORIGINS", "").split(",") if o.strip()]
     )
+    #: exact additional HTTP Host names (reverse proxies / custom LAN DNS); never wildcard matches
+    allowed_hosts: list[str] = field(
+        default_factory=lambda: [h.strip().lower() for h in os.environ.get("BSMM_ALLOWED_HOSTS", "").split(",") if h.strip()]
+    )
     #: serve the web UI (disable for headless / API-only deployments)
     serve_ui: bool = field(default_factory=lambda: _env_bool("BSMM_SERVE_UI", True))
     #: trust X-Forwarded-For from these proxies (comma separated IPs); empty = never trust it

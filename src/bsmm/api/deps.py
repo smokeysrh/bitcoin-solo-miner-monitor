@@ -45,6 +45,24 @@ async def resolve_principal(request: Request, creds: HTTPAuthorizationCredential
     return None
 
 
+def check_browser_origin(request: Request, principal: Principal | None) -> None:
+    """CORS does not authorize ambient browser writes, including passwordless MCP calls."""
+    if request.method in SAFE_METHODS or (principal is not None and principal.via == "token"):
+        return
+    origin = request.headers.get("origin")
+    if origin is None:
+        return  # intentional CLI clients do not send Origin
+    try:
+        parsed = urlsplit(origin)
+        same_origin = (parsed.scheme == request.url.scheme
+                       and parsed.netloc == request.headers.get("host", "")
+                       and not parsed.path and not parsed.query and not parsed.fragment)
+    except ValueError:
+        same_origin = False
+    if not same_origin:
+        raise ApiError(403, "cross_site_blocked", "Cross-site requests require an explicit API token.")
+
+
 def require(scope: str = "read") -> Callable[..., Awaitable[Principal]]:
     async def dependency(request: Request, creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> Principal:
         principal = getattr(request.state, "principal", None) or await resolve_principal(request, creds)
@@ -52,11 +70,7 @@ def require(scope: str = "read") -> Callable[..., Awaitable[Principal]]:
             raise ApiError(401, "auth_required", "You need to sign in or send an API token.",
                            "Send 'Authorization: Bearer <token>'. Create one with `bsmm token create --scope control`, or sign in at /login.",
                            headers={"WWW-Authenticate": "Bearer"})
-        # cookie sessions are ambient credentials: block cross-site form posts
-        if principal.via == "session" and request.method not in SAFE_METHODS:
-            origin = request.headers.get("origin")
-            if origin and urlsplit(origin).netloc != request.headers.get("host", ""):
-                raise ApiError(403, "cross_site_blocked", "Cross-site requests are not allowed with a browser session.")
+        check_browser_origin(request, principal)
         if not principal.allows(scope):
             raise ApiError(403, "insufficient_scope", f"This needs the '{scope}' scope but you have '{principal.scope}'.",
                            "Use a token created with a higher scope.")

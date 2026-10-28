@@ -84,6 +84,7 @@ class AppContext:
         for t in self._bg:
             t.cancel()
         await asyncio.gather(*self._bg, return_exceptions=True)
+        await self.discovery.stop()
         await self.alerts.stop()
         await self.network.stop()
         await self.fleet.stop()
