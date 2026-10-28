@@ -5,6 +5,10 @@ param(
     [switch]$Shortcuts
 )
 $ErrorActionPreference = 'Stop'
+function Test-ExactVersion([string]$Actual, [string]$Expected) {
+    # PowerShell's culture-based -ceq ignores embedded NULs even case-sensitively.
+    return [string]::Equals($Actual, $Expected, [StringComparison]::Ordinal)
+}
 # No exception text, paths, environment or arbitrary resource strings escape.
 function Safe-Version($Value) {
     if ($Value -cmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}(\.\d{1,5}|(a|b|rc)\d{1,5})?$' -or
@@ -18,7 +22,7 @@ try {
     $info = (Get-Item -LiteralPath $Exe).VersionInfo
     $diagnostic.exe_product = Safe-Version $info.ProductVersion
     $diagnostic.exe_file = Safe-Version $info.FileVersion
-    if ($info.ProductVersion -ne $Version -or $info.FileVersion -ne $Version) {
+    if (-not (Test-ExactVersion $info.ProductVersion $Version) -or -not (Test-ExactVersion $info.FileVersion $Version)) {
         throw 'Executable resource version differs from the package version'
     }
     $diagnostic.stage = 'installer-resource'
@@ -30,12 +34,13 @@ try {
     $fileText = ([string]$setupInfo.FileVersion).TrimEnd([char]' ')
     $diagnostic.installer_product = Safe-Version $productText
     $diagnostic.installer_file = Safe-Version $fileText
-    $diagnostic.installer_product_space_padded = $productText -cne $setupInfo.ProductVersion
-    $diagnostic.installer_file_space_padded = $fileText -cne $setupInfo.FileVersion
+    $diagnostic.installer_product_space_padded = -not (Test-ExactVersion $productText $setupInfo.ProductVersion)
+    $diagnostic.installer_file_space_padded = -not (Test-ExactVersion $fileText $setupInfo.FileVersion)
     $diagnostic.installer_fixed = Safe-Version (@($setupInfo.ProductMajorPart, $setupInfo.ProductMinorPart, $setupInfo.ProductBuildPart, $setupInfo.ProductPrivatePart) -join '.')
     $diagnostic.installer_file_fixed = Safe-Version (@($setupInfo.FileMajorPart, $setupInfo.FileMinorPart, $setupInfo.FileBuildPart, $setupInfo.FilePrivatePart) -join '.')
-    if ($productText -cne $Version -or $fileText -cne $fixedVersion -or
-        $diagnostic.installer_fixed -cne $fixedVersion -or $diagnostic.installer_file_fixed -cne $fixedVersion) {
+    if (-not (Test-ExactVersion $productText $Version) -or -not (Test-ExactVersion $fileText $fixedVersion) -or
+        -not (Test-ExactVersion $diagnostic.installer_fixed $fixedVersion) -or
+        -not (Test-ExactVersion $diagnostic.installer_file_fixed $fixedVersion)) {
         throw 'Installer text or fixed version mismatch'
     }
     if ($Shortcuts) {

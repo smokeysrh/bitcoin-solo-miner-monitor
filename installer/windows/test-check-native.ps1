@@ -21,7 +21,8 @@ $cases = @(
     @{ field = 'FileVersion'; value = '1.1.2.1'; accepted = $false },
     @{ field = 'ProductPrivatePart'; value = 1; accepted = $false },
     @{ field = 'FileBuildPart'; value = 3; accepted = $false },
-    @{ field = 'ExeProductVersion'; value = '1.1.2 '; accepted = $false }
+    @{ field = 'ExeProductVersion'; value = '1.1.2 '; accepted = $false },
+    @{ field = 'ExeProductVersion'; value = ('1.1.2' + [char]0); accepted = $false }
 )
 $caseIndex = 0
 foreach ($case in $cases) {
