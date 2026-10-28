@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 
 /** Fails the test if the page logs an error or any API call fails unexpectedly. */
 function watch(page: Page): { errors: string[] } {
@@ -93,12 +94,18 @@ test('miners table view sorts and bulk-selects', async ({ page }) => {
 
 test('command palette jumps to a page and to a miner', async ({ page }) => {
   await page.goto('/')
+  // API bootstrap finishes after page load; wait for the shell that owns the shortcuts.
+  await expect(page.getByTestId('open-palette')).toBeVisible()
   await page.keyboard.press('Control+k')
+  await expect(page.getByTestId('palette-input')).toBeFocused()
+  await page.keyboard.press('/')
+  await expect(page.getByTestId('palette-input')).toHaveValue('/') // typing must not trigger the global slash shortcut
   await page.getByTestId('palette-input').fill('odds')
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/odds$/)
   await expect(page.getByTestId('palette-input')).toHaveCount(0) // the first palette has finished closing
   await page.keyboard.press('/')
+  await expect(page.getByTestId('palette-input')).toBeFocused()
   await page.getByTestId('palette-input').fill('gamma')
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/miners\/dev_/)
@@ -187,6 +194,15 @@ test('kiosk wall display rotates and exits', async ({ page }) => {
 test('unknown pages explain themselves @phone', async ({ page }) => {
   await page.goto('/definitely-not-a-page')
   await expect(page.getByText('That page does not exist')).toBeVisible()
+})
+
+test('phone: kiosk text has sufficient contrast in light theme @phone', async ({ page, request }) => {
+  await request.patch('/api/v1/settings', { data: { ui: { theme: 'light' } } })
+  await page.goto('/kiosk')
+  await expect(page.getByTestId('kiosk')).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  const results = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze()
+  expect(results.violations).toEqual([])
 })
 
 test('phone: bottom navigation works @phone', async ({ page }) => {

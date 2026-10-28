@@ -88,8 +88,10 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - **Names carry units** and secrets are write-only: no endpoint returns an RPC password, bot token or webhook URL.
 - **Every control action goes through `Fleet.run_action`**, which checks permissions, safety settings and writes the audit log.
 - **Test the control.** A test that would still pass with the bug present proves nothing; make it fail first.
+- Keyboard E2E tests must wait for the mounted UI before sending shortcuts: page load can finish before API bootstrap mounts `AppShell`. For the desktop palette, wait for `open-palette`, then use real key presses and assert input focus; do not replace shortcuts with clicks or sleeps.
 - Keep user-facing text plain: short sentences, no jargon without a `<Term>` explanation (`web/src/lib/glossary.ts`).
 - UI: semantic colour tokens only (`bg-surface-1`, `text-muted`, `text-accent-text`). Text must pass 4.5:1 in dark, black and light themes; run the axe audit (`web/e2e/audit.mjs`).
+- Decorative overlays must preserve text contrast: the kiosk's accent glow is dark/black-only because it lowers light-theme subtle text below 4.5:1. The phone kiosk E2E covers this with axe.
 
 ### Adding support for a new miner
 

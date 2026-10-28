@@ -91,7 +91,7 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
 
 <template>
   <main class="relative flex min-h-dvh flex-col overflow-hidden bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
-    <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+    <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl light:hidden" aria-hidden="true" />
 
     <header class="relative flex items-center justify-between transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
       <div class="flex items-center gap-4">
