@@ -36,6 +36,7 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 
 - How are my miners doing? -> GET /api/v1/overview, then GET /api/v1/devices
 - What are my odds of finding a block? -> GET /api/v1/odds (add ?hashrate_ths=50 for a what-if)
+- What is my chance in the next 10 minutes? -> GET /api/v1/odds: horizons.ten_minutes (seconds=600), also in bsmm odds and MCP get_odds. This is a fixed-window Poisson chance of at least one block, not the chance of winning the very next network block. Bitcoin targets 10-minute blocks; the exact future block time is unknown. Past work never makes a miner due.
 - Is anything wrong? -> GET /api/v1/alerts/active and GET /api/v1/insights
 - Restart a miner -> POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)
 - Point miners at my own pool/node -> POST /api/v1/devices/actions {"action":"set_pool","all":true,"params":{...}} previews by default; send dry_run=false to apply

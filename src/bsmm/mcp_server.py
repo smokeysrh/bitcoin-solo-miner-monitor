@@ -141,8 +141,8 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     @mcp.tool(annotations=READ)
     async def get_odds(ctx: Context, hashrate_ths: float | None = None, difficulty: float | None = None, power_w: float | None = None,
                        growth: float | None = None) -> Any:
-        """The user's chance of finding a block (per day/month/year...), expected wait, electricity cost versus expected value, and plain-English sentences
-        to quote. Pass hashrate_ths (TH/s), difficulty, power_w or growth (0.3 = difficulty +30%/yr) for a what-if."""
+        """The user's chance of finding a block (Next 10 minutes: horizons.ten_minutes, seconds=600; also day/month/year...), expected wait, electricity cost versus expected value, and plain-English sentences
+        to quote. The 600-second Poisson window is not the chance of winning the very next network block; its exact time is unknown. Never imply being due. Pass hashrate_ths (TH/s), difficulty, power_w or growth (0.3 = difficulty +30%/yr) for a what-if."""
         return await api(ctx, "GET", "/api/v1/odds", params={"hashrate_ths": hashrate_ths, "difficulty": difficulty, "power_w": power_w, "growth": growth})
 
     @mcp.tool(annotations=READ)

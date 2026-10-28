@@ -39,6 +39,21 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 - **Secrets are write-only.** Responses carry `has_password: true`, never the password.
 - **One calculation, one place.** Number formatting in the UI lives in `web/src/lib/format.ts`; fleet performance is computed by the backend (`FleetSummary.performance_pct`) and displayed as-is.
 
+### Monitoring data contracts (v1.1.2 source component)
+
+- Explicit zero current hashrate is an observation, not a missing value. cgminer/Avalon parsing retains it even when a boot average is positive.
+- Network fields prefer healthy, fresh sources before stale fallbacks. `/api/v1/network.field_sources` records each selected field's source, observation timestamp and stale flag; `source` names the selected difficulty source. Headline `stale` reflects selected height/difficulty, not an unrelated fresh response. Device fallback keeps the original online telemetry timestamp and updates without requiring a configured source.
+- Block monitoring advances its saved checked height only through complete coinbase reads, up to 60 heights per pass. Missing details retry at unchanged and later tips. A watched-address match is monitoring evidence, not proof of a payout amount; hash uniqueness prevents duplicate block records. An unavailable old detail can hold the contiguous checkpoint until a source supplies it. Fresh installs start at the first observed tip; this is not a historical chain rescan or a reorg reconciler.
+- Schema migration 2 adds nullable valid-observation counts per gauge/flag to minute/hour/day rollups. New observations use per-metric weights. Legacy rows are preserved with unknown counts and approximate total-row weights, explicitly disclosed by history response `warnings`; pruned raw data cannot be reconstructed. Rebuilding from retained raw data repairs complete buckets, but cannot replace a larger retained bucket with a partial one. History chooses a retained tier for the requested age and returns its actual `source` and `step`; boundary buckets represent their whole native interval, not interpolated raw points.
+- Event rules apply device IDs/tags before consuming cooldown. A global event cannot satisfy a device scope. Alerts use the existing event store as the durable source, in 128-event batches; the lossy bus only wakes the reader. The persisted cursor and per-rule receipts permit restart/replay without resending acknowledged events. Cancellation before acknowledgement retries; a process failure between provider acceptance and receipt persistence can duplicate a send (at-least-once, not exactly-once delivery). Provider failures remain explicit dispatcher records, not infinite retries. Replay is limited by existing event retention; a detected retained-ID gap is logged. First activation starts at the current log tail, not the historical archive.
+- Numeric alert parameters and cooldowns must be finite; accepted numeric strings become canonical numbers. Rejected edits leave the saved rule unchanged.
+
+### Next 10 minutes
+
+`mining.HORIZONS.ten_minutes` is 600 seconds. `/api/v1/odds`, overview odds, `bsmm odds`, and MCP `get_odds` expose `horizons.ten_minutes` for live fleet data and what-if overrides. The dashboard widget, Odds page and kiosk label it **Next 10 minutes**. There is no dedicated per-device odds endpoint; agents can supply a device's observed TH/s as the existing `hashrate_ths` what-if parameter.
+
+At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of winning the very next network block. Past work never makes a miner due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
+
 ## Frontend (`web`)
 
 Vue 3 + TypeScript + Vite + Tailwind v4, Pinia for state, reka-ui for accessible primitives, ECharts (lazy-loaded chunk) for charts, vue-draggable-plus for the dashboard editor. The build lands in `src/bsmm/web` and is shipped inside the Python wheel.

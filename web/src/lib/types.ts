@@ -297,12 +297,12 @@ export interface NetworkState {
 
 // ----------------------------------------------------------------------------------- odds
 
-export type HorizonKey = 'hour' | 'day' | 'week' | 'month' | 'year' | 'five_years' | 'ten_years'
+export type HorizonKey = 'ten_minutes' | 'hour' | 'day' | 'week' | 'month' | 'year' | 'five_years' | 'ten_years'
 
 export interface OddsHorizon {
   seconds: number
   probability: number
-  one_in: number
+  one_in: number | null
 }
 
 export interface Economics {

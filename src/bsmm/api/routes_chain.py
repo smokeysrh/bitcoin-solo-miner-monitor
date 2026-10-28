@@ -56,13 +56,14 @@ async def blocks_found(ctx: AppContext = Depends(get_ctx), _: Principal = Depend
     summary="Your chance of finding a block, expected cost, and 'what if' calculations",
     description="With no parameters it uses your live fleet hashrate and the current difficulty. Add `hashrate_ths` and/or `difficulty` "
     "to ask 'what if I had 50 TH/s?' or 'what if difficulty doubles?'. `growth` models the network growing by that fraction per year "
-    "(0.3 = 30%).",
+    "(0.3 = 30%). `horizons.ten_minutes` gives Next 10 minutes: a fixed 600-second Poisson window, not the chance of winning "
+    "the very next network block. Bitcoin targets 10-minute blocks; the exact future block time is unknown.",
 )
 async def odds(
-    hashrate_ths: float | None = Query(None, ge=0, description="Hashrate in TH/s to use instead of your fleet's"),
-    difficulty: float | None = Query(None, gt=0),
-    power_w: float | None = Query(None, ge=0, description="Power draw in watts to cost against"),
-    growth: float | None = Query(None, ge=-0.9, le=10),
+    hashrate_ths: float | None = Query(None, ge=0, allow_inf_nan=False, description="Hashrate in TH/s to use instead of your fleet's"),
+    difficulty: float | None = Query(None, gt=0, allow_inf_nan=False),
+    power_w: float | None = Query(None, ge=0, allow_inf_nan=False, description="Power draw in watts to cost against"),
+    growth: float | None = Query(None, ge=-0.9, le=10, allow_inf_nan=False),
     ctx: AppContext = Depends(get_ctx),
     _: Principal = Depends(require("read")),
 ) -> dict[str, Any]:

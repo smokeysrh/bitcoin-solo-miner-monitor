@@ -29,6 +29,7 @@ SECONDS_PER_DAY = 86_400
 SECONDS_PER_YEAR = 365.25 * SECONDS_PER_DAY
 #: Look-ahead windows (seconds) used for the "odds over time" table.
 HORIZONS: dict[str, float] = {
+    "ten_minutes": TARGET_BLOCK_SECONDS,
     "hour": 3_600,
     "day": SECONDS_PER_DAY,
     "week": 7 * SECONDS_PER_DAY,
@@ -53,7 +54,9 @@ def block_rate(hashrate: float, difficulty: float) -> float:
     """Expected blocks per second for a miner at ``hashrate`` (H/s)."""
     if hashrate <= 0 or difficulty <= 0:
         return 0.0
-    return hashrate / hashes_per_block(difficulty)
+    # Divide before multiplying difficulty: large finite difficulties must not
+    # overflow the denominator and silently turn a nonzero chance into zero.
+    return (hashrate / difficulty) / HASHES_PER_DIFF1
 
 
 def probability_within(

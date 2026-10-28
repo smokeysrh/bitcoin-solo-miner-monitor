@@ -304,9 +304,9 @@ def odds(
         t = Table(box=None, header_style="bold")
         t.add_column("Within")
         t.add_column("Chance", justify="right")
-        for name in ("day", "month", "year", "five_years", "ten_years"):
+        for name in ("ten_minutes", "day", "month", "year", "five_years", "ten_years"):
             h = o["horizons"][name]
-            t.add_row(name.replace("_", " "), format_odds(h["probability"]))
+            t.add_row("Next 10 minutes" if name == "ten_minutes" else name.replace("_", " "), format_odds(h["probability"]))
         console.print(t)
         console.print(f"Expected wait: {format_duration(o['expected_seconds'])}")
         for line in o["plain_english"]:

@@ -134,7 +134,7 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
             <p class="text-gradient-accent tnum mt-4 text-center text-[clamp(3rem,12vw,9rem)] leading-none font-bold tracking-tight">{{ fmt.formatOdds(odds.horizons.year.probability) }}</p>
             <p class="mt-3 text-center text-2xl text-muted">each year</p>
             <dl class="mx-auto mt-10 grid w-full max-w-4xl grid-cols-2 gap-6 text-center sm:grid-cols-4">
-              <div v-for="[k, l] in [['day', 'Today'], ['month', 'This month'], ['five_years', '5 years'], ['ten_years', '10 years']] as const" :key="k"><dt class="text-sm text-subtle">{{ l }}</dt><dd class="tnum mt-1 text-2xl font-semibold text-fg">{{ fmt.formatOdds(odds.horizons[k].probability) }}</dd></div>
+              <div v-for="[k, l] in [['ten_minutes', 'Next 10 minutes'], ['day', 'Today'], ['month', 'This month'], ['five_years', '5 years'], ['ten_years', '10 years']] as const" :key="k"><dt class="text-sm text-subtle">{{ l }}</dt><dd class="tnum mt-1 text-2xl font-semibold text-fg">{{ fmt.formatOdds(odds.horizons[k].probability) }}</dd></div>
             </dl>
           </template>
           <p v-else class="mt-6 text-center text-xl text-muted">Waiting for network data…</p>
