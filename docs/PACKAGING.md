@@ -6,6 +6,8 @@ Pick the one that matches your computer. All of them give you the same app on po
 
 An agent can handle installation and setup using the [copyable README prompt](../README.md#let-your-agent-do-the-setup). Use artifacts from the [official stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest).
 
+This checkout describes the unreleased v1.1.2 candidate. Its versioned download links become usable only after that release's assets are published and verified. Until then, choose an available artifact from the stable release; do not treat a missing candidate asset as an installation route.
+
 ### Docker (best for a NAS, Raspberry Pi, Umbrel-style box or home server)
 
 ```bash
@@ -57,6 +59,8 @@ For discovery without adoption, use `bsmm discover --cidr 192.168.1.0/24 --json`
 ### Upgrades and backups
 
 Before replacing the app, download a database backup from **Settings → Data & backup**. Keep a protected copy of `secret.key` (or your configured `BSMM_SECRET_KEY`) too; the database download omits the key. See [SECURITY.md](../SECURITY.md#secrets). Preserve the whole data directory and existing miner configuration. `BSMM_DATA_DIR` selects a custom data directory; `bsmm doctor` reports the current one.
+
+The v1.1.2 candidate adds history-count columns to v1.1.1 data and repairs recognized notification credentials left in old config before serving requests. Existing rows, password hashes and the encryption key must survive. If credential repair refuses startup, keep the data and key for recovery; do not reset them to make startup pass. This is a v1.1.1 data upgrade, not an upgrade from a previous v1.1.1 Windows installer.
 
 For a wheel installation, stop the existing app through its normal launcher or service after approval, then reinstall from the versioned wheel URL above with `pipx install --force <wheel-url>`. Start it with the same data directory and verify `bsmm version`, `bsmm doctor` and `bsmm status` before continuing. For Docker, keep the same `bsmm-data` volume mounted while pulling and recreating the container; avoid volume-removal commands.
 
@@ -114,6 +118,7 @@ Before release, check that both archives contain `index.html` and actual files u
 
 1. Update `src/bsmm/__init__.py` (`__version__`), the web package/lock root versions, Umbrel template version/image tag and `CHANGELOG.md`. Regenerate `llms.txt` with `python scripts/gen_llms_txt.py`; check `uv lock --check` and preserve locked dependency versions. The local project entry may use dynamic version metadata rather than a literal version in `uv.lock`.
 2. Verify the integrated v1.1.2 candidate: focused repair regressions, backend/web suites, built wheel and sdist UI contents, and native Windows install/launch/upgrade/data preservation. Check `ten_minutes` covers 600 seconds and the UI says **Next 10 minutes**. Refresh screenshots against a disposable demo only. Review the exact public docs and final asset filenames before publication.
+   Run actionlint against all `.github/workflows` files. Exercise the pull-request Windows workflow on a draft candidate before creating the tag. Its first PowerShell step exports isolated paths through `GITHUB_ENV`. The native smoke uses a separate pinned v1.1.1 checkout to produce old data, then requires installed v1.1.2 to open it first, migrate, reopen and preserve it through reinstall/uninstall. Actual frozen cold setup must reserve every loopback discovery port; a Linux permission failure is not a pass. See [Windows build and smoke commands](../installer/windows/README.md).
 3. After release approval and verification, create and push `v1.1.2`. Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
 4. `.github/workflows/release.yml` handles GitHub release artifacts and the multi-architecture image at ghcr.io. Read back the published assets, wheel URL and container tags. Verify the Windows installer is attached to the same release before announcing it. The v1.1.1 wheel and image were published; the current candidate still needs its own checks.
 

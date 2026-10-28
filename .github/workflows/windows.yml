@@ -23,15 +23,26 @@ jobs:
       BSMM_OFFLINE: '1'
       BSMM_NO_UPDATE_CHECK: '1'
       UV_PYTHON: '3.12'
-      UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/bsmm-build-venv
-      UV_CACHE_DIR: ${{ runner.temp }}/bsmm-cache/uv
-      PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/bsmm-cache/pyinstaller
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/bsmm-cache/playwright
+
     defaults:
       run:
         shell: pwsh
     steps:
+      - name: Set isolated build paths
+        run: |
+          "UV_PROJECT_ENVIRONMENT=$env:RUNNER_TEMP/bsmm-build-venv" >> $env:GITHUB_ENV
+          "UV_CACHE_DIR=$env:RUNNER_TEMP/bsmm-cache/uv" >> $env:GITHUB_ENV
+          "PYINSTALLER_CONFIG_DIR=$env:RUNNER_TEMP/bsmm-cache/pyinstaller" >> $env:GITHUB_ENV
+          "PLAYWRIGHT_BROWSERS_PATH=$env:RUNNER_TEMP/bsmm-cache/playwright" >> $env:GITHUB_ENV
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout immutable v1.1.1 data producer (no old server or installer)
+        uses: actions/checkout@v4
+        with:
+          ref: 5674faad417911c92c526ebf5bf78a57b09ed1af
+          path: .ci-legacy-v1.1.1
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -68,7 +79,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
       - name: Native disposable lifecycle and installer smoke
         run: |
-          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION"
+          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
           if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
       - uses: actions/upload-artifact@v4
         with:

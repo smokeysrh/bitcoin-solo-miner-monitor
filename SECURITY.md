@@ -27,6 +27,8 @@ RPC logins, miner web passwords, bot tokens and webhook URLs are encrypted at re
 
 Back up the database and keep a protected copy of the key before an upgrade. On Windows, protect the folder with the account's access permissions. Enter credentials through secure app fields; keep tokens, RPC passwords and wallet addresses out of chat, logs and screenshots. Review diagnostics and captures before posting them.
 
+When v1.1.2 opens existing data, it moves recognized notification credentials left in old channel config into encrypted storage before serving requests. It keeps the existing key, exact credential text and channel settings. An existing nonempty encrypted value takes precedence. If a required credential cannot be read safely, startup fails and the changes roll back; restore valid data and its matching key rather than discarding credentials. New config imports still omit credentials and leave channels disabled until you enter them again. This repair does not erase old SQLite pages, WAL files or backups; keep those protected too.
+
 ## Network behaviour
 
 - Network scans only touch private, loopback, link-local and CGNAT ranges. Public ranges are refused.

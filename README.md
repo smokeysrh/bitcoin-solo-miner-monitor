@@ -87,6 +87,8 @@ Read [SECURITY.md](SECURITY.md) before exposing the dashboard beyond your LAN.
 
 ## Screenshots
 
+Current v1.1.2 demo screens, captured in Firefox. All fleet data shown here is simulated, not measured from live miners.
+
 ![Fleet dashboard](docs/screenshots/dashboard.png)
 
 ![Miner detail](docs/screenshots/miner.png)

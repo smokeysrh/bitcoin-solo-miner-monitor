@@ -64,7 +64,8 @@ npm --prefix web ci --no-audit --no-fund
 npm --prefix web run build
 uv run --no-sync python installer/windows/build.py --installer --output dist/windows
 $version = uv run --no-sync python installer/windows/build.py --version
-uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$version-windows-setup.exe" --expected-version $version
+git worktree add --detach ../bsmm-smoke-v1.1.1 5674faad417911c92c526ebf5bf78a57b09ed1af
+uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$version-windows-setup.exe" --expected-version $version --legacy-source ../bsmm-smoke-v1.1.1
 ```
 
 Check each command's exit code (the workflow does). `src/bsmm/__init__.py` is the
@@ -78,12 +79,42 @@ rejects unbumped source. The tag release waits for Windows smoke before attachin
 its installer, portable zip and SHA256SUMS to the GitHub release. Building or
 reviewing this source does not dispatch a workflow or publish a release.
 
+Pull requests that touch the listed build paths also run this workflow, so a
+draft candidate can exercise native checks before an immutable tag is created.
+The first PowerShell step exports build/cache paths from `RUNNER_TEMP` through
+`GITHUB_ENV` before tools run. Validate every workflow with actionlint before
+requesting native CI; YAML parsing alone misses invalid expression contexts.
+
 Smoke checks use isolated data/home, offline mode, reserved loopback ports and an
 unrelated sentinel child. They check executable version and PE resources, health
 version, real Vue JS/CSS and agent-guide assets, repeated-start identity,
 cooperative stop, stale PID refusal, occupied-port startup failure, shortcuts,
 install/reinstall while running, persistent password/key preservation and
-uninstall. Reinstall uses the same candidate to exercise the stable AppId upgrade
-path; a cross-version installed upgrade still needs the release owner's native
-acceptance. Linux source/frozen smoke is useful packaging evidence, **not** native
-Windows installer evidence.
+uninstall. A separate empty data directory exercises the actual installed
+`setup --yes --json --cidr 127.0.0.1/32 --port <reserved-port>` command from cold
+state. Stdout must be exactly one JSON document; its generated bearer token is
+discarded, never logged. The harness owns all discovery TCP ports without
+listening and refuses to run setup if any cannot be reserved. This keeps the
+real discovery path away from installed services. Offline/no-update mode,
+no configured sources, disabled fixture device/channel and the absence of mDNS
+calls keep these checks off the LAN and external providers. On Linux, reserving
+port 80 may be denied; do not weaken this gate or probe an existing service.
+
+The separate pinned v1.1.1 checkout seeds synthetic device/settings/history,
+password and encrypted notification data through its own Store/Auth code;
+commit, imported version and module locations are checked. No old server runs.
+After silent installation into a fresh target, installed `bsmm.exe start` is the
+first candidate to open that data directory. The smoke checks the candidate
+schema and old logical values (not database-file equality), exact password/key
+and decrypted credential preservation, reopen, same-candidate reinstall and
+uninstall-data retention. Schema versions are reported honestly; an unchanged
+schema is not a claim that an ALTER migration ran. The combined v1.1.2 candidate
+must report schema 1 → 2 while retaining the old rows and exact credentials.
+
+This is **v1.1.1 data upgrade**, not a previous v1.1.1 Windows-installer upgrade:
+there was no such Windows asset. It does not migrate the retired v0.9.3 GUI
+state/history or remove that application. CI obtains the immutable source with
+a separate checkout; local replay can use the detached worktree above. Retire
+that fixture only after retaining the required acceptance evidence. Linux
+source/frozen smoke is useful packaging evidence, **not** native Windows
+installer evidence. Only a successful native candidate run closes that gate.

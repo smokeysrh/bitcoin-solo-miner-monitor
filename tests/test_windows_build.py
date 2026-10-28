@@ -36,3 +36,18 @@ def test_windows_release_waits_for_native_smoke():
     assert text.index("installer/windows/smoke.py") < text.index("actions/upload-artifact")
     release = (ROOT / ".github/workflows/release.yml").read_text()
     assert "needs: [package, windows]" in release and "name: windows-dist" in release
+
+
+def test_windows_build_paths_use_runtime_environment_before_tools():
+    text = (ROOT / ".github/workflows/windows.yml").read_text()
+    job_environment, steps = text.split("    steps:\n", 1)
+    assert "runner.temp" not in job_environment
+    setup = steps.split("      - uses: actions/checkout@v4", 1)[0]
+    paths = {
+        "UV_PROJECT_ENVIRONMENT": "bsmm-build-venv",
+        "UV_CACHE_DIR": "bsmm-cache/uv",
+        "PYINSTALLER_CONFIG_DIR": "bsmm-cache/pyinstaller",
+        "PLAYWRIGHT_BROWSERS_PATH": "bsmm-cache/playwright",
+    }
+    for key, suffix in paths.items():
+        assert f'"{key}=$env:RUNNER_TEMP/{suffix}" >> $env:GITHUB_ENV' in setup
