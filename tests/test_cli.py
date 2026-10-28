@@ -574,6 +574,13 @@ async def test_start_notices_a_server_that_is_already_running_and_starts_nothing
     assert flat((await cli("start", "--port", "8431", "--data-dir", str(tmp_path))).stdout) == "Already running at http://localhost:8431"
 
 
+def fake_platform(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    """Pretend to run on ``name``. ``shutil.which`` is stubbed too: from Python 3.12 it consults Windows-only APIs
+    when ``sys.platform`` says win32, which do not exist on the Linux machine that runs these tests."""
+    monkeypatch.setattr(sys, "platform", name)
+    monkeypatch.setattr("shutil.which", lambda *_a, **_k: None)
+
+
 @pytest.mark.parametrize(
     ("platform", "expected"),
     [
@@ -583,7 +590,7 @@ async def test_start_notices_a_server_that_is_already_running_and_starts_nothing
     ],
 )
 async def test_service_install_only_prints_unless_applied(tmp_path, monkeypatch, platform, expected):
-    monkeypatch.setattr(sys, "platform", platform)
+    fake_platform(monkeypatch, platform)
     res = await cli("service", "install", "--port", "8431", env={"HOME": str(tmp_path), "USERPROFILE": str(tmp_path)})
     assert res.exit_code == 0, res.output
     plain = flat(res.stdout)
@@ -897,7 +904,7 @@ def ran(monkeypatch):
 
 
 async def test_service_install_apply_and_uninstall_on_linux(tmp_path, monkeypatch, ran):
-    monkeypatch.setattr(sys, "platform", "linux")
+    fake_platform(monkeypatch, "linux")
     env = {"HOME": str(tmp_path)}
     unit = tmp_path / ".config" / "systemd" / "user" / "bsmm.service"
     res = await cli("service", "install", "--apply", "--port", "8431", env=env)
@@ -913,7 +920,7 @@ async def test_service_install_apply_and_uninstall_on_linux(tmp_path, monkeypatc
 
 
 async def test_service_install_apply_and_uninstall_on_macos(tmp_path, monkeypatch, ran):
-    monkeypatch.setattr(sys, "platform", "darwin")
+    fake_platform(monkeypatch, "darwin")
     env = {"HOME": str(tmp_path)}
     plist = tmp_path / "Library" / "LaunchAgents" / "com.github.smokeysrh.bsmm.plist"
     res = await cli("service", "install", "--apply", "--port", "8431", env=env)
@@ -926,7 +933,7 @@ async def test_service_install_apply_and_uninstall_on_macos(tmp_path, monkeypatc
 
 
 async def test_service_install_apply_and_uninstall_on_windows(tmp_path, monkeypatch, ran):
-    monkeypatch.setattr(sys, "platform", "win32")
+    fake_platform(monkeypatch, "win32")
     res = await cli("service", "install", "--apply", "--port", "8431", env={"HOME": str(tmp_path)})
     assert res.exit_code == 0, res.output
     [create] = ran
