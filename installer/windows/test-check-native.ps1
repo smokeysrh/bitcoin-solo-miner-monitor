@@ -23,7 +23,9 @@ $cases = @(
     @{ field = 'FileBuildPart'; value = 3; accepted = $false },
     @{ field = 'ExeProductVersion'; value = '1.1.2 '; accepted = $false }
 )
+$caseIndex = 0
 foreach ($case in $cases) {
+    $caseIndex++
     $script:exeInfo = [pscustomobject]@{ ProductVersion = '1.1.2'; FileVersion = '1.1.2' }
     $script:setupInfo = [pscustomobject]@{
         ProductVersion = ('1.1.2' + (' ' * 100)); FileVersion = '1.1.2.0             '
@@ -36,6 +38,8 @@ foreach ($case in $cases) {
     $output = & $checker -Exe fixture-exe -Installer fixture-installer -Version 1.1.2
     $code = $LASTEXITCODE
     $metadata = $output | ConvertFrom-Json
+    [ordered]@{ resource_fixture = $caseIndex; accepted = $case.accepted; exit = $code;
+        stage = $metadata.stage; ok = $metadata.ok } | ConvertTo-Json -Compress | Write-Output
     if (($code -eq 0) -ne $case.accepted -or $metadata.ok -ne $case.accepted) {
         throw ('Resource regression case failed: ' + $case.field)
     }
