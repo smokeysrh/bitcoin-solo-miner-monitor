@@ -83,8 +83,12 @@ class BaseChannel:
         return {"kind": cls.kind, "label": cls.label, "help": cls.help, "fields": [f.as_dict() for f in cls.fields]}
 
     def value(self, name: str) -> str:
-        v = self.secret.get(name) or self.config.get(name)
-        return str(v).strip() if v is not None else ""
+        v = self.secret[name] if name in self.secret else self.config.get(name)
+        text = str(v) if v is not None else ""
+        # Passwords, tokens and signing keys are exact strings. URLs alone have
+        # a documented surrounding-whitespace normalization, even when secret.
+        spec = next((f for f in self.fields if f.name == name), None)
+        return text if spec and spec.secret and spec.kind != "url" else text.strip()
 
     def require(self, *names: str) -> None:
         missing = [n for n in names if not self.value(n)]
@@ -278,7 +282,11 @@ class EmailChannel(BaseChannel):
                     smtp.starttls(context=ctx)
                 if self.value("username"):
                     smtp.login(self.value("username"), self.value("password"))
-                smtp.send_message(msg)
+                refused = smtp.send_message(msg)
+                if refused:
+                    # SMTP already accepted the other recipients: never retry the
+                    # whole envelope. Do not expose addresses or server replies.
+                    raise ChannelError(f"partial email delivery: {len(refused)} recipient(s) refused; accepted recipients were not retried")
         except smtplib.SMTPAuthenticationError as e:
             raise ChannelError("the mail server refused the user name or password") from e
         except (smtplib.SMTPException, OSError, TimeoutError) as e:
@@ -292,7 +300,7 @@ class EmailChannel(BaseChannel):
 class AppriseChannel(BaseChannel):
     kind = "apprise"
     label = "Apprise (100+ services)"
-    help = "Needs the optional 'apprise' package: pip install 'bitcoin-solo-miner-monitor[apprise]'. Paste one Apprise URL per line."
+    help = "Needs the optional 'apprise' Python extra; see docs/PACKAGING.md for installation from the official GitHub wheel. Not bundled in Windows. Paste one Apprise URL per line."
     fields = (FieldSpec("urls", "Apprise URLs", "password", secret=True, placeholder="matrix://user:pass@host/#room"),)
 
     def _send_sync(self, n: Notification) -> None:

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from bsmm import __version__
 from bsmm.api.deps import client_ip, get_ctx, require
 from bsmm.api.errors import ApiError, bad_request, not_found
+from bsmm.api.routes_alerts import _check_kind, _split_fields
 from bsmm.auth import COOKIE_NAME, SESSION_TTL_S, Principal
 from bsmm.context import AppContext
 from bsmm.engine.insights import build_insights, dismiss
@@ -192,6 +193,12 @@ class ImportBody(BaseModel):
 async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     if body.format != "bsmm-config-v1":
         raise bad_request("This is not a config export from this app.", "Use a file produced by GET /api/v1/system/export.")
+    # Validate the whole channel list before any import writes. Credentials are not imported.
+    channels = [Channel.model_validate(raw) for raw in body.channels]
+    for ch in channels:
+        _check_kind(ch.kind)
+        ch.config, _secrets = _split_fields(ch.kind, ch.config, {})
+        ch.has_secret = False
     added = {"devices": 0, "rules": 0, "channels": 0, "sources": 0}
     if body.settings:
         await ctx.settings.update({k: v for k, v in body.settings.items() if k != "auth"})
@@ -211,8 +218,7 @@ async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _:
             await ctx.store.save_rule(rule)
             added["rules"] += 1
     existing_ch = {c.id for c in await ctx.store.list_channels()}
-    for raw in body.channels:
-        ch = Channel.model_validate(raw)
+    for ch in channels:
         if ch.id not in existing_ch:
             ch.enabled = False  # it has no secret yet, so it cannot work until the user re-enters it
             await ctx.store.save_channel(ch, secret={})
@@ -258,11 +264,14 @@ async def get_settings(ctx: AppContext = Depends(get_ctx), _: Principal = Depend
     description='Send only what changes, for example `{"energy": {"price_per_kwh": 0.09}}`. Nested objects are merged; invalid values are rejected whole.',
 )
 async def patch_settings(patch: dict[str, Any], ctx: AppContext = Depends(get_ctx), principal: Principal = Depends(require("admin"))) -> Settings:
+    # Validate section shapes before special-case access (and before any side effect).
+    Settings.model_validate(patch)
     if patch.get("auth", {}).get("mode") == "password" and not await ctx.auth.has_password():
         raise bad_request("Set a password first, then switch password protection on.", "POST /api/v1/auth/password")
+    updated = await ctx.settings.update(patch)
     if "energy" in patch and "price_per_kwh" in patch["energy"]:
         await ctx.store.kv_set("insight.energy_confirmed", True)
-    return await ctx.settings.update(patch)
+    return updated
 
 
 # ------------------------------------------------------------------------------------------ auth

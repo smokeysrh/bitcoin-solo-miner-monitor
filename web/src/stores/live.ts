@@ -45,6 +45,7 @@ export const useLive = defineStore('live', () => {
   let timer: ReturnType<typeof setInterval> | null = null
   let soon: ReturnType<typeof setTimeout> | null = null
   let loadSeq = 0
+  let epoch = 0
   const toasts = useToasts()
 
   async function loadAll(): Promise<void> {
@@ -79,8 +80,10 @@ export const useLive = defineStore('live', () => {
 
   /** Cheap refresh of the numbers the stream does not push (odds, leaderboard, blocks you found). */
   async function refreshOverview(): Promise<void> {
+    const started = epoch
     try {
       const ov = await api.overview()
+      if (started !== epoch) return
       odds.value = ov.odds
       leaderboard.value = ov.leaderboard
       blocksFound.value = ov.blocks_found
@@ -101,7 +104,10 @@ export const useLive = defineStore('live', () => {
   }
 
   async function refreshBlocks(): Promise<void> {
-    recentBlocks.value = await api.recentBlocks().catch(() => recentBlocks.value)
+    const started = epoch
+    const blocks = await api.recentBlocks().catch(() => recentBlocks.value)
+    if (started !== epoch) return
+    recentBlocks.value = blocks
     if (network.value) network.value = { ...network.value, recent_blocks: recentBlocks.value }
   }
 
@@ -163,12 +169,24 @@ export const useLive = defineStore('live', () => {
   }
 
   function stop(): void {
+    epoch++
+    loadSeq++
     stream?.stop()
     stream = null
     if (timer) clearInterval(timer)
     if (soon) clearTimeout(soon)
     timer = soon = null
     status.value = 'idle'
+    devicesById.value = {}
+    summary.value = network.value = odds.value = null
+    alerts.value = []
+    events.value = []
+    blocksFound.value = []
+    recentBlocks.value = []
+    leaderboard.value = []
+    loaded.value = false
+    loadError.value = null
+    lastUpdate.value = 0
   }
 
   /** Apply a freshly returned device view immediately (after a poll or edit) instead of waiting for the stream. */

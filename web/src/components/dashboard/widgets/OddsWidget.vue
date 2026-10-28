@@ -14,6 +14,7 @@ const year = computed(() => odds.value?.horizons.year)
 const rows = computed(() =>
   odds.value
     ? [
+        ['Next 10 minutes', odds.value.horizons.ten_minutes],
         ['Today', odds.value.horizons.day],
         ['This month', odds.value.horizons.month],
         ['This year', odds.value.horizons.year],
@@ -32,7 +33,7 @@ const rows = computed(() =>
       <dl class="mt-4 space-y-2 border-t border-line pt-3.5">
         <div v-for="[label, h] in rows" :key="label" class="flex items-baseline justify-between gap-3 text-sm">
           <dt class="text-muted">{{ label }}</dt>
-          <dd class="tnum font-medium text-fg">{{ fmt.formatOdds(h.probability) }}</dd>
+          <dd class="tnum font-medium text-fg">{{ h.probability === 0 ? '0%' : fmt.formatOdds(h.probability) }}</dd>
         </div>
       </dl>
 

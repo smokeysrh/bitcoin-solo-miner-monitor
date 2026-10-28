@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import plistlib
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 
 def exe_command(port: int | None = None, data_dir: str | None = None) -> list[str]:
-    exe = shutil.which("bsmm")
+    exe = shutil.which("bsmm") if not getattr(sys, "frozen", False) else sys.executable
     base = [exe] if exe else [sys.executable, "-m", "bsmm"]
     base.append("serve")
     if port:
@@ -35,22 +37,12 @@ WantedBy={"default.target" if user_unit else "multi-user.target"}
 
 
 def launchd_plist(cmd: list[str]) -> str:
-    args = "\n".join(f"    <string>{c}</string>" for c in cmd)
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>Label</key><string>com.github.smokeysrh.bsmm</string>
-  <key>ProgramArguments</key><array>
-{args}
-  </array>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-</dict></plist>
-"""
+    return plistlib.dumps({"Label": "com.github.smokeysrh.bsmm", "ProgramArguments": cmd,
+                          "RunAtLoad": True, "KeepAlive": True}).decode("utf-8")
 
 
 def windows_task(cmd: list[str]) -> list[str]:
-    tr = " ".join(f'"{c}"' if " " in c else c for c in cmd)
+    tr = subprocess.list2cmdline(cmd)
     return ["schtasks", "/Create", "/F", "/SC", "ONLOGON", "/TN", "BitcoinSoloMinerMonitor", "/TR", tr, "/RL", "LIMITED"]
 
 

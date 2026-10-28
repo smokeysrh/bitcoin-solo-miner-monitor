@@ -12,7 +12,6 @@ import asyncio
 import json
 import logging
 import os
-import signal
 import socket
 import sqlite3
 import subprocess
@@ -518,8 +517,8 @@ async def test_password_command_rejects_a_short_password(server):
 
 async def test_password_command_works_on_the_database_when_no_server_is_running(tmp_path):
     data = tmp_path / "data"
-    res = await cli("password", "--password", PASSWORD, "--url", dead_url(), "--data-dir", str(data))
-    assert res.exit_code == 0 and "Password set." in res.stdout
+    res = await cli("password", "--password", PASSWORD, "--offline-local", "--data-dir", str(data))
+    assert res.exit_code == 0 and "Local password set" in res.stdout
     store = await Store.open(RuntimeConfig(data_dir=data))
     try:
         settings = SettingsService(store)
@@ -564,14 +563,13 @@ async def test_stop_forgets_a_stale_pid_file_without_signalling_anyone(tmp_path)
     pidfile = tmp_path / "bsmm.pid"
     pidfile.write_text("2000000000")  # no such process
     res = jout(await cli("stop", "--json", "--data-dir", str(tmp_path)))
-    assert res == {"stopped": True} and not pidfile.exists()
+    assert res["stopped"] is False and "stale" in res["reason"] and not pidfile.exists()
 
 
-async def test_start_notices_a_server_that_is_already_running_and_starts_nothing(tmp_path):
-    (tmp_path / "bsmm.pid").write_text(str(os.getpid()))  # a process that is certainly alive: this one
-    res = jout(await cli("start", "--json", "--port", "8431", "--data-dir", str(tmp_path)))
-    assert res == {"running": True, "already": True, "url": "http://localhost:8431"}
-    assert flat((await cli("start", "--port", "8431", "--data-dir", str(tmp_path))).stdout) == "Already running at http://localhost:8431"
+async def test_start_refuses_a_live_pid_without_instance_identity(tmp_path):
+    (tmp_path / "bsmm.pid").write_text(str(os.getpid()))
+    res = await cli("start", "--json", "--port", "8431", "--data-dir", str(tmp_path))
+    assert res.exit_code == 1 and "unverified" in res.stderr
 
 
 def fake_platform(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
@@ -832,6 +830,10 @@ class FakeProcess:
     def poll(self) -> int | None:
         return self.exit_code
 
+    def wait(self, **kwargs) -> int:
+        self.exit_code = 0
+        return 0
+
 
 @pytest.fixture
 def popen(monkeypatch):
@@ -844,6 +846,11 @@ def popen(monkeypatch):
         return state["process"]
 
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    def save(data, pid, token, port):
+        (data / "bsmm.pid").write_text(json.dumps({"pid": pid, "token": token, "port": port}))
+    monkeypatch.setattr(cli_main.lifecycle, "save_process", save)
+    monkeypatch.setattr(cli_main.lifecycle, "ready", lambda *args: True)
+    monkeypatch.setattr(cli_main.lifecycle, "owned_process", lambda data, record: state["process"] if record and state["process"].poll() is None else None)
     return types.SimpleNamespace(started=started, state=state)
 
 
@@ -853,12 +860,15 @@ async def test_start_launches_a_detached_server_and_waits_until_it_answers(serve
     out = jout(await cli("start", "--json", "--port", str(port), "--data-dir", str(data)))
     assert out == {"running": True, "pid": FakeProcess.pid, "url": f"http://localhost:{port}", "log": str(data / "bsmm.log")}
     [(cmd, kwargs)] = popen.started
-    assert cmd == [sys.executable, "-m", "bsmm", "serve", "--port", str(port), "--data-dir", str(data), "--log-file", str(data / "bsmm.log")]
+    assert cmd[:6] == [sys.executable, "-m", "bsmm", "serve", "--port", str(port)]
+    assert cmd[cmd.index("--data-dir") + 1] == str(data)
+    assert "--managed-token" in cmd and "--log-file" in cmd
     assert kwargs["start_new_session"] is True
     assert (kwargs["stdin"], kwargs["stdout"], kwargs["stderr"]) == (subprocess.DEVNULL,) * 3  # it must not hold on to the terminal
-    assert (data / "bsmm.pid").read_text() == str(FakeProcess.pid)
+    assert json.loads((data / "bsmm.pid").read_text())["pid"] == FakeProcess.pid
     human = await cli("start", "--port", str(port), "--data-dir", str(data))
-    assert flat(human.stdout) == f"Started. Open http://localhost:{port} (log: {data / 'bsmm.log'})"
+    assert flat(human.stdout) == f"Already running at http://localhost:{port}"
+    assert len(popen.started) == 1
 
 
 async def test_start_can_return_without_waiting(popen, tmp_path):
@@ -880,14 +890,13 @@ async def test_start_gives_up_on_a_server_that_never_answers(popen, tmp_path, qu
     assert res.exit_code == 1 and "Error: The server did not answer within 30 seconds." in flat(res.stderr)
 
 
-@pytest.mark.skipif(os.name == "nt", reason="stop uses taskkill on Windows")
 async def test_stop_asks_a_running_background_server_to_terminate(tmp_path, monkeypatch):
-    (tmp_path / "bsmm.pid").write_text(str(FakeProcess.pid))
-    signalled: list[tuple[int, int]] = []
-    monkeypatch.setattr(cli_main, "_pid_alive", lambda pid: True)
-    monkeypatch.setattr(os, "kill", lambda pid, sig: signalled.append((pid, sig)))
+    (tmp_path / "bsmm.pid").write_text(json.dumps({"token": "fixture"}))
+    def owned(*args):
+        return None if (tmp_path / "bsmm.stop").exists() else FakeProcess()
+    monkeypatch.setattr(cli_main.lifecycle, "owned_process", owned)
     assert jout(await cli("stop", "--json", "--data-dir", str(tmp_path))) == {"stopped": True}
-    assert signalled == [(FakeProcess.pid, signal.SIGTERM)] and not (tmp_path / "bsmm.pid").exists()
+    assert not (tmp_path / "bsmm.pid").exists() and not (tmp_path / "bsmm.stop").exists()
 
 
 @pytest.fixture
@@ -948,11 +957,14 @@ async def test_service_install_apply_and_uninstall_on_windows(tmp_path, monkeypa
 # --- small pieces that are easy to get wrong and cheap to check -------------------------------------------------------------------
 
 
-async def test_start_ignores_a_pid_file_that_holds_no_number(popen, tmp_path):
+async def test_start_cleans_unverified_pid_then_requires_explicit_retry(popen, tmp_path):
     (tmp_path / "bsmm.pid").write_text("not a pid")  # left over from something else, or cut short
+    refused = await cli("start", "--json", "--no-wait", "--port", "8433", "--data-dir", str(tmp_path))
+    assert refused.exit_code == 1 and "unverified" in refused.stderr
+    assert not popen.started and not (tmp_path / "bsmm.pid").exists()
     out = jout(await cli("start", "--json", "--no-wait", "--port", "8433", "--data-dir", str(tmp_path)))
     assert out["running"] is True and "already" not in out and len(popen.started) == 1
-    assert (tmp_path / "bsmm.pid").read_text() == str(FakeProcess.pid)  # replaced by the new server's
+    assert json.loads((tmp_path / "bsmm.pid").read_text())["pid"] == FakeProcess.pid
 
 
 def test_lan_urls_are_the_addresses_a_phone_on_the_same_network_could_use(monkeypatch):

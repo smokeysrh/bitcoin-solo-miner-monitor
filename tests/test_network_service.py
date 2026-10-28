@@ -647,7 +647,7 @@ async def test_a_block_that_pays_your_address_is_recorded_announced_and_publishe
 
     [event] = await world.events("block_found")
     assert event.title == "YOU FOUND A BLOCK!" and event.severity == Severity.SUCCESS
-    assert event.body == f"Block {node.height:,} paid 3.1500 BTC to your address {ADDR}."
+    assert event.body == f"Block {node.height:,} matches watched address {ADDR}. This is monitoring evidence, not confirmation of a payout amount."
     assert event.data == {"height": node.height, "hash": block["hash"], "reward_sats": 315_000_000, "address": ADDR, "source": "chain"}
     [msg] = drain(sub)
     assert msg.topic == "block_found"
@@ -708,7 +708,7 @@ async def test_blocks_found_while_the_service_was_busy_are_still_noticed(world):
     assert found["height"] == start + 3 and found["address"] == ADDR  # (an older block than the snapshot lists, so it was fetched)
 
 
-async def test_the_catch_up_scan_stops_sixty_blocks_back(world):
+async def test_the_catch_up_scan_batches_sixty_blocks_without_skipping(world):
     ctx = world.ctx
     await ctx.settings.update({"mining": {"addresses": [ADDR]}})
     node = await world.core()
@@ -718,7 +718,10 @@ async def test_the_catch_up_scan_stops_sixty_blocks_back(world):
         node.mine_block(address=ADDR if i in (2, 68) else OTHER_POOL_ADDR)
     await world.cycle()
     heights = [b["height"] for b in await ctx.store.list_blocks_found()]
-    assert heights == [start + 68]  # block 2 was 68 blocks ago: too old to go digging for after a long gap
+    assert heights == [start + 2]
+    assert await ctx.store.kv_get("blocks.last_checked") == start + 60
+    await world.cycle()
+    assert [b["height"] for b in await ctx.store.list_blocks_found()] == [start + 68, start + 2]
 
 
 def restarted_service(ctx) -> NetworkService:
@@ -796,7 +799,7 @@ async def test_a_found_block_reaches_the_users_channels_whatever_their_minimum_s
         await ctx.alerts.stop()
     [n] = sent
     assert n.type == "block_found" and n.title == "YOU FOUND A BLOCK!" and n.severity == Severity.SUCCESS
-    assert f"paid 3.1500 BTC to your address {ADDR}" in n.body and n.data["height"] == node.height
+    assert f"matches watched address {ADDR}" in n.body and n.data["height"] == node.height
 
 
 async def test_the_payout_address_can_come_from_the_miners_themselves(world):

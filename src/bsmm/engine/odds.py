@@ -61,9 +61,13 @@ def build_odds(
         "device_id": summary.best_diff_device_id,
     }
 
-    year = report.horizons[4]
-    day = report.horizons[1]
+    year = next(h for h in report.horizons if h.name == "year")
+    day = next(h for h in report.horizons if h.name == "day")
     out["plain_english"] = _sentences(hr, report, year.probability, day.probability, eco, out["best_share"], settings)
+    out["plain_english"].append(
+        "Next 10 minutes is a fixed 600-second window for finding at least one block, not your chance of winning the very next network block. "
+        "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due."
+    )
     return out
 
 

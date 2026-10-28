@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Eye, FlaskConical, WifiOff, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { api, describeError } from '@/lib/api'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
@@ -46,6 +47,7 @@ async function run(id: string): Promise<void> {
     <div v-if="session.readOnly" class="flex items-center gap-2.5 bg-info-soft px-4 py-2 text-sm text-info sm:px-6 lg:px-8">
       <Eye class="size-4 shrink-0" aria-hidden="true" />
       You have read-only access. Buttons that change things are hidden.
+      <RouterLink v-if="session.authEnabled && !session.authenticated" to="/login" class="font-medium underline">Sign in</RouterLink>
     </div>
 
     <div v-if="showDemo" class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-accent-soft px-4 py-2 text-sm sm:px-6 lg:px-8" data-testid="demo-banner">

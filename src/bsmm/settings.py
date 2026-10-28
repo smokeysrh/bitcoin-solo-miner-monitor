@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from bsmm.bitcoin_address import is_valid_address
 from bsmm.storage.store import Store
@@ -138,6 +140,7 @@ class Settings(_S):
 
 
 KEY = "settings"
+log = logging.getLogger(__name__)
 Listener = Callable[[Settings, Settings], Awaitable[None] | None]
 
 
@@ -159,12 +162,22 @@ class SettingsService:
         self._lock = asyncio.Lock()
 
     async def load(self) -> Settings:
-        raw = await self.store.kv_get(KEY, {})
+        # kv_get's tolerant JSON fallback cannot distinguish corrupt persistence from first run.
+        row = await self.store.db.fetchone("SELECT value FROM kv WHERE key = ?", (KEY,))
+        raw = None
         try:
-            self._current = Settings.model_validate(raw or {})
-        except Exception:
-            # A hand-edited / older settings blob must never stop the app from starting.
-            self._current = Settings()
+            raw = json.loads(row["value"]) if row is not None else {}
+            self._current = Settings.model_validate(raw)
+        except (ValidationError, json.JSONDecodeError):
+            # Recover preferences without interpreting corruption as passwordless consent.
+            auth = AuthSettings(mode="password", public_read=False)
+            if isinstance(raw, dict) and isinstance(raw.get("auth"), dict) and "mode" in raw["auth"]:
+                try:
+                    auth = AuthSettings.model_validate(raw["auth"], strict=True)
+                except ValidationError:
+                    log.warning("Invalid saved authentication settings; password protection required.")
+            log.warning("Invalid saved settings; using default preferences and preserved/fail-closed authentication.")
+            self._current = Settings(auth=auth)
         return self._current
 
     @property

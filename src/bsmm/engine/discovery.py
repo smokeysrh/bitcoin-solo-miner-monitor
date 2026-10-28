@@ -104,6 +104,7 @@ class DiscoveryService:
         self.fleet = fleet
         self.http = http
         self.jobs: dict[str, DiscoveryJob] = {}
+        self._stopping = False
 
     def suggest_cidrs(self) -> list[str]:
         cidrs = [str(n) for n in local_ipv4_networks()]
@@ -113,6 +114,8 @@ class DiscoveryService:
 
     def start(self, cidrs: list[str] | None = None, *, allow_public: bool = False, include_sources: bool = True,
               ports: list[int] | None = None) -> DiscoveryJob:
+        if self._stopping:
+            raise RuntimeError("Discovery is shutting down.")
         running = [j for j in self.jobs.values() if j.status == "running"]
         if running:
             return running[0]
@@ -134,7 +137,8 @@ class DiscoveryService:
         self.jobs[job.id] = job
         job._task = asyncio.create_task(self._run(job, hosts, include_sources, extra_ports), name=f"discovery-{job.id}")
         for old in sorted(self.jobs.values(), key=lambda j: j.started_at)[:-5]:
-            self.jobs.pop(old.id, None)
+            if old._task is None or old._task.done():
+                self.jobs.pop(old.id, None)
         return job
 
     def cancel(self, job_id: str) -> bool:
@@ -146,6 +150,16 @@ class DiscoveryService:
             self._publish(job)
             return True
         return False
+
+    async def stop(self) -> None:
+        """Drain owned scans before the context closes shared HTTP/database resources."""
+        self._stopping = True
+        tasks = []
+        for job in self.jobs.values():
+            if job._task is not None:
+                self.cancel(job.id)
+                tasks.append(job._task)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     def _publish(self, job: DiscoveryJob) -> None:
         self.bus.publish("discovery", job.as_dict())

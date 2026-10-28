@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { TooltipProvider } from 'reka-ui'
 import { onBeforeUnmount, onMounted, watch } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
 import Celebration from '@/components/layout/Celebration.vue'
 import ConfirmHost from '@/components/ui/ConfirmHost.vue'
@@ -11,31 +11,50 @@ import { applyLook, watchSystemTheme } from '@/lib/theme'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
+import { useInsights } from '@/stores/insights'
+import { useUi } from '@/stores/ui'
+import { useToasts } from '@/stores/toasts'
+import { pendingConfirm } from '@/composables/useConfirm'
 
 const session = useSession()
 const live = useLive()
 const settings = useSettings()
 const route = useRoute()
+const router = useRouter()
+const insights = useInsights()
+const ui = useUi()
+const toasts = useToasts()
 
 // Start and stop everything that talks to the server as the session changes (sign in, expiry, sign out).
 watch(
   () => session.state,
-  async (state) => {
+  async (state, _old, onCleanup) => {
+    let cancelled = false
+    onCleanup(() => { cancelled = true })
     if (state === 'ready') {
       if (!settings.data) {
         try {
           await settings.load()
           applyLook(settings.look)
-        } catch {
-          /* keep defaults */
+        } catch (e) {
+          if (!cancelled) console.warn('Could not load settings', e)
         }
       }
-      live.start()
+      if (!cancelled && session.state === 'ready') live.start()
     } else {
       live.stop()
+      settings.clear()
+      insights.clear()
+      ui.clear()
+      toasts.items = []
+      pendingConfirm.value?.resolve(false)
+      pendingConfirm.value = null
+      if (state === 'login' && !route.meta.public) {
+        void router.replace({ name: 'login', query: route.fullPath !== '/' ? { next: route.fullPath } : undefined })
+      }
     }
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 )
 
 let unwatchTheme: (() => void) | null = null
@@ -54,10 +73,10 @@ onBeforeUnmount(() => unwatchTheme?.())
         <Button variant="primary" @click="session.bootstrap()">Try again</Button>
       </div>
     </main>
-    <RouterView v-else-if="route.meta.bare" />
-    <AppShell v-else />
+    <RouterView v-else-if="route.meta.bare && (session.state === 'ready' || route.meta.public)" />
+    <AppShell v-else-if="session.state === 'ready'" />
     <Celebration v-if="session.state === 'ready'" />
-    <Toaster />
-    <ConfirmHost />
+    <Toaster v-if="session.state === 'ready'" />
+    <ConfirmHost v-if="session.state === 'ready'" />
   </TooltipProvider>
 </template>

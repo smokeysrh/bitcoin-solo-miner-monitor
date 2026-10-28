@@ -282,6 +282,10 @@ class BitcoinCoreSource(DataSource):
             cb = await self.rpc.call("getrawtransaction", [cb_txid, True, bhash])
         except (SourceError, KeyError, IndexError, TypeError):
             return None
+        if not isinstance(cb, dict) or not isinstance(cb.get("vout"), list) or not cb["vout"]:
+            return None  # incomplete coinbase data is retryable and must not enter the cache
+        if any(not isinstance(v, dict) or not isinstance(v.get("scriptPubKey"), dict) or "value" not in v for v in cb["vout"]):
+            return None
         addrs: list[str] = []
         total = 0
         for vout in cb.get("vout", []):
@@ -292,6 +296,7 @@ class BitcoinCoreSource(DataSource):
                 addrs.append(addr)
         coinbase_hex = (cb.get("vin") or [{}])[0].get("coinbase")
         info = BlockInfo(
+            coinbase_complete=True,
             hash=bhash,
             height=height,
             ts=float(blk.get("time", 0)),

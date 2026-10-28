@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from bsmm.api.deps import get_ctx, require
 from bsmm.api.errors import ApiError, bad_request, not_found
@@ -108,6 +108,15 @@ class UpdateDeviceBody(BaseModel):
     host: str | None = None
     port: int | None = Field(None, ge=1, le=65535)
     power_override_w: float | None = Field(None, ge=0, le=20000, description="For miners that don't report power: watts at the wall")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_required_fields(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            required = {"name", "tags", "enabled", "allow_control", "host", "port"}
+            if any(key in value and value[key] is None for key in required):
+                raise ValueError("name, tags, enabled, allow_control, host and port cannot be null")
+        return value
 
 
 @router.get("/devices", tags=["devices"], operation_id="listDevices", summary="List monitored miners with live state")
@@ -251,7 +260,7 @@ async def device_tuning(device_id: str, ctx: AppContext = Depends(get_ctx), _: P
 
 class ActionBody(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict, description="Action parameters, e.g. {url, port, user, password, role} for set_pool")
-    dry_run: bool = Field(False, description="Validate and report what would happen without touching the miner")
+    dry_run: bool = Field(False, description="Validate parameters (may read safe tuning ranges) without writing to the miner or audit log; identity is rechecked on execution")
 
 
 ACTION_DOC = (
@@ -387,15 +396,32 @@ async def stream(request: Request, topics: str | None = Query(None, description=
     sub = ctx.bus.subscribe(wanted, maxsize=1024)
 
     async def gen() -> AsyncIterator[bytes]:
+        from bsmm.api.deps import _bearer, resolve_principal
+
+        # Re-read credentials/policy before each event and at most one second after an idle revoke.
+        recheck_interval_s = 1.0
+
+        async def authorized() -> bool:
+            creds = await _bearer(request)
+            current = await resolve_principal(request, creds)
+            # A revoked credential must not fall back to a different ambient principal.
+            return current is not None and current == _ and current.allows("read")
+
         try:
+            if not await authorized():
+                return
             hello = {"version": ctx.settings.current.general.instance_name, "topics": sorted(wanted)}
             yield f"event: hello\ndata: {json.dumps(hello)}\n\n".encode()
             if "fleet" in wanted:
+                if not await authorized():
+                    return
                 yield f"event: fleet\ndata: {ctx.fleet.summary().model_dump_json()}\n\n".encode()
             while True:
                 if await request.is_disconnected():
                     break
-                msg = await sub.get(timeout=15)
+                msg = await sub.get(timeout=recheck_interval_s)
+                if not await authorized():
+                    break
                 if msg is None:
                     yield b": ping\n\n"
                     continue

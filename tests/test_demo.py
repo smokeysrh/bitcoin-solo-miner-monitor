@@ -47,7 +47,7 @@ async def test_demo_history_has_data_and_a_visible_outage(demo_ctx):
 
 async def test_demo_history_is_served_by_the_api(demo_ctx):
     app = create_app(ctx=demo_ctx)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://bsmm.test") as c:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as c:
         r = await c.get("/api/v1/fleet/history", params={"range": "24h", "metrics": "hashrate_hs,power_w"})
         assert r.status_code == 200
         body = r.json()

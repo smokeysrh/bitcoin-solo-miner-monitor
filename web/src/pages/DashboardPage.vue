@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Check, EyeOff, GripVertical, Maximize2, Pencil, Plus, RotateCcw, Radar } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useNowSec } from '@/composables/useNowSec'
 import { describeError } from '@/lib/api'
@@ -25,7 +25,7 @@ const now = useNowSec()
 
 const saved = computed(() => resolveLayout(settings.data?.ui.dashboard, settings.simple))
 const draft = ref<DashboardWidgetPlacement[]>([])
-const editing = computed(() => ui.editingDashboard)
+const editing = ref(false)
 const saving = ref(false)
 
 // What is on screen: the draft while editing, the saved layout otherwise. Widgets that mean nothing without a
@@ -39,14 +39,14 @@ const noMiners = computed(() => live.loaded && live.deviceCount === 0)
 
 function startEdit(): void {
   draft.value = saved.value.map((p) => ({ ...p }))
-  ui.editingDashboard = true
+  editing.value = true
 }
 
 async function finish(): Promise<void> {
   saving.value = true
   try {
     await settings.patch({ ui: { dashboard: { version: 1, widgets: draft.value } } })
-    ui.editingDashboard = false
+    editing.value = false
     toasts.success('Dashboard saved')
   } catch (e) {
     toasts.error('Could not save the layout', describeError(e))
@@ -77,11 +77,6 @@ function add(id: string): void {
   if (def) draft.value = [...draft.value, { id, span: def.defaultSpan }]
 }
 
-// leaving the page while editing should not leave the next visit stuck in edit mode
-watch(
-  () => session.state,
-  (s) => s !== 'ready' && (ui.editingDashboard = false),
-)
 
 const subtitle = computed(() => {
   const s = live.summary

@@ -34,11 +34,13 @@ SENSITIVE_KEYS = frozenset(
     }
 )
 
-_BTC_ADDRESS = re.compile(r"\b(?:bc1[ac-hj-np-z02-9]{11,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b")
+_BTC_ADDRESS = re.compile(r"\b(?:(?i:bc1[ac-hj-np-z02-9]{11,87})|[13][a-km-zA-HJ-NP-Z1-9]{25,34})\b")
 _MAC = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b")
+_AVALON_DNA = re.compile(r"\b(DNA)\[[^\]]*\]", re.IGNORECASE)
 
 
 def _scrub_text(text: str) -> str:
+    text = _AVALON_DNA.sub(lambda m: f"{m[1]}[{REDACTED}]", text)
     return _MAC.sub("AA:BB:CC:00:00:00", _BTC_ADDRESS.sub("<address>", text))
 
 

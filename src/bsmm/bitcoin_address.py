@@ -109,13 +109,11 @@ def _decode_base58check(addr: str) -> ParsedAddress | None:
         if idx < 0:
             return None
         n = n * 58 + idx
-    raw = n.to_bytes(25, "big") if n.bit_length() <= 200 else b""
+    pad = len(addr) - len(addr.lstrip("1"))
+    raw = b"\x00" * pad + n.to_bytes((n.bit_length() + 7) // 8, "big")
     if len(raw) != 25:
         return None
-    # leading '1's encode leading zero bytes
-    pad = len(addr) - len(addr.lstrip("1"))
-    if pad and raw[:pad] != b"\x00" * pad:
-        return None
+
     payload, checksum = raw[:-4], raw[-4:]
     if hashlib.sha256(hashlib.sha256(payload).digest()).digest()[:4] != checksum:
         return None

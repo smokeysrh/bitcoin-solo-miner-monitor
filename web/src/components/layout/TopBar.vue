@@ -42,7 +42,7 @@ const themeItems = computed<MenuItem[]>(() => [
 const userItems = computed<MenuItem[]>(() => [
   { heading: session.me?.name ?? 'Account' },
   { label: 'Wall display', icon: Tv, run: () => void router.push('/kiosk') },
-  ...(session.authEnabled ? [{ separator: true }, { label: 'Sign out', icon: LogOut, danger: true, run: () => void session.logout() }] : []),
+  ...(session.authEnabled && session.authenticated ? [{ separator: true }, { label: 'Sign out', icon: LogOut, danger: true, run: () => void session.logout() }] : []),
 ])
 </script>
 

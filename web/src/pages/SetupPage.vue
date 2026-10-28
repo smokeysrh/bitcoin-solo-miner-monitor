@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowLeft, ArrowRight, BellRing, Check, Coins, PartyPopper, Radar, Sparkles } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import LogoMark from '@/components/brand/LogoMark.vue'
 import DiscoveryPanel from '@/components/miners/DiscoveryPanel.vue'
@@ -36,6 +36,8 @@ const price = ref<number | null>(settings.data?.energy.price_per_kwh ?? 0.12)
 const currency = ref(settings.data?.units.currency ?? 'USD')
 const topic = ref(`solo-miners-${Math.random().toString(36).slice(2, 8)}`)
 const ntfyDone = ref(false)
+const ntfyChannel = ref<{ id: string; topic: string } | null>(null)
+watch(topic, () => { ntfyDone.value = false })
 
 function go(n: number): void {
   error.value = null
@@ -57,13 +59,21 @@ async function saveEnergy(): Promise<void> {
 }
 
 async function setupNtfy(): Promise<void> {
+  if (busy.value) return
   const t = topic.value.trim()
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(t)) return void (error.value = 'Use 3 to 64 letters, numbers, dashes or underscores.')
   busy.value = true
   error.value = null
   try {
-    const ch = await api.createChannel({ kind: 'ntfy', name: 'My phone (ntfy)', config: { topic: t } })
-    const r = await api.testChannel(ch.id)
+    ntfyDone.value = false
+    if (!ntfyChannel.value) {
+      const ch = await api.createChannel({ kind: 'ntfy', name: 'My phone (ntfy)', config: { topic: t } })
+      ntfyChannel.value = { id: ch.id, topic: t }
+    } else if (ntfyChannel.value.topic !== t) {
+      await api.updateChannel(ntfyChannel.value.id, { config: { topic: t } })
+      ntfyChannel.value.topic = t
+    }
+    const r = await api.testChannel(ntfyChannel.value.id)
     if (!r.ok) throw new Error(r.error ?? 'ntfy did not accept the test message.')
     ntfyDone.value = true
     toasts.success('Test sent', 'Check the ntfy app on your phone.')
@@ -141,7 +151,8 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
       <div v-else-if="step.id === 'alerts'" class="animate-fade-up space-y-5">
         <div><h2 class="text-xl font-semibold text-fg">Alerts on your phone <span class="text-sm font-normal text-subtle">(optional)</span></h2><p class="mt-1 text-sm text-muted">The free ntfy app buzzes your phone when a miner overheats, drops offline, or finds a block.</p></div>
         <ol class="list-decimal space-y-1.5 pl-5 text-sm text-muted"><li>Install <b class="text-fg">ntfy</b> from your app store.</li><li>In the app, subscribe to the topic below.</li><li>Press the button here to send a test.</li></ol>
-        <Field label="Your private topic" hint="Anyone who knows the name can read the alerts, so keep the random part."><template #default="{ id, describedBy }"><Input :id="id" v-model="topic" mono :described-by="describedBy" data-testid="setup-topic" /></template></Field>
+        <Field label="Your private topic" hint="Anyone who knows the name can read the alerts, so keep the random part."><template #default="{ id, describedBy }"><Input :id="id" v-model="topic" mono :disabled="busy" :described-by="describedBy" data-testid="setup-topic" /></template></Field>
+        <p v-if="ntfyChannel" class="text-sm text-muted">This channel is saved. Sending again reuses it; changing the topic updates the same channel.</p>
         <p v-if="error" class="text-sm text-bad" role="alert">{{ error }}</p>
         <p v-if="ntfyDone" class="text-sm text-ok">Test sent. If it arrived, you are all set.</p>
         <div class="flex flex-wrap gap-3">

@@ -8,16 +8,18 @@ data to get machine-readable output (and nothing else) on stdout.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import io
 import json
 import logging
 import os
 import shutil
-import signal
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import time
+import uuid
 import webbrowser
 from pathlib import Path
 from typing import Annotated, Any
@@ -27,6 +29,7 @@ from rich.console import Console
 from rich.table import Table
 
 from bsmm import __version__
+from bsmm.cli import lifecycle
 from bsmm.cli import service as svc
 from bsmm.cli.client import Api, CliError, default_url
 from bsmm.config import DEFAULT_PORT, RuntimeConfig
@@ -125,6 +128,7 @@ def serve(
     no_ui: Annotated[bool, typer.Option("--no-ui", help="API only, no web interface")] = False,
     log_level: Annotated[str, typer.Option(help="DEBUG, INFO, WARNING, ERROR")] = "INFO",
     log_file: Annotated[Path | None, typer.Option(help="Write logs to this file instead of the console")] = None,
+    managed_token: Annotated[str | None, typer.Option(hidden=True)] = None,
 ) -> None:
     """Run the dashboard and API in the foreground."""
     import uvicorn
@@ -143,7 +147,11 @@ def serve(
     console.print("  AI agents:              /llms.txt  ·  /docs  ·  /mcp\n")
     if open_browser:
         webbrowser.open(f"http://localhost:{cfg.port}")
-    uvicorn.run(app_, host=cfg.host, port=cfg.port, log_level="warning", access_log=False, timeout_graceful_shutdown=8)
+    if managed_token:
+        server = uvicorn.Server(uvicorn.Config(app_, host=cfg.host, port=cfg.port, log_level="warning", access_log=False, timeout_graceful_shutdown=8))
+        asyncio.run(lifecycle.run_managed(server, cfg.data_dir, managed_token))
+    else:
+        uvicorn.run(app_, host=cfg.host, port=cfg.port, log_level="warning", access_log=False, timeout_graceful_shutdown=8)
 
 
 def _pid_file(cfg: RuntimeConfig) -> Path:
@@ -151,11 +159,7 @@ def _pid_file(cfg: RuntimeConfig) -> Path:
 
 
 def _pid_alive(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-    except (OSError, SystemError):
-        return False
-    return True
+    return lifecycle.alive(pid)
 
 
 @app.command()
@@ -164,40 +168,74 @@ def start(
     data_dir: DATA = None,
     wait: Annotated[bool, typer.Option(help="Wait until the server answers")] = True,
     as_json: JSON = False,
+    host: Annotated[str | None, typer.Option()] = None,
+    offline: Annotated[bool, typer.Option("--offline")] = False,
+    open_browser: Annotated[bool, typer.Option("--open")] = False,
 ) -> None:
     """Start the server in the background and return immediately."""
-    cfg = _config(data_dir, port=port)
+    cfg = _config(data_dir, port=port, host=host, offline=offline or None)
+    cfg.data_dir = cfg.data_dir.resolve()
     cfg.ensure_dirs()
+    try:
+        with lifecycle.locked(cfg.data_dir):
+            result = _start(cfg, wait)
+    except CliError as e:
+        _fail(e)
+    _emit(result, as_json, lambda d: console.print(f"{'Already running' if d.get('already') else 'Started'} at {d['url']}"))
+    if open_browser:
+        webbrowser.open(result["url"])
+
+
+def _start(cfg: RuntimeConfig, wait: bool) -> dict[str, Any]:
     pidf = _pid_file(cfg)
     if pidf.exists():
-        try:
-            if _pid_alive(int(pidf.read_text())):
-                _emit({"running": True, "already": True, "url": f"http://localhost:{cfg.port}"}, as_json,
-                      lambda d: console.print(f"Already running at {d['url']}"))
-                return
-        except ValueError:
-            pass
-    cmd = [sys.executable, "-m", "bsmm", "serve", "--port", str(cfg.port), "--data-dir", str(cfg.data_dir), "--log-file", str(cfg.data_dir / "bsmm.log")]
+        record = lifecycle.read_record(cfg.data_dir)
+        if lifecycle.owned_process(cfg.data_dir, record) is not None:
+            return {"running": True, "already": True, "pid": record["pid"], "url": f"http://localhost:{record['port']}"}
+        lifecycle.clear(cfg.data_dir)
+        raise CliError("Stale or unverified PID state removed; no process was stopped.", "Check for an older server before running start again.")
+    token = uuid.uuid4().hex
+    prefix = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, "-m", "bsmm"]
+    cmd = [*prefix, "serve", "--port", str(cfg.port), "--host", cfg.host, "--data-dir", str(cfg.data_dir), "--log-file", str(cfg.data_dir / "bsmm.log"), "--managed-token", token]
+    if cfg.offline:
+        cmd.append("--offline")
     kwargs: dict[str, Any] = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if os.name == "nt":
         kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     else:
         kwargs["start_new_session"] = True
-    proc = subprocess.Popen(cmd, **kwargs)  # noqa: S603
-    pidf.write_text(str(proc.pid))
+    try:
+        proc = subprocess.Popen(cmd, **kwargs)  # noqa: S603
+    except OSError as e:
+        raise CliError(f"Could not start the server ({type(e).__name__}).") from e
     url = f"http://localhost:{cfg.port}"
-    if wait:
-        api = Api(f"http://127.0.0.1:{cfg.port}")
-        for _ in range(60):
-            if api.is_up():
-                break
-            if proc.poll() is not None:
-                _fail(CliError("The server stopped right after starting.", f"See the log: {cfg.data_dir / 'bsmm.log'}"))
-            time.sleep(0.5)
-        else:
-            _fail(CliError("The server did not answer within 30 seconds.", f"See the log: {cfg.data_dir / 'bsmm.log'}"))
-    _emit({"running": True, "pid": proc.pid, "url": url, "log": str(cfg.data_dir / "bsmm.log")}, as_json,
-          lambda d: console.print(f"Started. Open [link]{d['url']}[/]  (log: {d['log']})"))
+    try:
+        lifecycle.save_process(cfg.data_dir, proc.pid, token, cfg.port)
+        if wait:
+            api = Api(f"http://127.0.0.1:{cfg.port}")
+            try:
+                for _ in range(lifecycle.START_ATTEMPTS):
+                    if proc.poll() is not None:
+                        raise CliError("The server stopped right after starting.", f"See the log: {cfg.data_dir / 'bsmm.log'}")
+                    if lifecycle.ready(cfg.data_dir, token) and api.is_up():
+                        break
+                    time.sleep(lifecycle.POLL_SECONDS)
+                else:
+                    raise CliError("The server did not answer within 30 seconds.", f"See the log: {cfg.data_dir / 'bsmm.log'}")
+            finally:
+                api.client.close()
+    except BaseException:
+        # Cooperative request to our launch nonce only, never a guessed OS signal.
+        # Retain identity if shutdown cannot finish, so stop can retry.
+        if proc.poll() is None:
+            lifecycle.request_stop(cfg.data_dir, token)
+            try:
+                proc.wait(timeout=lifecycle.STOP_SECONDS)
+            except subprocess.TimeoutExpired:
+                raise CliError("Start failed and shutdown is still pending; process state retained. Run bsmm stop for this data directory.") from None
+        lifecycle.clear(cfg.data_dir)
+        raise
+    return {"running": True, "pid": proc.pid, "url": url, "log": str(cfg.data_dir / "bsmm.log")}
 
 
 @app.command()
@@ -205,16 +243,29 @@ def stop(data_dir: DATA = None, as_json: JSON = False) -> None:
     """Stop the background server started with `bsmm start`."""
     cfg = _config(data_dir)
     pidf = _pid_file(cfg)
-    if not pidf.exists():
+    if not cfg.data_dir.exists():
         _emit({"stopped": False, "reason": "not started by `bsmm start`"}, as_json, lambda d: console.print("Nothing to stop (no background server was started with `bsmm start`)."))
         return
-    pid = int(pidf.read_text())
-    if _pid_alive(pid):
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], check=False)  # noqa: S603, S607
-        else:
-            os.kill(pid, signal.SIGTERM)
-    pidf.unlink(missing_ok=True)
+    try:
+        with lifecycle.locked(cfg.data_dir):
+            if not pidf.exists():
+                _emit({"stopped": False, "reason": "not started by `bsmm start`"}, as_json, lambda d: console.print("Nothing to stop (no background server was started with `bsmm start`)."))
+                return
+            record = lifecycle.read_record(cfg.data_dir)
+            proc = lifecycle.owned_process(cfg.data_dir, record)
+            if proc is None:
+                lifecycle.clear(cfg.data_dir)
+                _emit({"stopped": False, "reason": "stale or unverified PID state removed"}, as_json, lambda d: console.print(d["reason"]))
+                return
+            lifecycle.request_stop(cfg.data_dir, record["token"])
+            deadline = time.monotonic() + lifecycle.STOP_SECONDS
+            while lifecycle.owned_process(cfg.data_dir, record) is not None:
+                if time.monotonic() >= deadline:
+                    raise CliError("Shutdown did not finish; process state retained. No forced kill was attempted.")
+                time.sleep(lifecycle.POLL_SECONDS)
+            lifecycle.clear(cfg.data_dir)
+    except CliError as e:
+        _fail(e)
     _emit({"stopped": True}, as_json, lambda d: console.print("Stopped."))
 
 
@@ -304,9 +355,9 @@ def odds(
         t = Table(box=None, header_style="bold")
         t.add_column("Within")
         t.add_column("Chance", justify="right")
-        for name in ("day", "month", "year", "five_years", "ten_years"):
+        for name in ("ten_minutes", "day", "month", "year", "five_years", "ten_years"):
             h = o["horizons"][name]
-            t.add_row(name.replace("_", " "), format_odds(h["probability"]))
+            t.add_row("Next 10 minutes" if name == "ten_minutes" else name.replace("_", " "), format_odds(h["probability"]))
         console.print(t)
         console.print(f"Expected wait: {format_duration(o['expected_seconds'])}")
         for line in o["plain_english"]:
@@ -456,7 +507,12 @@ def setup(
             if url:
                 raise CliError(f"No server answers at {url}.")
             log("Starting the server in the background...")
-            start(port=cfg.port, data_dir=data_dir, wait=True, as_json=True) if as_json else start(port=cfg.port, data_dir=data_dir, wait=True, as_json=False)
+            # The nested command owns lifecycle, but setup owns its one result document.
+            if as_json:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    start(port=cfg.port, data_dir=data_dir, wait=True, as_json=True)
+            else:
+                start(port=cfg.port, data_dir=data_dir, wait=True, as_json=False)
         meta = api.get("/meta")
         if meta["auth"]["mode"] == "password" and not api.token:
             api.token = _local_admin_token(cfg)
@@ -605,14 +661,21 @@ def token_revoke(token_id: str, url: URL = None, token: TOKEN = None) -> None:
 @app.command()
 def password(
     new: Annotated[str | None, typer.Option("--password", help="Don't prompt")] = None,
+    current: Annotated[str | None, typer.Option("--current-password", envvar="BSMM_CURRENT_PASSWORD", help="Current password (otherwise prompted when needed)")] = None,
+    offline_local: Annotated[bool, typer.Option("--offline-local", help="Explicit local password recovery; requires --data-dir and no --url")] = False,
     url: URL = None, token: TOKEN = None, data_dir: DATA = None,
 ) -> None:
     """Set or change the dashboard password and switch protection on."""
-    pw = new or typer.prompt("New password (min 8 characters)", hide_input=True, confirmation_prompt=True)
+    if offline_local and (url or os.environ.get("BSMM_URL") or data_dir is None):
+        _fail(CliError("Local recovery requires --data-dir and cannot be combined with --url or BSMM_URL."))
+    pw = new if new is not None else typer.prompt("New password (min 8 characters)", hide_input=True, confirmation_prompt=True)
     api = _api(url, token)
-    if api.is_up():
+    if not offline_local:
         try:
-            api.post("/auth/password", {"new_password": pw})
+            meta = api.get("/meta")
+            if meta["auth"]["password_set"] and current is None:
+                current = typer.prompt("Current password", hide_input=True)
+            api.post("/auth/password", {"new_password": pw, "current_password": current})
         except CliError as e:
             _fail(e)
     else:
@@ -632,10 +695,22 @@ def password(
                 await store.close()
 
         asyncio.run(run())
+        console.print(f"Local password set in {data_dir}. No remote server was changed.")
+        return
     console.print("Password set. The dashboard now asks for it.")
 
 
 # ------------------------------------------------------------------------------------------ mcp / service / misc
+
+
+def _service_run(cmd: list[str]) -> None:
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)  # noqa: S603
+    except OSError as e:
+        _fail(CliError(f"Could not run {cmd[0]} ({type(e).__name__}).", "Check that the platform service manager is available."))
+        return
+    if result.returncode:
+        _fail(CliError(f"{cmd[0]} failed (exit {result.returncode}).", "The operation did not complete. Check your user service manager before retrying; definitions were retained."))
 
 
 @app.command()
@@ -668,8 +743,8 @@ def service_install(
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(unit)
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)  # noqa: S607
-        subprocess.run(["systemctl", "--user", "enable", "--now", "bsmm"], check=False)  # noqa: S607
+        _service_run(["systemctl", "--user", "daemon-reload"])
+        _service_run(["systemctl", "--user", "enable", "--now", "bsmm"])
         console.print(f"Installed {path} and started it.")
     elif sys.platform == "darwin":
         path = svc.launchd_path()
@@ -679,14 +754,14 @@ def service_install(
             return
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)
-        subprocess.run(["launchctl", "load", "-w", str(path)], check=False)  # noqa: S603, S607
+        _service_run(["launchctl", "load", "-w", str(path)])
         console.print(f"Installed {path}.")
     else:
         task = svc.windows_task(cmd)
         if not apply:
             console.print("Run this in a terminal to start at every login:\n  " + " ".join(task))
             return
-        subprocess.run(task, check=False)  # noqa: S603
+        _service_run(task)
         console.print("Scheduled task created: it starts at your next login.")
 
 
@@ -694,13 +769,13 @@ def service_install(
 def service_uninstall() -> None:
     """Remove the auto-start entry."""
     if sys.platform.startswith("linux"):
-        subprocess.run(["systemctl", "--user", "disable", "--now", "bsmm"], check=False)  # noqa: S607
+        _service_run(["systemctl", "--user", "disable", "--now", "bsmm"])
         svc.systemd_path().unlink(missing_ok=True)
     elif sys.platform == "darwin":
-        subprocess.run(["launchctl", "unload", "-w", str(svc.launchd_path())], check=False)  # noqa: S603, S607
+        _service_run(["launchctl", "unload", "-w", str(svc.launchd_path())])
         svc.launchd_path().unlink(missing_ok=True)
     else:
-        subprocess.run(["schtasks", "/Delete", "/F", "/TN", "BitcoinSoloMinerMonitor"], check=False)  # noqa: S607
+        _service_run(["schtasks", "/Delete", "/F", "/TN", "BitcoinSoloMinerMonitor"])
     console.print("Removed.")
 
 

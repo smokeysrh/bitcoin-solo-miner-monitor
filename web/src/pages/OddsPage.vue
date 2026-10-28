@@ -68,6 +68,7 @@ function reset(): void {
 }
 
 const HORIZONS: [HorizonKey, string][] = [
+  ['ten_minutes', 'Next 10 minutes'],
   ['hour', 'In the next hour'],
   ['day', 'Today'],
   ['week', 'This week'],
@@ -117,10 +118,11 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               <span class="h-2 overflow-hidden rounded-full bg-surface-3" aria-hidden="true">
                 <span class="block h-full rounded-full bg-gradient-to-r from-accent/40 to-accent" :style="{ width: `${barWidth(o.horizons[k].probability)}%` }" />
               </span>
-              <span class="tnum text-right font-medium text-fg">{{ fmt.formatOdds(o.horizons[k].probability) }}</span>
+              <span class="tnum text-right font-medium text-fg">{{ o.horizons[k].probability === 0 ? '0%' : fmt.formatOdds(o.horizons[k].probability) }}</span>
             </li>
           </ul>
           <p class="mt-4 text-xs text-subtle">Bars use a log scale so very small chances stay visible.</p>
+          <p class="mt-3 text-sm text-muted">Next 10 minutes is a fixed 600-second chance of at least one block, not the chance of winning the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due.</p>
         </MetricCard>
 
         <div v-if="o" class="grid gap-[var(--gap-grid)] md:grid-cols-2">

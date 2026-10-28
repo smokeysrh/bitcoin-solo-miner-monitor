@@ -83,6 +83,14 @@ export function onUnauthorized(fn: ((err: ApiError) => void) | null): void {
   unauthorizedHandler = fn
 }
 
+let sessionEpoch = 0
+const pending = new Set<AbortController>()
+export function cancelPendingRequests(): void {
+  sessionEpoch++
+  for (const controller of pending) controller.abort()
+  pending.clear()
+}
+
 function qs(query?: Query): string {
   if (!query) return ''
   const p = new URLSearchParams()
@@ -104,22 +112,30 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   }
 
   const controller = new AbortController()
+  const epoch = sessionEpoch
+  pending.add(controller)
   const timer = setTimeout(() => controller.abort(new DOMException('timeout', 'TimeoutError')), opts.timeoutMs ?? 30_000)
-  opts.signal?.addEventListener('abort', () => controller.abort(opts.signal?.reason))
+  const abort = () => controller.abort(opts.signal?.reason)
+  opts.signal?.addEventListener('abort', abort, { once: true })
+  if (opts.signal?.aborted) abort()
 
   let res: Response
+  let text: string
   try {
     res = await fetch(url, { method, headers, body, credentials: 'same-origin', signal: controller.signal })
+    text = await res.text()
   } catch (e) {
-    if (opts.signal?.aborted) throw e
+    if (opts.signal?.aborted || epoch !== sessionEpoch) throw e
     const timedOut = e instanceof DOMException && e.name === 'TimeoutError'
     throw new ApiError(0, 'network', timedOut ? 'The server took too long to answer.' : 'Could not reach the server.', 'Check that Solo Miner Monitor is still running.')
   } finally {
     clearTimeout(timer)
+    pending.delete(controller)
+    opts.signal?.removeEventListener('abort', abort)
   }
 
+  if (epoch !== sessionEpoch) throw new DOMException('Session ended', 'AbortError')
   if (res.status === 204) return undefined as T
-  const text = await res.text()
   let data: unknown = null
   if (text) {
     try {

@@ -2,21 +2,26 @@
 
 from __future__ import annotations
 
+import ipaddress
 import logging
+import socket
 import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bsmm import __version__
 from bsmm.api import errors
+from bsmm.api.deps import SAFE_METHODS, _bearer, check_browser_origin, resolve_principal
 from bsmm.api.routes_alerts import router as alerts_router
 from bsmm.api.routes_chain import router as chain_router
 from bsmm.api.routes_core import router as core_router
@@ -29,6 +34,71 @@ from bsmm.context import AppContext
 log = logging.getLogger(__name__)
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 MAX_BODY = 4 * 1024 * 1024
+
+
+class BodyLimitMiddleware:
+    """Bound actual received bytes before any REST or MCP body parser runs."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = dict(scope.get("headers", []))
+        length = headers.get(b"content-length", b"")
+        significant = length.lstrip(b"0")
+        oversized = length.isdigit() and (len(significant) > len(str(MAX_BODY)) or int(significant or b"0") > MAX_BODY)
+        body = bytearray()
+        while not oversized:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            chunk = message.get("body", b"")
+            if len(body) + len(chunk) > MAX_BODY:
+                oversized = True
+                break
+            body.extend(chunk)
+            if not message.get("more_body", False):
+                break
+        if oversized:
+            response = JSONResponse(errors.body(413, "too_large", "That request is too large."), status_code=413)
+            await response(scope, receive, send)
+            return
+        delivered = False
+
+        async def replay() -> Message:
+            nonlocal delivered
+            if not delivered:
+                delivered = True
+                return {"type": "http.request", "body": bytes(body), "more_body": False}
+            return await receive()
+
+        await self.app(scope, replay, send)
+
+
+_LAN_HOST_NETWORKS = tuple(ipaddress.ip_network(cidr) for cidr in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "fc00::/7", "fe80::/10",
+))
+
+
+def _allowed_host(value: str, names: set[str]) -> bool:
+    # Do not resolve untrusted names: a DNS answer is not Host authorization.
+    if not value or any(c in value for c in "/\\@?#, \t\r\n"):
+        return False
+    try:
+        parsed = urlsplit("//" + value)
+        host = parsed.hostname
+        _ = parsed.port  # reject malformed ports, including on otherwise allowed names
+        if not host:
+            return False
+        if host.lower().rstrip(".") in names:
+            return True
+        ip = ipaddress.ip_address(host)
+        return ip.is_loopback or any(ip in network for network in _LAN_HOST_NETWORKS)
+    except ValueError:
+        return False
 
 DESCRIPTION = """
 Dashboard, monitoring and control for **solo Bitcoin miners**. Discovers miners on your network, watches
@@ -65,6 +135,11 @@ def create_app(config: RuntimeConfig | None = None, *, ctx: AppContext | None = 
     """Build the app. Pass ``ctx`` (tests) to use an existing context whose lifecycle you manage yourself."""
     config = config or (ctx.config if ctx else RuntimeConfig())
     owns_ctx = ctx is None
+    hostname = socket.gethostname().lower().rstrip(".")
+    host_names = {"localhost", "bsmm.internal", hostname, hostname.split(".")[0], hostname.split(".")[0] + ".local"}
+    host_names.update(h.lower().rstrip(".") for h in config.allowed_hosts if h != "*")
+    if config.host not in ("0.0.0.0", "::", "*"):
+        host_names.add(config.host.lower().rstrip("."))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -109,9 +184,16 @@ def create_app(config: RuntimeConfig | None = None, *, ctx: AppContext | None = 
 
     @app.middleware("http")
     async def guard(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-        clen = request.headers.get("content-length")
-        if clen and clen.isdigit() and int(clen) > MAX_BODY:
-            return JSONResponse(errors.body(413, "too_large", "That request is too large."), status_code=413)
+        hosts = request.headers.getlist("host")
+        if len(hosts) != 1 or not _allowed_host(hosts[0], host_names):
+            return JSONResponse(errors.body(400, "invalid_host", "This server name is not allowed.",
+                                           "Use its LAN IP or configure BSMM_ALLOWED_HOSTS with exact proxy/DNS names."), status_code=400)
+        if request.method not in SAFE_METHODS and "origin" in request.headers:
+            principal = await resolve_principal(request, await _bearer(request))
+            try:
+                check_browser_origin(request, principal)
+            except errors.ApiError as exc:
+                return JSONResponse(errors.body(exc.status, exc.code, exc.message), status_code=exc.status)
         started = time.perf_counter()
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
         response = await call_next(request)
@@ -138,6 +220,7 @@ def create_app(config: RuntimeConfig | None = None, *, ctx: AppContext | None = 
     _mount_mcp(app)
     if config.serve_ui:
         _mount_ui(app)
+    app.add_middleware(BodyLimitMiddleware)
     return app
 
 

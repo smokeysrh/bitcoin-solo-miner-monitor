@@ -48,7 +48,7 @@ See [PACKAGING.md](docs/PACKAGING.md) for the longer install and upgrade guide.
 - **Your miners:** online state, hashrate, reported power, temperature, fans, accepted and rejected shares, pool, uptime and history. Fleet totals and per-miner pages update live.
 - **Your node and pool:** Bitcoin Core, Public Pool, ckpool and mempool.space data sources can show chain height, sync state, fees and pool information.
 - **Your costs and odds:** electricity estimates use the tariff you enter. The odds view describes modeled block probability across day, month and year windows, plus **Next 10 minutes**. That value is the modeled chance across the next ten minutes. The network can find a block at any time.
-- **Useful alerts:** watch for offline or hot miners, fan trouble, hashrate drops, rejected shares, pool fallback, node trouble, new best shares, restarts, difficulty changes and blocks found. Send chosen alerts through ntfy, Telegram, Discord, Slack, Pushover, email, a webhook or Apprise.
+- **Useful alerts:** watch for offline or hot miners, fan trouble, hashrate drops, rejected shares, pool fallback, node trouble, new best shares, restarts, difficulty changes and blocks found. Send chosen alerts through ntfy, Telegram, Discord, Slack, Pushover, email or a webhook. Apprise is an optional Python extra, not bundled in the Windows installer.
 - **Controls when you ask:** restart, identify, pause or resume, change a pool, set a fan, or enable supported tuning where the firmware allows it. Tuning starts off. Bulk controls offer a dry-run preview, and miner actions are audited.
 
 ## Miner compatibility

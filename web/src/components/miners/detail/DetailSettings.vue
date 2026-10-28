@@ -63,17 +63,36 @@ function fromDevice(d: DeviceView): Form {
 const form = reactive<Form>(fromDevice(props.device))
 const busy = ref(false)
 const error = ref<string | null>(null)
-// re-seed when switching miner, but never clobber what the user is typing on a live update
-watch(() => props.device.id, () => Object.assign(form, fromDevice(props.device)))
-
-const baseline = computed(() => fromDevice(props.device))
+const baseline = ref<Form>(fromDevice(props.device))
+function discard(): void {
+  baseline.value = fromDevice(props.device)
+  Object.assign(form, fromDevice(props.device))
+  error.value = null
+}
+watch(() => props.device, (device, previous) => {
+  if (device.id !== previous.id) return discard()
+  const current = fromDevice(device)
+  for (const key of Object.keys(current) as (keyof Form)[]) {
+    if (JSON.stringify(form[key]) !== JSON.stringify(baseline.value[key])) continue
+    Object.assign(form, { [key]: current[key] })
+    Object.assign(baseline.value, { [key]: current[key] })
+  }
+})
 const dirty = computed(() => JSON.stringify(form) !== JSON.stringify(baseline.value))
 const allTags = computed(() => [...new Set(live.devices.flatMap((d) => d.tags))])
 const editable = computed(() => session.canControl)
 
 async function save(): Promise<void> {
+  if (busy.value) return
   error.value = null
   const b = baseline.value
+  const current = fromDevice(props.device)
+  const conflict = (Object.keys(current) as (keyof Form)[]).some((key) =>
+    JSON.stringify(form[key]) !== JSON.stringify(b[key]) && JSON.stringify(current[key]) !== JSON.stringify(b[key]) && JSON.stringify(current[key]) !== JSON.stringify(form[key]))
+  if (conflict) {
+    error.value = 'An edited field changed in another session. Discard to load the latest values before editing again.'
+    return
+  }
   const body: UpdateDeviceBody = {}
   if (form.name.trim() !== b.name) body.name = form.name.trim()
   if (JSON.stringify(form.tags) !== JSON.stringify(b.tags)) body.tags = form.tags
@@ -88,10 +107,16 @@ async function save(): Promise<void> {
   if (form.power_override_w !== b.power_override_w) body.power_override_w = form.power_override_w
   if (!Object.keys(body).length) return
   busy.value = true
+  const submitted: Form = JSON.parse(JSON.stringify(form))
   try {
-    live.upsertDevice(await api.updateDevice(props.device.id, body))
+    const result = await api.updateDevice(props.device.id, body)
+    live.upsertDevice(result)
     toasts.success('Saved')
-    Object.assign(form, fromDevice(live.byId(props.device.id) ?? props.device))
+    const saved = fromDevice(result)
+    for (const key of Object.keys(saved) as (keyof Form)[]) {
+      if (JSON.stringify(form[key]) === JSON.stringify(submitted[key])) Object.assign(form, { [key]: saved[key] })
+    }
+    baseline.value = saved
   } catch (e) {
     error.value = describeError(e)
   } finally {
@@ -155,7 +180,7 @@ async function remove(): Promise<void> {
         <p v-if="error" class="rounded-xl border border-bad/30 bg-bad-soft px-3 py-2.5 text-sm text-bad" role="alert">{{ error }}</p>
         <div class="flex items-center gap-3">
           <Button type="submit" variant="primary" :loading="busy" :disabled="!dirty || !editable" data-testid="save-device">Save changes</Button>
-          <Button v-if="dirty" type="button" variant="ghost" @click="Object.assign(form, baseline)">Discard</Button>
+          <Button v-if="dirty" type="button" variant="ghost" @click="discard">Discard</Button>
         </div>
       </form>
     </MetricCard>

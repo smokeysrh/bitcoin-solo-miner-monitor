@@ -309,7 +309,28 @@ async def test_core_wrong_password_still_says_wrong_password():
     async with core_client(node) as c:
         res = await core_source(c, password="wrong").test()
     assert "rejected the login" in res.message and "rpcallowip" not in res.message
-def test_local_address_towards_loopback_and_garbage():
+def test_local_address_towards_loopback_and_garbage(monkeypatch):
+    import socket
+    from unittest.mock import MagicMock
+
     from bsmm.net import local_address_towards
+
+    # This function asks the OS for a route, not a remote service. Model that
+    # socket locally so the unit test does not contact a well-known UDP port.
+    route_socket = MagicMock()
+    route_socket.__enter__.return_value = route_socket
+    route_socket.getsockname.return_value = ("127.0.0.1", 12345)
+    factory = MagicMock(return_value=route_socket)
+    monkeypatch.setattr(socket, "socket", factory)
+
+    def resolve(host):
+        if host == "127.0.0.1":
+            return host
+        raise socket.gaierror("synthetic unknown host")
+
+    monkeypatch.setattr(socket, "gethostbyname", resolve)
     assert local_address_towards("127.0.0.1") == "127.0.0.1"
     assert local_address_towards("no-such-host.invalid") is None
+    factory.assert_called_once_with(socket.AF_INET, socket.SOCK_DGRAM)
+    route_socket.connect.assert_called_once_with(("127.0.0.1", 9))
+    route_socket.__exit__.assert_called_once()

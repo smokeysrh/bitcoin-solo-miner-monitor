@@ -1116,10 +1116,10 @@ async def test_an_event_that_cannot_be_handled_does_not_end_the_event_loop(rig, 
         await until(lambda: rig.ctx.bus.subscriber_count >= 1)
         await rig.ctx.events.emit("new_best_share", "first", device_id="dev_1")
         await rig.ctx.events.emit("new_best_share", "second", device_id="dev_2")
-        await until(lambda: rig.outbox)
+        await until(lambda: len(rig.outbox) == 2, timeout=5)
     finally:
         await engine.stop()
-    assert seen == ["dev_1", "dev_2"] and [n.title for n in rig.outbox] == ["second"]
+    assert seen == ["dev_1", "dev_1", "dev_2"] and [n.title for n in rig.outbox] == ["first", "second"]
 
 
 async def test_baselines_survive_a_history_query_that_fails(rig, monkeypatch):

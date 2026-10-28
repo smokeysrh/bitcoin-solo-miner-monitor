@@ -68,7 +68,7 @@ async def lan(tmp_path) -> AsyncIterator[tuple[AppContext, dict[str, object]]]:
     """An AppContext (in-memory DB, no background tasks started) whose HTTP client talks to ``hosts``."""
     hosts: dict[str, object] = {}
     http = httpx.AsyncClient(transport=MultiHostTransport(hosts), headers={"Connection": "close"}, timeout=5.0)
-    cfg = RuntimeConfig(data_dir=tmp_path, offline=True)
+    cfg = RuntimeConfig(data_dir=tmp_path, offline=True, allowed_hosts=["bsmm.test"])
     ctx = await AppContext.create(cfg, http=http)
     yield ctx, hosts
     await ctx.fleet.stop()

@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 import sqlite3
-from collections.abc import AsyncIterator, Iterable, Sequence
+from collections.abc import AsyncIterator, Coroutine, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -185,8 +185,15 @@ CREATE TABLE network_snapshots (
     return "\n".join(parts)
 
 
+def _v2() -> str:
+    # Historical valid counts cannot be inferred from n: AVG ignored missing metrics.
+    # Preserve retained data and leave unknown weights NULL (queries disclose approximation).
+    return "\n".join(f"ALTER TABLE {table} ADD COLUMN {m.name}_n INTEGER;"
+                     for table, _, _ in mx.LEVELS for m in mx.METRICS if m.kind != "counter")
+
+
 #: (version, script). Never edit a released migration; append a new one.
-MIGRATIONS: list[tuple[int, str]] = [(1, _v1())]
+MIGRATIONS: list[tuple[int, str]] = [(1, _v1()), (2, _v2())]
 
 
 class Database:
@@ -194,6 +201,7 @@ class Database:
         self.path = str(path)
         self._conn: aiosqlite.Connection | None = None
         self._tx_lock = asyncio.Lock()
+        self._tx_owner: asyncio.Task[Any] | None = None
 
     async def connect(self) -> None:
         if self._conn is not None:
@@ -244,21 +252,20 @@ class Database:
     # -- helpers --------------------------------------------------------------------------
 
     async def execute(self, sql: str, params: Sequence[Any] | dict[str, Any] = ()) -> int:
-        async with self.conn.execute(sql, params) as cur:
+        async with self.tx() as conn, conn.execute(sql, params) as cur:
             rowcount = cur.rowcount
-        await self.conn.commit()
         return rowcount
 
     async def executemany(self, sql: str, rows: Iterable[Sequence[Any] | dict[str, Any]]) -> None:
-        await self.conn.executemany(sql, rows)
-        await self.conn.commit()
+        async with self.tx() as conn:
+            await conn.executemany(sql, rows)
 
     async def fetchall(self, sql: str, params: Sequence[Any] | dict[str, Any] = ()) -> list[sqlite3.Row]:
-        async with self.conn.execute(sql, params) as cur:
+        async with self.read_connection() as conn, conn.execute(sql, params) as cur:
             return list(await cur.fetchall())
 
     async def fetchone(self, sql: str, params: Sequence[Any] | dict[str, Any] = ()) -> sqlite3.Row | None:
-        async with self.conn.execute(sql, params) as cur:
+        async with self.read_connection() as conn, conn.execute(sql, params) as cur:
             return await cur.fetchone()
 
     async def scalar(self, sql: str, params: Sequence[Any] | dict[str, Any] = ()) -> Any:
@@ -266,12 +273,53 @@ class Database:
         return row[0] if row else None
 
     @contextlib.asynccontextmanager
-    async def tx(self) -> AsyncIterator[aiosqlite.Connection]:
-        """Serialise multi-statement writes; commits on success, rolls back on error."""
-        async with self._tx_lock:
-            try:
+    async def read_connection(self) -> AsyncIterator[aiosqlite.Connection]:
+        """Do not expose another task's uncommitted writes (also used by backups)."""
+        if self._tx_owner is asyncio.current_task():
+            yield self.conn
+        else:
+            async with self._tx_lock:
                 yield self.conn
-                await self.conn.commit()
-            except BaseException:
-                await self.conn.rollback()
-                raise
+
+    @staticmethod
+    async def _settle(operation: Coroutine[Any, Any, None]) -> None:
+        """SQLite work keeps running after cancellation; retain ownership until it finishes."""
+        task = asyncio.create_task(operation)
+        cancelled = False
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                cancelled = True
+        task.result()
+        if cancelled:
+            raise asyncio.CancelledError
+
+    @contextlib.asynccontextmanager
+    async def tx(self) -> AsyncIterator[aiosqlite.Connection]:
+        """One task owns writes through commit/rollback. Nested calls join its transaction.
+
+        Do not hand the yielded connection to another task or commit it directly.
+        Only the outermost scope decides commit/rollback.
+        """
+        if self._tx_owner is asyncio.current_task():
+            yield self.conn
+            return
+        async with self._tx_lock:
+            self._tx_owner = asyncio.current_task()
+            try:
+                try:
+                    await self.conn.execute("BEGIN")
+                    yield self.conn
+                except BaseException:
+                    await self._settle(self.conn.rollback())
+                    raise
+                else:
+                    # A cancellation during commit cannot undo an already committed write.
+                    try:
+                        await self._settle(self.conn.commit())
+                    except Exception:
+                        await self._settle(self.conn.rollback())
+                        raise
+            finally:
+                self._tx_owner = None

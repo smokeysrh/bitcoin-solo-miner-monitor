@@ -36,7 +36,15 @@ bsmm setup                                   # interactive setup; review the dis
 
 The wheel is distributed through GitHub Releases. Choose its `.whl` asset rather than asking pipx to find the package on PyPI. For a hardware-free preview after installation, run `bsmm demo`.
 
+Apprise is an optional Python extra and is not bundled in the Windows installer. To include it in a new pipx installation, use:
+
+```bash
+pipx install 'bitcoin-solo-miner-monitor[apprise] @ https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.1.2/bitcoin_solo_miner_monitor-1.1.2-py3-none-any.whl'
+```
+
 `bsmm start` / `bsmm stop` control the background server. `bsmm service install` previews autostart configuration; `bsmm service install --apply` installs it after you approve (a systemd user unit, a launchd agent, or a Windows scheduled task). Ask before changing an existing service.
+
+`bsmm password` changes the password through the target API and asks for the current password when required. An unreachable server is not permission to bypass authentication. Deliberate local recovery uses `bsmm password --offline-local --data-dir <existing-data-directory>` after the operator approves; do not combine it with a URL target.
 
 ### Agent setup and unattended commands
 
@@ -81,7 +89,10 @@ A starting-point app definition for Umbrel is in [`packaging/umbrel/`](../packag
 | `BSMM_SERVE_UI=0` | API and MCP only, no web interface |
 | `BSMM_TRUSTED_PROXIES` | Comma-separated proxy IPs whose `X-Forwarded-For` is believed (rate limiting by real client) |
 | `BSMM_CORS_ORIGINS` | Extra browser origins allowed to call the API (the bundled UI needs none) |
+| `BSMM_ALLOWED_HOSTS` | Exact custom DNS/reverse-proxy hostnames, comma-separated, without scheme/port/path; no wildcard |
 | `BSMM_LOG_LEVEL`, `BSMM_DEMO` | Verbosity; run a simulated fleet |
+
+Literal local/private IPs, localhost and the machine's own hostname are supported without a custom Host entry. CORS allows response sharing, not ambient write access: deliberate foreign-origin writes need an explicitly scoped bearer token even when passwordless mode is selected.
 
 ## For maintainers
 

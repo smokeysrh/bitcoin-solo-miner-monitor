@@ -98,6 +98,7 @@ export class LiveStream {
     this.lastMessage = Date.now()
 
     es.addEventListener('hello', () => {
+      if (!this.wantOpen || this.es !== es) return
       this.lastMessage = Date.now()
       this.attempt = 0
       const resync = this.everConnected
@@ -108,6 +109,7 @@ export class LiveStream {
 
     for (const topic of STREAM_TOPICS) {
       es.addEventListener(topic, (ev) => {
+        if (!this.wantOpen || this.es !== es) return
         this.lastMessage = Date.now()
         if (this.status !== 'live') this.setStatus('live')
         const payload = parsePayload((ev as MessageEvent<string>).data)
@@ -122,6 +124,7 @@ export class LiveStream {
     }
 
     es.onerror = () => {
+      if (!this.wantOpen || this.es !== es) return
       // CLOSED = the browser gave up (HTTP error); CONNECTING = it is retrying on its own
       if (es.readyState === 2 /* CLOSED */) this.dropAndRetry()
       else this.setStatus('reconnecting')
