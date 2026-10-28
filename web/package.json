@@ -1,7 +1,7 @@
 {
   "name": "bsmm-web",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "Web interface for Bitcoin Solo Miner Monitor. Built into ../src/bsmm/web and served by the Python app.",
   "engines": {

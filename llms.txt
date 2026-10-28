@@ -1,6 +1,6 @@
 # Bitcoin Solo Miner Monitor
 
-> Self-hosted dashboard, REST API and MCP server for people who solo mine Bitcoin with ASIC miners (Bitaxe, NerdQAxe, Lucky/Magic Miner, Avalon Nano/Q, Antminer and other cgminer-API miners). It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), computes the odds of finding a block, sends alerts, and lets an agent control miners within safe limits. Version 1.1.0.
+> Self-hosted dashboard, REST API and MCP server for people who solo mine Bitcoin with ASIC miners (Bitaxe, NerdQAxe, Lucky/Magic Miner, Avalon Nano/Q, Antminer and other cgminer-API miners). It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), computes the odds of finding a block, sends alerts, and lets an agent control miners within safe limits. Version 1.1.1.
 
 This server: http://YOUR-SERVER:8420
 Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/agent/guide.

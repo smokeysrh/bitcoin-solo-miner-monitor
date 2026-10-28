@@ -61,10 +61,14 @@ docker build -t bsmm:dev .
 
 The UI is **not committed**: `src/bsmm/web/` is generated. A source checkout without a build shows a friendly page explaining that.
 
+Default `uv build` creates the sdist first, then builds the wheel from it. The shared `[tool.hatch.build]` artifacts rule includes the generated UI in both formats despite Git ignoring it; a wheel-only rule loses the UI at the sdist boundary. Keep the sdist exclusions for `web/node_modules` and `web/dist`, and do not include caches or runtime data.
+
+Before release, check that both archives contain `index.html` and actual files under `assets/`, then extract the sdist and run `uv build --wheel <extracted-directory> --out-dir <clean-output-directory>`. That wheel must preserve the same UI without needing Node or another UI build. Install the built wheel in a disposable environment and verify the version, offline demo health, HTTP index and its JS/CSS assets. The release workflow's existing wheel-content assertion remains a mandatory gate.
+
 ### Releasing
 
-1. Update `src/bsmm/__init__.py` (`__version__`) and `CHANGELOG.md`.
-2. `git tag v1.1.0 && git push --tags` (pre-releases: `v1.2.0-rc.1`).
+1. Update `src/bsmm/__init__.py` (`__version__`), the web package/lock root versions, Umbrel template version/image tag and `CHANGELOG.md`. Regenerate `llms.txt` with `python scripts/gen_llms_txt.py`; check `uv lock --check` without upgrading dependencies.
+2. After verification, create and push the new version tag (for this hotfix, `v1.1.1`; pre-releases: `v1.2.0-rc.1`). Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
 3. `.github/workflows/release.yml` checks the tag matches the version, builds the UI and the package, verifies the wheel contains the UI, attaches both to a GitHub release, and pushes the multi-architecture image to ghcr.io.
 
 ### Publishing to PyPI (one-time setup)

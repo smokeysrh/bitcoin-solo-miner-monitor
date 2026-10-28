@@ -67,10 +67,13 @@ Changelog = "https://github.com/smokeysrh/bitcoin-solo-miner-monitor/blob/main/C
 [tool.hatch.version]
 path = "src/bsmm/__init__.py"
 
+[tool.hatch.build]
+# The built web UI is generated into src/bsmm/web by `npm run build` (see web/vite.config.ts).
+# Include it in both the sdist and wheel: `uv build` builds the wheel from the sdist.
+artifacts = ["src/bsmm/web/**"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/bsmm"]
-# The built web UI is generated into src/bsmm/web by `npm run build` (see web/vite.config.ts).
-artifacts = ["src/bsmm/web/**"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/bsmm", "web", "tests", "docs", "README.md", "LICENSE", "CHANGELOG.md", "AGENTS.md", "llms.txt", "pyproject.toml"]

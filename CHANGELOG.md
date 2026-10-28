@@ -5,6 +5,12 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-10-27
+
+### Fixed
+- Include the built web UI in the source distribution as well as the wheel, so the default `uv build` path and wheels rebuilt from the source archive retain the dashboard.
+- The v1.1.0 release stopped at its missing-UI assertion before publication. Its tag is retained; this packaging fix uses v1.1.1.
+
 ## [1.1.0] - 2026-10-27
 A ground-up rewrite. The 0.9 code base is gone; see [docs/AUDIT.md](docs/AUDIT.md) for why. (`1.0.0rc1` was the development build of this release and was never published.)
 
