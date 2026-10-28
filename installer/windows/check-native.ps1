@@ -48,11 +48,26 @@ try {
         Add-Type -TypeDefinition @'
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 public static class NativeShortcutPath {
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern uint GetLongPathName(string path, StringBuilder buffer, uint size);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern uint GetFinalPathNameByHandle(SafeFileHandle handle, StringBuilder buffer, uint size, uint flags);
 }
 '@
+        function Get-FinalNativePath([string]$Path) {
+            $file = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read,
+                                         [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete)
+            try {
+                $size = [NativeShortcutPath]::GetFinalPathNameByHandle($file.SafeFileHandle, $null, 0, 0)
+                if ($size -eq 0) { throw 'Cannot resolve final shortcut path' }
+                $buffer = New-Object System.Text.StringBuilder ([int]$size)
+                $written = [NativeShortcutPath]::GetFinalPathNameByHandle($file.SafeFileHandle, $buffer, $size, 0)
+                if ($written -eq 0 -or $written -ge $size) { throw 'Cannot resolve final shortcut path' }
+                return $buffer.ToString()
+            } finally { $file.Dispose() }
+        }
         $shell = New-Object -ComObject WScript.Shell
         $group = Join-Path $shell.SpecialFolders.Item('Programs') 'Bitcoin Solo Miner Monitor'
         foreach ($item in @(@('Start dashboard', 'start --open', 'start-shortcut'), @('Stop dashboard', 'stop', 'stop-shortcut'))) {
@@ -71,6 +86,8 @@ public static class NativeShortcutPath {
             $written = [NativeShortcutPath]::GetLongPathName($link.TargetPath, $buffer, $size)
             if ($written -eq 0 -or $written -ge $size) { throw 'Cannot resolve shortcut target' }
             $diagnostic.target_long_matches = [string]::Equals($buffer.ToString(), $Exe, [StringComparison]::OrdinalIgnoreCase)
+            $diagnostic.target_final_matches = [string]::Equals((Get-FinalNativePath $link.TargetPath), (Get-FinalNativePath $Exe), [StringComparison]::OrdinalIgnoreCase)
+            $diagnostic.target_leaf_matches = [string]::Equals([System.IO.Path]::GetFileName($link.TargetPath), 'bsmm.exe', [StringComparison]::OrdinalIgnoreCase)
             if (-not $diagnostic.target_matches -or -not $diagnostic.arguments_match) { throw 'Shortcut points to incorrect executable or arguments' }
         }
         $diagnostic.stage = 'guide-shortcut'
