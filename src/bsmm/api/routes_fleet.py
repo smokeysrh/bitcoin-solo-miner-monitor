@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from bsmm.api.deps import get_ctx, require
 from bsmm.api.errors import ApiError, bad_request, not_found
@@ -108,6 +108,15 @@ class UpdateDeviceBody(BaseModel):
     host: str | None = None
     port: int | None = Field(None, ge=1, le=65535)
     power_override_w: float | None = Field(None, ge=0, le=20000, description="For miners that don't report power: watts at the wall")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_required_fields(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            required = {"name", "tags", "enabled", "allow_control", "host", "port"}
+            if any(key in value and value[key] is None for key in required):
+                raise ValueError("name, tags, enabled, allow_control, host and port cannot be null")
+        return value
 
 
 @router.get("/devices", tags=["devices"], operation_id="listDevices", summary="List monitored miners with live state")
@@ -251,7 +260,7 @@ async def device_tuning(device_id: str, ctx: AppContext = Depends(get_ctx), _: P
 
 class ActionBody(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict, description="Action parameters, e.g. {url, port, user, password, role} for set_pool")
-    dry_run: bool = Field(False, description="Validate and report what would happen without touching the miner")
+    dry_run: bool = Field(False, description="Validate parameters (may read safe tuning ranges) without writing to the miner or audit log; identity is rechecked on execution")
 
 
 ACTION_DOC = (

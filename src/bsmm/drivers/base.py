@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 import httpx
 
-from bsmm.models import Capability, DeviceInfo, ProbeResult, Telemetry
+from bsmm.models import Capability, Device, DeviceInfo, ProbeResult, Telemetry
 
 
 class DriverError(Exception):
@@ -35,6 +35,18 @@ class AuthRequired(DriverError):
 
 class ActionFailed(DriverError):
     code = "action_failed"
+
+
+class IdentityMismatch(BadResponse):
+    code = "identity_mismatch"
+
+
+def check_identity(expected: Device | DeviceInfo, observed: DeviceInfo) -> None:
+    """Missing identity is compatible; contradictory stable identity is not."""
+    mac_conflict = expected.mac and observed.mac and expected.mac.upper() != observed.mac.upper()
+    serial_conflict = expected.serial and observed.serial and expected.serial != observed.serial
+    if mac_conflict or serial_conflict:
+        raise IdentityMismatch("miner identity changed at this address; remove the old miner and adopt the replacement separately")
 
 
 @dataclass(slots=True)
@@ -100,11 +112,19 @@ class Driver(ABC):
         """Re-read static facts (firmware, model). Optional."""
         return self.info
 
+    async def verify_identity(self) -> None:
+        """Drivers exposing stable identity override this with a fresh read before control."""
+        return None
+
     # -- control (all optional; the capability list says which are real) ---------------------------
 
     @property
     def capabilities(self) -> set[Capability]:
         return set(self.info.capabilities) if self.info else set()
+
+    async def validate_action(self, action: str, params: dict[str, Any]) -> None:
+        """Read-only validation. Unsupported drivers must not promise successful previews."""
+        raise Unsupported(f"{action} is not supported by this device")
 
     async def restart(self) -> ActionResult:
         raise Unsupported("restart is not supported by this device")

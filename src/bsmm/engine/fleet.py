@@ -11,17 +11,18 @@ import contextlib
 import logging
 import math
 import random
+import sqlite3
 import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 
 from bsmm import mining
 from bsmm.bitcoin_address import parse_address
-from bsmm.drivers.base import ActionFailed, Driver, DriverError, Unsupported
+from bsmm.drivers.base import ActionFailed, Driver, DriverError, IdentityMismatch, Unsupported, check_identity
 from bsmm.drivers.registry import driver_for, probe_host
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
@@ -48,10 +49,28 @@ SMOOTHING_TAU_S = 45.0
 SPARK_POINTS = 30
 RESTART_GRACE_S = 150.0
 
+_T = TypeVar("_T")
+
+
+async def _complete(task: asyncio.Task[_T]) -> _T:
+    """Finish owned persistence before releasing locks, even if the caller is cancelled."""
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            cancelled = True
+    result = task.result()
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
+
 
 @dataclass(slots=True)
 class DeviceRuntime:
     device: Device
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    removing: bool = False
     driver: Driver | None = None
     status: DeviceStatus = DeviceStatus.UNKNOWN
     status_since: float = field(default_factory=time.time)
@@ -195,8 +214,10 @@ class Fleet:
         self.runtimes: dict[str, DeviceRuntime] = {}
         self._sem = asyncio.Semaphore(settings.current.polling.concurrency)
         self._pending: list[dict[str, Any]] = []
+        self._sample_lock = asyncio.Lock()
         self._bg: list[asyncio.Task[None]] = []
         self._running = False
+        self._stopping = False
         #: set by the app so luck accounting knows the current network difficulty
         self.difficulty_provider: Callable[[], float | None] = lambda: None
         self._work_dirty = False
@@ -207,6 +228,7 @@ class Fleet:
     # -- lifecycle ----------------------------------------------------------------------------------
 
     async def start(self) -> None:
+        self._stopping = False
         self._running = True
         self._work_hashes = float(await self.store.kv_get("luck.total_hashes", 0.0))
         self._work_blocks = float(await self.store.kv_get("luck.expected_blocks", 0.0))
@@ -222,6 +244,10 @@ class Fleet:
         self.settings.on_change(self._on_settings_change)
 
     async def stop(self) -> None:
+        self._stopping = True
+        await _complete(asyncio.create_task(self._stop()))
+
+    async def _stop(self) -> None:
         self._running = False
         for rt in self.runtimes.values():
             if rt.task:
@@ -229,9 +255,13 @@ class Fleet:
         for t in self._bg:
             t.cancel()
         await asyncio.gather(*[rt.task for rt in self.runtimes.values() if rt.task], *self._bg, return_exceptions=True)
+        # Also drain explicit poll/control calls, not just background poll tasks.
+        for rt in list(self.runtimes.values()):
+            async with rt.lock:
+                pass
         await self._flush_samples()
         await self._flush_misc(force=True)
-        for rt in self.runtimes.values():
+        for rt in list(self.runtimes.values()):
             if rt.driver:
                 with contextlib.suppress(Exception):
                     await rt.driver.close()
@@ -262,22 +292,33 @@ class Fleet:
                              group: str | None = None) -> AddResult:
         existing = await self.store.find_device(probe.info)
         if existing:
-            note = None
-            merged = False
-            if probe.info.host not in (existing.host, *existing.alt_hosts):
-                existing.alt_hosts.append(probe.info.host)
-                await self.store.save_device(existing)
-                note = f"{existing.name} also answers on {probe.info.host}; it is the same miner, so it was not added twice."
-                merged = True
-                rt = self.runtimes.get(existing.id)
-                if rt:
-                    rt.device = existing
-            return AddResult(existing, created=False, merged=merged, note=note or f"{existing.name} is already being monitored.")
+            rt = self.runtimes.get(existing.id)
+            if rt:
+                async with rt.lock:
+                    if rt.removing or self.runtimes.get(existing.id) is not rt:
+                        raise KeyError(existing.id)
+                    return await _complete(asyncio.create_task(
+                        self._merge_probe(rt.device.model_copy(deep=True), probe, rt)
+                    ))
+            return await self._merge_probe(existing, probe, None)
         dev = await self.store.add_device(probe.info, name=name, tags=tags, group=group)
         self._spawn(dev)
         await self.events.emit("device_added", f"Added {dev.name}", severity=Severity.INFO, device_id=dev.id,
                                data={"host": dev.host, "model": dev.model})
         return AddResult(dev, created=True)
+
+    async def _merge_probe(self, existing: Device, probe: ProbeResult, rt: DeviceRuntime | None) -> AddResult:
+        check_identity(existing, probe.info)
+        note = None
+        merged = False
+        if probe.info.host not in (existing.host, *existing.alt_hosts):
+            existing.alt_hosts.append(probe.info.host)
+            await self.store.save_device(existing)
+            note = f"{existing.name} also answers on {probe.info.host}; it is the same miner, so it was not added twice."
+            merged = True
+            if rt:
+                rt.device = existing
+        return AddResult(existing, created=False, merged=merged, note=note or f"{existing.name} is already being monitored.")
 
     async def add_by_host(self, host: str, port: int | None = None, *, name: str | None = None, tags: list[str] | None = None,
                           group: str | None = None, drivers: list[str] | None = None) -> AddResult:
@@ -291,16 +332,31 @@ class Fleet:
         return await self.add_from_probe(found[0], name=name, tags=tags, group=group)
 
     async def remove(self, device_id: str, *, keep_history: bool = False) -> bool:
-        rt = self.runtimes.pop(device_id, None)
-        if rt is None:
+        rt = self.runtimes.get(device_id)
+        if rt is None or rt.removing:
             return False
+        rt.removing = True
+        try:
+            async with rt.lock:
+                return await _complete(asyncio.create_task(self._remove_locked(rt, keep_history)))
+        finally:
+            rt.removing = False
+
+    async def _remove_locked(self, rt: DeviceRuntime, keep_history: bool) -> bool:
+        device_id = rt.device.id
+        async with self._sample_lock:
+            if keep_history:
+                await self._flush_samples_locked()
+            await self.store.delete_device(device_id, keep_history=keep_history)
+            self._pending = [row for row in self._pending if row["device_id"] != device_id]
+            self.runtimes.pop(device_id)
+            self._summary_cache = None
         if rt.task:
             rt.task.cancel()
             await asyncio.gather(rt.task, return_exceptions=True)
         if rt.driver:
             with contextlib.suppress(Exception):
                 await rt.driver.close()
-        await self.store.delete_device(device_id, keep_history=keep_history)
         await self.events.emit("device_removed", f"Removed {rt.device.name}", device_id=None, data={"host": rt.device.host})
         self.bus.publish("device_removed", {"id": device_id})
         return True
@@ -309,27 +365,46 @@ class Fleet:
         rt = self.runtimes.get(device_id)
         if rt is None:
             raise KeyError(device_id)
-        dev = rt.device
+        async with rt.lock:
+            if rt.removing or self.runtimes.get(device_id) is not rt:
+                raise KeyError(device_id)
+            if self._stopping:
+                raise PermissionError("The monitor is stopping.")
+            return await _complete(asyncio.create_task(self._update_locked(rt, patch)))
+
+    async def _update_locked(self, rt: DeviceRuntime, patch: dict[str, Any]) -> Device:
         allowed = {"name", "tags", "group", "notes", "enabled", "allow_control", "poll_interval_s", "model_override", "host", "port"}
         unknown = set(patch) - allowed - {"power_override_w"}
         if unknown:
             raise ValueError(f"cannot change: {', '.join(sorted(unknown))}")
-        for key in allowed & set(patch):
-            setattr(dev, key, patch[key])
+        dev = Device.model_validate({**rt.device.model_dump(), **{key: patch[key] for key in allowed & set(patch)}})
         if "power_override_w" in patch:
             if patch["power_override_w"] in (None, 0):
                 dev.extra.pop("power_override_w", None)
             else:
-                dev.extra["power_override_w"] = float(patch["power_override_w"])
-            rt.driver = None
+                power = float(patch["power_override_w"])
+                if not math.isfinite(power) or not 0 <= power <= 20000:
+                    raise ValueError("power override must be between 0 and 20000 W")
+                dev.extra["power_override_w"] = power
         if not dev.name.strip():
             raise ValueError("name cannot be empty")
-        await self.store.save_device(dev)
-        if "host" in patch or "port" in patch:
+        if not dev.host.strip() or not 1 <= dev.port <= 65535:
+            raise ValueError("a miner needs a host and port (1-65535)")
+        if dev.poll_interval_s is not None and not 2 <= dev.poll_interval_s <= 3600:
+            raise ValueError("poll interval must be between 2 and 3600 seconds")
+        try:
+            await self.store.save_device(dev)
+        except sqlite3.IntegrityError as e:
+            raise ValueError("another miner already uses that endpoint") from e
+        rt.device = dev
+        if {"host", "port", "power_override_w"} & set(patch):
+            old_driver = rt.driver
             rt.driver = None
+            if old_driver:
+                await old_driver.close()
         # start/stop polling when enabled flips
         if "enabled" in patch:
-            if dev.enabled and (rt.task is None or rt.task.done()):
+            if dev.enabled and self._running and (rt.task is None or rt.task.done()):
                 rt.status = DeviceStatus.UNKNOWN
                 rt.task = asyncio.create_task(self._loop(rt), name=f"poll-{dev.id}")
             elif not dev.enabled:
@@ -421,6 +496,12 @@ class Fleet:
         return self.view(device_id)  # type: ignore[return-value]
 
     async def _poll_once(self, rt: DeviceRuntime) -> None:
+        async with rt.lock:
+            if self._stopping or rt.removing or self.runtimes.get(rt.device.id) is not rt:
+                return
+            await self._poll_locked(rt)
+
+    async def _poll_locked(self, rt: DeviceRuntime) -> None:
         cfg = self.settings.current.polling
         async with self._sem:
             t0 = time.monotonic()
@@ -444,7 +525,9 @@ class Fleet:
         now = time.time()
         rt.failures += 1
         rt.last_error = str(error) or error.__class__.__name__
-        restarting = now < rt.expect_back_until
+        if isinstance(error, IdentityMismatch):
+            rt.failures = max(rt.failures, cfg.offline_after_failures)
+        restarting = now < rt.expect_back_until and not isinstance(error, IdentityMismatch)
         if restarting:
             self._set_status(rt, DeviceStatus.DEGRADED, "Restarting")
         elif rt.failures >= cfg.offline_after_failures and rt.status != DeviceStatus.OFFLINE:
@@ -591,20 +674,29 @@ class Fleet:
     # -- background loops ----------------------------------------------------------------------------------------------
 
     async def _flush_samples(self) -> None:
+        async with self._sample_lock:
+            await _complete(asyncio.create_task(self._flush_samples_locked()))
+
+    async def _flush_samples_locked(self) -> None:
         if not self._pending:
             return
         rows, self._pending = self._pending, []
         try:
-            await self.store.samples.write(rows)
-        except Exception:
+            # Raw rows and every rollup share one commit. Nested SampleStore tx calls join it.
+            async with self.store.db.tx():
+                await self.store.samples.write(rows)
+        except BaseException:
             log.exception("could not write %d samples; keeping them for the next attempt", len(rows))
             self._pending = rows + self._pending
-            self._pending = self._pending[-20000:]
+            raise
 
     async def _writer_loop(self) -> None:
         while self._running:
             await asyncio.sleep(5)
-            await self._flush_samples()
+            try:
+                await self._flush_samples()
+            except Exception:
+                log.exception("sample writer will retry the retained batch")
 
     async def _flush_misc(self, force: bool = False) -> None:
         if self._work_dirty or force:
@@ -644,6 +736,20 @@ class Fleet:
     async def run_action(self, device_id: str, action: str, params: dict[str, Any] | None = None, *, actor: str = "user",
                          dry_run: bool = False) -> dict[str, Any]:
         """Execute a control action with guard rails; always audited."""
+        rt = self.runtimes.get(device_id)
+        if rt is None:
+            raise KeyError(device_id)
+        async with rt.lock:
+            if rt.removing or self.runtimes.get(device_id) is not rt:
+                raise KeyError(device_id)
+            if self._stopping:
+                raise PermissionError("The monitor is stopping.")
+            return await _complete(asyncio.create_task(
+                self._run_action_locked(device_id, action, params, actor=actor, dry_run=dry_run)
+            ))
+
+    async def _run_action_locked(self, device_id: str, action: str, params: dict[str, Any] | None, *, actor: str,
+                                 dry_run: bool) -> dict[str, Any]:
         params = params or {}
         rt = self.runtimes.get(device_id)
         if rt is None:
@@ -654,6 +760,8 @@ class Fleet:
             raise PermissionError("Controlling miners is switched off in Settings > Safety.")
         if not dev.allow_control:
             raise PermissionError(f"Control is switched off for {dev.name}.")
+        if not dev.enabled:
+            raise PermissionError(f"{dev.name} is disabled.")
         needed = {
             "restart": Capability.RESTART,
             "identify": Capability.IDENTIFY,
@@ -674,9 +782,21 @@ class Fleet:
             if t and t.temp_asic_c and t.temp_asic_c >= cfg.max_temp_c:
                 raise ActionFailed(f"{dev.name} is already at {t.temp_asic_c:.0f} C; cool it down before tuning.")
         driver = self._ensure_driver(rt)
+        try:
+            await driver.validate_action(action, params)
+        except (DriverError, ValueError, TypeError) as e:
+            if not dry_run:
+                await self.store.add_audit(actor, action, dev.id, params, {"ok": False, "error": str(e)})
+            raise
         if dry_run:
             return {"ok": True, "dry_run": True, "action": action, "device": dev.name, "params": _redact(params)}
         try:
+            await driver.verify_identity()
+            # Settings can change during a read-only identity/range request.
+            if not self.settings.current.safety.allow_control or not dev.allow_control or rt.removing:
+                raise PermissionError("Control was switched off or the miner is being removed.")
+            if action == "set_tuning" and not self.settings.current.safety.allow_tuning:
+                raise PermissionError("Frequency/voltage changes are switched off.")
             if action == "restart":
                 res = await driver.restart()
                 rt.expect_back_until = time.time() + RESTART_GRACE_S
@@ -688,8 +808,8 @@ class Fleet:
                 res = await driver.resume()
             elif action == "set_pool":
                 res = await driver.set_pool(
-                    url=str(params.get("url", "")), port=int(params.get("port", 0)), user=str(params.get("user", "")),
-                    password=str(params.get("password", "x")), role=str(params.get("role", "primary")), tls=params.get("tls"),
+                    url=params.get("url", ""), port=params.get("port", 0), user=params.get("user", ""),
+                    password=params.get("password", "x"), role=params.get("role", "primary"), tls=params.get("tls"),
                 )
             elif action == "set_fan":
                 res = await driver.set_fan(auto=params.get("auto"), speed_pct=params.get("speed_pct"),

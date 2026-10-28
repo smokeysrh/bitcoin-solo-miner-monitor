@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from bsmm.config import RuntimeConfig
+from bsmm.drivers.base import check_identity
 from bsmm.models import AlertRule, Channel, Device, DeviceInfo, Event, Severity, Source
 from bsmm.storage.db import Database
 from bsmm.storage.samples import SampleStore
@@ -133,19 +134,31 @@ class Store:
 
     async def find_device(self, info: DeviceInfo) -> Device | None:
         """Find the already-monitored device that this probe result describes (same box, maybe new IP)."""
+        # A positive MAC match elsewhere must not bypass a conflicting saved endpoint/alias.
+        devices = await self.list_devices()
+        for dev in devices:
+            if info.port == dev.port and info.host in (dev.host, *dev.alt_hosts):
+                check_identity(dev, info)
         if info.mac:
             row = await self.db.fetchone("SELECT * FROM devices WHERE mac = ?", (info.mac.upper(),))
             if row:
-                return self._device(row)
+                dev = self._device(row)
+                check_identity(dev, info)
+                return dev
         if info.serial:
             row = await self.db.fetchone("SELECT * FROM devices WHERE serial = ?", (info.serial,))
             if row:
-                return self._device(row)
+                dev = self._device(row)
+                check_identity(dev, info)
+                return dev
         row = await self.db.fetchone("SELECT * FROM devices WHERE host = ? AND port = ?", (info.host, info.port))
         if row:
-            return self._device(row)
-        for dev in await self.list_devices():
-            if info.host in dev.alt_hosts:
+            dev = self._device(row)
+            check_identity(dev, info)
+            return dev
+        for dev in devices:
+            if info.port == dev.port and info.host in dev.alt_hosts:
+                check_identity(dev, info)
                 return dev
         return None
 
@@ -219,10 +232,11 @@ class Store:
         await self.db.execute(sql, values)
 
     async def delete_device(self, device_id: str, *, keep_history: bool = False) -> bool:
-        n = await self.db.execute("DELETE FROM devices WHERE id = ?", (device_id,))
-        if n and not keep_history:
-            await self.samples.delete_device_samples(device_id)
-            await self.db.execute("DELETE FROM best_shares WHERE device_id = ?", (device_id,))
+        async with self.db.tx():
+            n = await self.db.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+            if n and not keep_history:
+                await self.samples.delete_device_samples(device_id)
+                await self.db.execute("DELETE FROM best_shares WHERE device_id = ?", (device_id,))
         return bool(n)
 
     async def touch_device(self, device_id: str, ts: float | None = None) -> None:
@@ -246,12 +260,11 @@ class Store:
         )
 
     async def add_event(self, event: Event) -> Event:
-        cur = await self.db.conn.execute(
+        async with self.db.tx() as conn, conn.execute(
             "INSERT INTO events (ts, type, severity, device_id, title, body, data, dedupe_key) VALUES (?,?,?,?,?,?,?,?)",
             (event.ts, event.type, event.severity.value, event.device_id, event.title, event.body, _j(event.data), event.dedupe_key),
-        )
-        await self.db.conn.commit()
-        event.id = cur.lastrowid
+        ) as cur:
+            event.id = cur.lastrowid
         return event
 
     async def list_events(
@@ -583,7 +596,8 @@ class Store:
         await asyncio.to_thread(prepare)
         dest = _sqlite.connect(str(target))
         try:
-            await self.db.conn.backup(dest)
+            async with self.db.read_connection() as conn:
+                await conn.backup(dest)
         finally:
             dest.close()
 

@@ -24,6 +24,7 @@ from bsmm.drivers.base import (
     DriverError,
     TuningOptions,
     Unsupported,
+    check_identity,
 )
 from bsmm.drivers.catalog import identify_axeos
 from bsmm.drivers.http import request_json
@@ -357,14 +358,22 @@ class AxeOSDriver(Driver):
         if not is_axeos_payload(data):
             raise BadResponse("the device answered, but not with ESP-Miner data")
         self.last_raw = data
+        if self.info:
+            check_identity(self.info, build_info(self.host, self.port, data))
         return parse_system_info(data)
+
+    async def verify_identity(self) -> None:
+        await self.poll()
 
     async def refresh_info(self) -> DeviceInfo | None:
         data = await request_json(self.client, "GET", f"{self.base}/api/system/info", timeout=self.timeout)
         if not is_axeos_payload(data):
             raise BadResponse("the device answered, but not with ESP-Miner data")
         asic = await self._asic()
-        self.info = build_info(self.host, self.port, data, asic)
+        observed = build_info(self.host, self.port, data, asic)
+        if self.info:
+            check_identity(self.info, observed)
+        self.info = observed
         return self.info
 
     async def _asic(self, max_age_s: float = 3600.0) -> dict[str, Any] | None:
@@ -396,6 +405,28 @@ class AxeOSDriver(Driver):
         )
 
     # control ---------------------------------------------------------------------------------
+
+    async def validate_action(self, action: str, params: dict[str, Any]) -> None:
+        allowed = {
+            "set_pool": {"url", "port", "user", "password", "role", "tls"},
+            "set_fan": {"auto", "speed_pct", "temp_target_c"},
+            "set_tuning": {"frequency_mhz", "core_voltage_mv"},
+        }
+        if action not in allowed:
+            if action in {"restart", "identify", "pause", "resume"}:
+                if params:
+                    raise ActionFailed(f"{action} takes no parameters")
+                return
+            await super().validate_action(action, params)
+            return
+        if set(params) - allowed[action]:
+            raise ActionFailed("unknown action parameters")
+        if action == "set_pool":
+            self._pool_patch(**params)
+        elif action == "set_fan":
+            self._fan_patch(**params)
+        else:
+            await self._tuning_patch(**params)
 
     async def _write(self, method: str, path: str, body: Any = None, *, what: str) -> ActionResult:
         if what in self._unsupported:
@@ -436,9 +467,19 @@ class AxeOSDriver(Driver):
         role: str = "primary",
         tls: bool | None = None,
     ) -> ActionResult:
-        if not url or not (1 <= int(port) <= 65535) or not user:
+        patch = self._pool_patch(url=url, port=port, user=user, password=password, role=role, tls=tls)
+        return await self.patch_settings(patch, what=f"set_pool:{role}")
+
+    @staticmethod
+    def _pool_patch(*, url: str = "", port: int = 0, user: str = "", password: str = "x",  # noqa: S107
+                    role: str = "primary", tls: bool | None = None) -> dict[str, Any]:
+        if not isinstance(url, str) or not url.strip() or type(port) is not int or not 1 <= port <= 65535 or not isinstance(user, str) or not user.strip():
             raise ActionFailed("a pool needs a host, a port (1-65535) and a user")
+        if role not in ("primary", "fallback") or not isinstance(password, str) or (tls is not None and type(tls) is not bool):
+            raise ActionFailed("invalid pool role, password or TLS setting")
         host, embedded_port, _ = _split_pool_url(url, None)
+        if not host:
+            raise ActionFailed("a pool needs a host, a port (1-65535) and a user")
         prefix = "stratum" if role == "primary" else "fallbackStratum"
         patch: dict[str, Any] = {
             f"{prefix}URL": host,
@@ -448,41 +489,57 @@ class AxeOSDriver(Driver):
         }
         if tls is not None:
             patch[f"{prefix}TLS"] = 1 if tls else 0
-        return await self.patch_settings(patch, what=f"set_pool:{role}")
+        return patch
 
     async def set_fan(
         self, *, auto: bool | None = None, speed_pct: int | None = None, temp_target_c: int | None = None
     ) -> ActionResult:
+        return await self.patch_settings(self._fan_patch(auto=auto, speed_pct=speed_pct, temp_target_c=temp_target_c), what="set_fan")
+
+    @staticmethod
+    def _fan_patch(*, auto: bool | None = None, speed_pct: int | None = None,
+                   temp_target_c: int | None = None) -> dict[str, Any]:
         patch: dict[str, Any] = {}
         if auto is not None:
+            if type(auto) is not bool:
+                raise ActionFailed("automatic fan control must be true or false")
             patch["autofanspeed"] = 1 if auto else 0
         if speed_pct is not None:
-            if not 0 <= speed_pct <= 100:
+            if type(speed_pct) is not int or not 0 <= speed_pct <= 100:
                 raise ActionFailed("fan speed must be 0-100 %")
             patch["manualFanSpeed"] = int(speed_pct)
         if temp_target_c is not None:
-            if not 30 <= temp_target_c <= 85:
+            if type(temp_target_c) is not int or not 30 <= temp_target_c <= 85:
                 raise ActionFailed("temperature target must be between 30 and 85 C")
             patch["temptarget"] = int(temp_target_c)
-        return await self.patch_settings(patch, what="set_fan")
+        if not patch:
+            raise ActionFailed("nothing to change")
+        return patch
 
     async def set_tuning(
         self, *, frequency_mhz: int | None = None, core_voltage_mv: int | None = None
     ) -> ActionResult:
         """Change ASIC frequency / core voltage, but only to values the device itself lists as valid."""
+        patch = await self._tuning_patch(frequency_mhz=frequency_mhz, core_voltage_mv=core_voltage_mv)
+        return await self.patch_settings(patch, what="set_tuning")
+
+    async def _tuning_patch(self, *, frequency_mhz: int | None = None,
+                            core_voltage_mv: int | None = None) -> dict[str, Any]:
+        if frequency_mhz is None and core_voltage_mv is None:
+            raise ActionFailed("nothing to change")
         opts = await self.tuning_options()
         if opts is None or not opts.frequency_mhz or not opts.core_voltage_mv:
             raise Unsupported("this firmware does not publish its safe tuning ranges, so tuning is disabled")
         patch: dict[str, Any] = {}
         if frequency_mhz is not None:
-            if frequency_mhz not in opts.frequency_mhz:
+            if type(frequency_mhz) is not int or frequency_mhz not in opts.frequency_mhz:
                 raise ActionFailed(f"{frequency_mhz} MHz is not one of the device's supported frequencies {opts.frequency_mhz}")
             patch["frequency"] = int(frequency_mhz)
         if core_voltage_mv is not None:
-            if core_voltage_mv not in opts.core_voltage_mv:
+            if type(core_voltage_mv) is not int or core_voltage_mv not in opts.core_voltage_mv:
                 raise ActionFailed(f"{core_voltage_mv} mV is not one of the device's supported voltages {opts.core_voltage_mv}")
             patch["coreVoltage"] = int(core_voltage_mv)
-        return await self.patch_settings(patch, what="set_tuning")
+        return patch
 
     async def set_hostname(self, hostname: str) -> ActionResult:
         if not re.fullmatch(r"[A-Za-z0-9-]{1,32}", hostname or ""):
