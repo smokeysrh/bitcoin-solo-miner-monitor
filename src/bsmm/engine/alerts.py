@@ -519,13 +519,19 @@ class AlertEngine:
 
     # -- event rules --------------------------------------------------------------------------------------------------
 
+    async def prepare_event_cursor(self) -> int:
+        """Establish the first durable baseline before event producers start."""
+        async with self.store.db.tx():
+            cursor = await self.store.kv_get("alerts.event_cursor")
+            if cursor is None:
+                cursor = int(await self.store.db.scalar("SELECT COALESCE(MAX(id), 0) FROM events"))
+                await self.store.kv_set("alerts.event_cursor", cursor)
+        return int(cursor)
+
     async def _event_loop(self) -> None:
         # The bus is only a wakeup. Replay the existing durable event log in bounded
         # batches, so a slow notification transport cannot drop a one-shot event.
-        cursor = await self.store.kv_get("alerts.event_cursor")
-        if cursor is None:
-            cursor = int(await self.store.db.scalar("SELECT COALESCE(MAX(id), 0) FROM events"))
-            await self.store.kv_set("alerts.event_cursor", cursor)
+        cursor = await self.prepare_event_cursor()
         sub = self.bus.subscribe({"event"})
         try:
             while True:
@@ -534,6 +540,7 @@ class AlertEngine:
                     if events and events[0].id is not None and events[0].id > int(cursor) + 1:
                         log.error("Alert replay gap after event %s: next retained event is %s (check event retention)", cursor, events[0].id)
                     for ev in events:
+                        assert ev.id is not None  # events_after returns persisted events
                         await self.handle_event(ev.model_dump(mode="json"))
                         await self.store.kv_set("alerts.event_cursor", ev.id)
                         cursor = ev.id

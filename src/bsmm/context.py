@@ -70,6 +70,7 @@ class AppContext:
         if cfg.general.first_run_at is None:
             await self.settings.update({"general": {"first_run_at": time.time()}})
         await self._apply_env_overrides()
+        await self.alerts.prepare_event_cursor()
         await self.fleet.start()
         await self.network.start()
         await self.alerts.start()

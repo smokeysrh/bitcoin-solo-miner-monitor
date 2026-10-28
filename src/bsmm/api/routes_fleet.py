@@ -213,7 +213,10 @@ async def device_history(
     except ValueError as err:
         raise bad_request(str(err), "Valid metrics: " + ", ".join(mx.NAMES)) from err
     series = h.devices.get(device_id, {csv_list(metrics)[0]: [None] * len(h.t)})
-    return {"step": h.step, "source": h.source, "t": h.t, "series": series}
+    result = {"step": h.step, "source": h.source, "t": h.t, "series": series}
+    if h.warnings:
+        result["warnings"] = h.warnings
+    return result
 
 
 @router.get("/devices/{device_id}/raw", tags=["devices"], operation_id="getDeviceRaw",
