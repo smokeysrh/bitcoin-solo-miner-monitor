@@ -50,6 +50,8 @@ SOURCE_CLASSES: dict[str, type[DataSource]] = {
 PRIORITY = {"demo": -1, "bitcoin_core": 0, "public_pool": 1, "mempool_space": 2, "device": 3}
 POLL_EVERY = {"demo": 15.0, "bitcoin_core": 12.0, "public_pool": 30.0, "mempool_space": 60.0, "ckpool": 60.0}
 PUBLIC_SOURCE_ID = "public-mempool"
+STALE_AFTER_S = 600
+BLOCK_CHECK_BATCH = 60
 
 
 class _M(BaseModel):
@@ -65,6 +67,12 @@ class SourceHealth(_M):
     last_ok: float | None = None
     last_poll: float | None = None
     implicit: bool = False
+
+
+class FieldSource(_M):
+    source: str
+    ts: float
+    stale: bool
 
 
 class NetworkState(_M):
@@ -92,6 +100,7 @@ class NetworkState(_M):
     sources: list[SourceHealth] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     stale: bool = False
+    field_sources: dict[str, FieldSource] = Field(default_factory=dict)
     node_behind_by: int | None = None
 
 
@@ -124,6 +133,7 @@ class NetworkService:
         self._task: asyncio.Task[None] | None = None
         self._running = False
         self._device_snapshot: NetworkSnapshot | None = None
+        self._device_dirty = False
         self._last_height: int | None = None
         self._last_difficulty: float | None = None
         self._lock = asyncio.Lock()
@@ -204,10 +214,14 @@ class NetworkService:
     def difficulty(self) -> float | None:
         return self.state.difficulty
 
-    def set_device_snapshot(self, height: int | None, difficulty: float | None) -> None:
+    def set_device_snapshot(self, height: int | None, difficulty: float | None, *, ts: float | None = None) -> None:
         """Last-resort figures the miners report themselves (AxeOS firmware 2.x includes them)."""
         if difficulty:
-            self._device_snapshot = NetworkSnapshot(source="device", height=height, difficulty=difficulty)
+            snapshot = NetworkSnapshot(source="device", height=height, difficulty=difficulty,
+                                       ts=ts if ts is not None else time.time())
+            if snapshot != self._device_snapshot:
+                self._device_snapshot = snapshot
+                self._device_dirty = True
 
     # -- polling --------------------------------------------------------------------------------------------
 
@@ -218,7 +232,8 @@ class NetworkService:
                 if due:
                     await asyncio.gather(*(self._poll(p) for p in due))
                     await self._merge()
-                elif self._device_snapshot and not self.state.available:
+                elif self._device_dirty or (self._device_snapshot and not self.state.stale
+                                            and time.time() - self._device_snapshot.ts > STALE_AFTER_S):
                     await self._merge()
             except asyncio.CancelledError:
                 raise
@@ -274,26 +289,33 @@ class NetworkService:
                                    data={"source_id": p.source.id})
 
     async def _merge(self) -> None:
+        # Clear before any await; an observation arriving during this merge remains dirty.
+        self._device_dirty = False
         pollers = list(self._pollers.values())
-        snaps: list[tuple[int, NetworkSnapshot]] = []
+        snaps: list[tuple[tuple[bool, int], NetworkSnapshot]] = []
+        now = time.time()
         for p in pollers:
             if p.snapshot:
-                snaps.append((PRIORITY.get(p.source.kind, 5), p.snapshot))
+                stale = not (p.health and p.health.ok) or now - p.snapshot.ts > STALE_AFTER_S
+                snaps.append(((stale, PRIORITY.get(p.source.kind, 5)), p.snapshot))
         if self._device_snapshot:
-            snaps.append((PRIORITY["device"], self._device_snapshot))
+            snaps.append(((now - self._device_snapshot.ts > STALE_AFTER_S, PRIORITY["device"]), self._device_snapshot))
         snaps.sort(key=lambda t: t[0])
         st = NetworkState(updated_at=time.time())
         if snaps:
             primary = snaps[0][1]
-            st.available = primary.difficulty is not None
             st.source = primary.source
             for field_name in ("height", "tip_hash", "tip_time", "difficulty", "network_hashrate_hs", "mempool_tx_count",
                                "mempool_vsize", "fees_sat_vb", "prices"):
-                for _, s in snaps:
+                for (stale, _), s in snaps:
                     v = getattr(s, field_name)
                     if v is not None:
                         setattr(st, field_name, v)
+                        st.field_sources[field_name] = FieldSource(source=s.source, ts=s.ts, stale=stale)
                         break
+            st.available = st.difficulty is not None
+            if "difficulty" in st.field_sources:
+                st.source = st.field_sources["difficulty"].source
             blocks: dict[str, BlockInfo] = {}
             for _, s in reversed(snaps):
                 for b in s.recent_blocks:
@@ -335,7 +357,7 @@ class NetworkService:
         if st.node and st.node.blocks is not None and ref_height:
             behind = ref_height - st.node.blocks
             st.node_behind_by = max(0, behind)
-        st.stale = bool(snaps) and (time.time() - max(s.ts for _, s in snaps)) > 600
+        st.stale = any(st.field_sources[f].stale for f in ("height", "difficulty") if f in st.field_sources)
         async with self._lock:
             old_h, old_d = self._last_height, self._last_difficulty
             self.state = st
@@ -379,7 +401,8 @@ class NetworkService:
             return
         if st.height > old_height:
             self.bus.publish("new_block", {"height": st.height, "hash": st.tip_hash})
-            await self._check_blocks(st, old_height)
+        # A failed detail read must also be retried at an unchanged tip.
+        await self._check_blocks(st, old_height)
 
     async def _check_blocks(self, st: NetworkState, old_height: int) -> None:
         last_checked = int(await self.store.kv_get("blocks.last_checked", old_height))
@@ -388,17 +411,17 @@ class NetworkService:
         watch = set(self.watch_addresses())
         by_height = {b.height: b for b in st.recent_blocks}
         core = next((p.impl for p in self._pollers.values() if isinstance(p.impl, BitcoinCoreSource)), None)
-        first = max(last_checked + 1, st.height - 60)
-        for h in range(first, st.height + 1):
+        for h in range(last_checked + 1, min(st.height, last_checked + BLOCK_CHECK_BATCH) + 1):
             block = by_height.get(h)
-            if block is None and core is not None:
+            if (block is None or not (block.coinbase_addresses or block.coinbase_complete)) and core is not None:
                 block = await core.block_info(h)
-            if block is None:
-                continue
+            if block is None or not (block.coinbase_addresses or block.coinbase_complete):
+                log.warning("Block %s payout details unresolved; will retry without advancing the checked height", h)
+                break
             mine = sorted(watch.intersection(block.coinbase_addresses))
             if mine:
                 await self.record_block_found(block, mine[0], source="chain")
-        await self.store.kv_set("blocks.last_checked", st.height)
+            await self.store.kv_set("blocks.last_checked", h)
 
     async def record_block_found(self, block: BlockInfo, address: str | None, *, source: str, device_id: str | None = None) -> bool:
         new = await self.store.add_block_found(
@@ -407,10 +430,9 @@ class NetworkService:
         )
         if not new:
             return False
-        btc = (block.reward_sats or 0) / 1e8
         await self.events.emit(
             "block_found", "YOU FOUND A BLOCK!", severity=Severity.SUCCESS,
-            body=f"Block {block.height:,} paid {btc:.4f} BTC to your address {address}." if address else f"Block {block.height:,}.",
+            body=f"Block {block.height:,} matches watched address {address}. This is monitoring evidence, not confirmation of a payout amount." if address else f"Block {block.height:,}.",
             data={"height": block.height, "hash": block.hash, "reward_sats": block.reward_sats, "address": address, "source": source},
             dedupe_key=f"block:{block.hash}",
         )

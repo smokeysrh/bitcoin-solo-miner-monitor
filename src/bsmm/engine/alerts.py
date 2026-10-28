@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -292,6 +293,8 @@ EVALUATORS: dict[str, Callable[[AlertRule, EvalContext], dict[str, Condition]]] 
 }
 
 RESOLVE_AFTER_S = 30.0
+EVENT_BATCH_SIZE = 128
+EVENT_REPLAY_POLL_S = 2.0
 
 
 @dataclass(slots=True)
@@ -315,10 +318,20 @@ def validate_rule(rule: AlertRule) -> None:
                 v = float(rule.params[p.name])
             except (TypeError, ValueError) as e:
                 raise ValueError(f"{p.label} must be a number") from e
+            if not math.isfinite(v):
+                raise ValueError(f"{p.label} must be finite")
             if (p.min is not None and v < p.min) or (p.max is not None and v > p.max):
                 raise ValueError(f"{p.label} must be between {p.min} and {p.max}")
-    if rule.cooldown_s < 0:
+            rule.params[p.name] = v
+    try:
+        cooldown = float(rule.cooldown_s)
+    except (TypeError, ValueError) as e:
+        raise ValueError("cooldown must be a finite nonnegative number") from e
+    if not math.isfinite(cooldown):
+        raise ValueError("cooldown must be a finite nonnegative number")
+    if cooldown < 0:
         raise ValueError("cooldown cannot be negative")
+    rule.cooldown_s = cooldown
 
 
 class AlertEngine:
@@ -507,13 +520,31 @@ class AlertEngine:
     # -- event rules --------------------------------------------------------------------------------------------------
 
     async def _event_loop(self) -> None:
+        # The bus is only a wakeup. Replay the existing durable event log in bounded
+        # batches, so a slow notification transport cannot drop a one-shot event.
+        cursor = await self.store.kv_get("alerts.event_cursor")
+        if cursor is None:
+            cursor = int(await self.store.db.scalar("SELECT COALESCE(MAX(id), 0) FROM events"))
+            await self.store.kv_set("alerts.event_cursor", cursor)
         sub = self.bus.subscribe({"event"})
         try:
-            async for msg in sub:
+            while True:
                 try:
-                    await self.handle_event(msg.data)
+                    events = await self.store.events_after(int(cursor), limit=EVENT_BATCH_SIZE)
+                    if events and events[0].id is not None and events[0].id > int(cursor) + 1:
+                        log.error("Alert replay gap after event %s: next retained event is %s (check event retention)", cursor, events[0].id)
+                    for ev in events:
+                        await self.handle_event(ev.model_dump(mode="json"))
+                        await self.store.kv_set("alerts.event_cursor", ev.id)
+                        cursor = ev.id
+                    if events:
+                        continue
+                    msg = await sub.get(EVENT_REPLAY_POLL_S)
+                    if msg is not None and msg.data.get("id") is None:
+                        await self.handle_event(msg.data)  # ephemeral callers; durable events use replay
                 except Exception:
-                    log.exception("event rule handling failed")
+                    log.exception("event rule handling failed; persisted cursor retained for retry")
+                    await asyncio.sleep(EVENT_REPLAY_POLL_S)
         finally:
             sub.close()
 
@@ -523,12 +554,26 @@ class AlertEngine:
             spec = RULE_SPECS.get(rule.kind)
             if not rule.enabled or spec is None or spec.mode != "event" or spec.event_type != etype:
                 continue
+            scope = rule.scope or {"all": True}
+            if scope.get("device_ids") or scope.get("tags") or not scope.get("all", False):
+                device = next((d for d in self.fleet.views() if d.id == ev.get("device_id")), None)
+                # Global/address-only events cannot satisfy a device scope.
+                if device is None or not in_scope(rule, device):
+                    continue
             key = f"{rule.id}:{ev.get('device_id') or 'x'}"
             now = time.time()
-            if rule.cooldown_s > 0 and now - self._event_last.get(key, 0.0) < rule.cooldown_s:
+            saved = await self.store.kv_get(f"alerts.event_rule:{key}", {})
+            event_id = ev.get("id")
+            if event_id is not None and event_id <= saved.get("event_id", 0):
                 continue
-            self._event_last[key] = now
+            last = max(self._event_last.get(key, 0.0), saved.get("last_notified", 0.0))
+            if rule.cooldown_s > 0 and now - last < rule.cooldown_s:
+                continue
             sev = rule.severity
             n = Notification(title=str(ev.get("title", rule.name)), body=str(ev.get("body") or ""), severity=sev, type=rule.kind,
                              device_id=ev.get("device_id"), data=ev.get("data") or {})
             await self.notifier.dispatch(n, rule.channel_ids or None)
+            # A dispatch attempt is acknowledged only after it completes. Provider failures
+            # are recorded by Notifier; cancellation before this point is replayable.
+            await self.store.kv_set(f"alerts.event_rule:{key}", {"event_id": event_id or 0, "last_notified": now})
+            self._event_last[key] = now

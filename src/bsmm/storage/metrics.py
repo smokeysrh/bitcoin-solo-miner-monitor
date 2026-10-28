@@ -58,8 +58,10 @@ LEVELS: tuple[tuple[str, int, str], ...] = (
 )
 
 
-def rollup_columns(m: Metric) -> list[str]:
+def rollup_columns(m: Metric, *, counts: bool = True) -> list[str]:
     cols = [m.name]
+    if counts and m.kind != "counter":
+        cols.append(f"{m.name}_n")
     if m.keep_min:
         cols.append(f"{m.name}_min")
     if m.keep_max:
@@ -80,7 +82,8 @@ def raw_table_ddl() -> str:
 def rollup_table_ddl(table: str) -> str:
     cols: list[str] = []
     for m in METRICS:
-        cols.extend(f"{c} REAL" for c in rollup_columns(m))
+        # v1 is immutable. Count columns are added by the forward v2 migration.
+        cols.extend(f"{c} REAL" for c in rollup_columns(m, counts=False))
     body = ",\n  ".join(cols)
     return f"""CREATE TABLE {table} (
   device_id TEXT NOT NULL,
@@ -91,6 +94,12 @@ def rollup_table_ddl(table: str) -> str:
 ) WITHOUT ROWID;"""
 
 
+def weighted_avg(col: str) -> str:
+    """Legacy buckets have unknown valid counts: retain their approximate n-weighting."""
+    weight = f"COALESCE({col}_n, n)"
+    return f"SUM({col} * {weight}) / NULLIF(SUM(CASE WHEN {col} IS NOT NULL THEN {weight} END), 0)"
+
+
 def rollup_sql(target: str, bucket_s: int, source: str) -> str:
     """INSERT..SELECT that (re)computes buckets in [:t0, :t1) from the finer table. Idempotent."""
     from_raw = source == "samples"
@@ -98,17 +107,20 @@ def rollup_sql(target: str, bucket_s: int, source: str) -> str:
     insert_cols = ["device_id", "bucket", "n"]
     select_exprs = ["device_id", f"({ts_col} / {bucket_s}) * {bucket_s}", "COUNT(*)" if from_raw else "SUM(n)"]
     for m in METRICS:
-        # raw rows: avg(x); rollup rows: weighted by n and ignoring NULLs
+        # Each gauge has its own count; NULL count means legacy/unknown weights.
         def avg(col: str) -> str:
             if from_raw:
                 return f"AVG({col})"
-            return f"SUM(CASE WHEN {col} IS NOT NULL THEN {col} * n END) / NULLIF(SUM(CASE WHEN {col} IS NOT NULL THEN n END), 0)"
+            return weighted_avg(col)
 
         insert_cols.append(m.name)
         if m.kind == "counter":
             select_exprs.append(f"MAX({m.name})")
         else:
             select_exprs.append(avg(m.name))
+            insert_cols.append(f"{m.name}_n")
+            select_exprs.append(f"COUNT({m.name})" if from_raw else
+                               f"CASE WHEN COUNT(*) = COUNT({m.name}_n) THEN SUM({m.name}_n) END")
         if m.keep_min:
             insert_cols.append(f"{m.name}_min")
             select_exprs.append(f"MIN({m.name})" if from_raw else f"MIN({m.name}_min)")
@@ -121,5 +133,5 @@ def rollup_sql(target: str, bucket_s: int, source: str) -> str:
         f"SELECT {', '.join(select_exprs)}\nFROM {source}\n"
         f"WHERE {ts_col} >= :t0 AND {ts_col} < :t1\n"
         f"GROUP BY device_id, ({ts_col} / {bucket_s}) * {bucket_s}\n"
-        f"ON CONFLICT(device_id, bucket) DO UPDATE SET {updates}"
+        f"ON CONFLICT(device_id, bucket) DO UPDATE SET {updates} WHERE excluded.n >= {target}.n"
     )

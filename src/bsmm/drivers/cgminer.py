@@ -333,10 +333,9 @@ def build_telemetry(
     s = parse_summary(summary)
     pool_infos = parse_pools(pools)
     metrics = parse_avalon_estats(stats) if family == "avalon" else parse_antminer_stats(stats)
-    hashrate = metrics.get("hashrate_hs") or s["hashrate_now"] or s["hashrate_1m"] or s["hashrate_avg"]
-    if family == "avalon" and metrics.get("hashrate_hs"):
-        # Avalon's module total is steadier than cgminer's 5 s sample.
-        hashrate = metrics["hashrate_hs"]
+    # Avalon's module total is preferred; an explicit zero is a measurement, not a gap.
+    hashrate = next((v for v in (metrics.get("hashrate_hs"), s["hashrate_now"], s["hashrate_1m"], s["hashrate_avg"])
+                     if v is not None and v >= 0), None)
     power = power_override_w
     source = "manual" if power_override_w is not None else None
     active = next((p for p in pool_infos if p.active), None)

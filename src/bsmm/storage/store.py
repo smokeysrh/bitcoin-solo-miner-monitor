@@ -290,6 +290,12 @@ class Store:
         )
         return [self._event(r) for r in rows]
 
+    async def events_after(self, event_id: int, *, limit: int = 128) -> list[Event]:
+        """Forward-only bounded replay for the alert consumer (not UI pagination)."""
+        rows = await self.db.fetchall("SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?",
+                                     (event_id, max(1, min(limit, 1000))))
+        return [self._event(r) for r in rows]
+
     async def ack_event(self, event_id: int) -> bool:
         return bool(await self.db.execute("UPDATE events SET ack_ts = ? WHERE id = ? AND ack_ts IS NULL", (time.time(), event_id)))
 

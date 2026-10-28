@@ -33,11 +33,14 @@ class History:
     t: list[int] = field(default_factory=list)
     series: dict[str, list[float | None]] = field(default_factory=dict)
     devices: dict[str, dict[str, list[float | None]]] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {"step": self.step, "source": self.source, "t": self.t, "series": self.series}
         if self.devices:
             out["devices"] = self.devices
+        if self.warnings:
+            out["warnings"] = self.warnings
         return out
 
 
@@ -176,6 +179,41 @@ class SampleStore:
 
         span = end - start
         table, native = self.pick_source(span)
+        # Choose a retained tier covering the oldest requested data, not just the
+        # window's duration. This also avoids blank/partial zooms across pruning edges.
+        tiers = [("samples", 1, "ts"), *((t, s, "bucket") for t, s, _ in mx.LEVELS)]
+        chosen = next(i for i, (t, _, _) in enumerate(tiers) if t == table)
+        bounds: dict[str, int | None] = {}
+        device_filter = f" AND device_id IN ({', '.join('?' for _ in device_ids)})" if device_ids else ""
+        for tier, size, col in tiers:
+            params_bounds: list[Any] = [int(start) // size * size, int(end)]
+            if device_ids:
+                params_bounds.extend(device_ids)
+            bounds[tier] = await self.db.scalar(f"SELECT MIN({col}) FROM {tier} WHERE {col} >= ? AND {col} <= ?{device_filter}", params_bounds)
+        present = [i for i in range(chosen, len(tiers)) if bounds[tiers[i][0]] is not None]
+        if present:
+            chosen = present[0]
+            for i in present[1:]:
+                current_start = bounds[tiers[chosen][0]]
+                older_start = bounds[tiers[i][0]]
+                assert current_start is not None and older_start is not None
+                if older_start < current_start // tiers[i][1] * tiers[i][1]:
+                    chosen = i
+                elif older_start <= start < current_start:
+                    # Pruning can cut *inside* the same coarse bucket. Compare
+                    # represented observations, not just rounded timestamps; simple
+                    # alignment alone would incorrectly coarsen every sparse live chart.
+                    finer, _, finer_col = tiers[chosen]
+                    count = "COUNT(*)" if finer == "samples" else "COALESCE(SUM(n), 0)"
+                    retained_n = await self.db.scalar(
+                        f"SELECT COALESCE(SUM(n), 0) FROM {tiers[i][0]} WHERE bucket = ?{device_filter}",
+                        [older_start, *(device_ids or [])])
+                    finer_n = await self.db.scalar(
+                        f"SELECT {count} FROM {finer} WHERE {finer_col} >= ? AND {finer_col} < ?{device_filter}",
+                        [older_start, older_start + tiers[i][1], *(device_ids or [])])
+                    if retained_n > finer_n:
+                        chosen = i
+            table, native, _ = tiers[chosen]
         if step is None:
             step = max(native, int(span / 400))
         step = max(native, int(step))
@@ -191,17 +229,18 @@ class SampleStore:
                 fn = {"avg": "AVG", "min": "MIN", "max": "MAX"}[agg]
                 select.append(f"{fn}({name}) AS {alias}")
             elif agg == "avg":
-                select.append(
-                    f"SUM(CASE WHEN {name} IS NOT NULL THEN {name} * n END) / "
-                    f"NULLIF(SUM(CASE WHEN {name} IS NOT NULL THEN n END), 0) AS {alias}"
-                )
+                if m.kind == "counter":
+                    select.append(f"AVG({name}) AS {alias}")
+                else:
+                    select.append(f"{mx.weighted_avg(name)} AS {alias}")
+                    select.append(f"MAX(CASE WHEN {name} IS NOT NULL AND {name}_n IS NULL THEN 1 ELSE 0 END) AS {name}__legacy")
             elif agg == "min":
                 select.append(f"MIN({name}_min) AS {alias}")
             else:
                 col = name if m.kind == "counter" else f"{name}_max"
                 select.append(f"MAX({col}) AS {alias}")
         where = f"{ts_col} >= :start AND {ts_col} <= :end"  # inclusive: the newest sample is part of "now"
-        params: dict[str, Any] = {"start": int(start), "end": int(end), "step": step}
+        params: dict[str, Any] = {"start": int(start) // native * native, "end": int(end), "step": step}
         if device_ids:
             ph = []
             for i, d in enumerate(device_ids):
@@ -218,6 +257,9 @@ class SampleStore:
         buckets = list(range(first, int(end) + 1, step))
         index = {b: i for i, b in enumerate(buckets)}
         out = History(step=step, source=table, t=buckets)
+        if table != "samples" and any(r[f"{n}__legacy"] for r in rows for n, a in fetch
+                                      if a == "avg" and mx.BY_NAME[n].kind != "counter"):
+            out.warnings.append("Legacy rollups have unknown per-metric counts; averages including them are approximate.")
 
         per: dict[str, dict[str, list[float | None]]] = {}
         for r in rows:

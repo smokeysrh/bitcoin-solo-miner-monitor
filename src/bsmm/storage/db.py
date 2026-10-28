@@ -185,8 +185,15 @@ CREATE TABLE network_snapshots (
     return "\n".join(parts)
 
 
+def _v2() -> str:
+    # Historical valid counts cannot be inferred from n: AVG ignored missing metrics.
+    # Preserve retained data and leave unknown weights NULL (queries disclose approximation).
+    return "\n".join(f"ALTER TABLE {table} ADD COLUMN {m.name}_n INTEGER;"
+                     for table, _, _ in mx.LEVELS for m in mx.METRICS if m.kind != "counter")
+
+
 #: (version, script). Never edit a released migration; append a new one.
-MIGRATIONS: list[tuple[int, str]] = [(1, _v1())]
+MIGRATIONS: list[tuple[int, str]] = [(1, _v1()), (2, _v2())]
 
 
 class Database:

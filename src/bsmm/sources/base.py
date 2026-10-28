@@ -46,6 +46,7 @@ class BlockInfo(_M):
     reward_sats: int | None = None
     fees_sats: int | None = None
     coinbase_addresses: list[str] = Field(default_factory=list)
+    coinbase_complete: bool = False  # distinguishes a verified addressless output from a header
 
 
 class NetworkSnapshot(_M):

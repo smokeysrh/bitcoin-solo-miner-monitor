@@ -103,14 +103,13 @@ class AppContext:
         """Firmware 2.x reports block height + network difficulty itself: a last-resort data source."""
         while True:
             await asyncio.sleep(15)
-            best_h, best_d = None, None
-            for rt in self.fleet.runtimes.values():
-                t = rt.telemetry
-                if t and t.network_difficulty:
-                    best_d = t.network_difficulty
-                    best_h = max(best_h or 0, t.block_height or 0) or None
-            if best_d:
-                self.network.set_device_snapshot(best_h, best_d)
+            # Keep height/difficulty from the same observation, with its original age.
+            candidates = [rt.telemetry for rt in self.fleet.runtimes.values()
+                          if rt.telemetry and rt.telemetry.online and rt.telemetry.network_difficulty
+                          and rt.status.value not in ("offline", "unknown")]
+            if candidates:
+                newest = max(candidates, key=lambda t: t.ts)
+                self.network.set_device_snapshot(newest.block_height, newest.network_difficulty, ts=newest.ts)
 
     async def _heal_loop(self) -> None:
         while True:
