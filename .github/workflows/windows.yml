@@ -32,6 +32,14 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout immutable v1.1.1 data producer (no old server or installer)
+        uses: actions/checkout@v4
+        with:
+          ref: 5674faad417911c92c526ebf5bf78a57b09ed1af
+          path: .ci-legacy-v1.1.1
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -68,7 +76,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
       - name: Native disposable lifecycle and installer smoke
         run: |
-          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION"
+          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
           if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
       - uses: actions/upload-artifact@v4
         with:
