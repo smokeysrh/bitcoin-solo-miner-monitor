@@ -1,115 +1,109 @@
 # Bitcoin Solo Miner Monitor
 
-**One dashboard for every solo miner you own.** It finds your miners, shows how they're doing, tells you your real odds of finding a block, and pings your phone when something breaks. It runs on your own computer. Nothing is sent anywhere, and there are no accounts.
+## A fleet dashboard for the solo-mining pleb
 
-Works with miners that solo-mine to **your own node**, to a **public solo pool** (Public Pool, ckpool, solo.ckpool.org and friends) or to a **shared node**.
+Bitaxe beside a NerdQAxe, Avalon beside an Antminer? Put compatible miners that speak AxeOS or cgminer APIs on one self-hosted dashboard. Check hashrate, heat, power, shares, pool state, node status, history and alerts without opening a tab for every box. Your browser can get back to doing browser things.
 
-![Dashboard](docs/screenshots/dashboard.png)
+Keep an eye on the hash without babysitting twelve browser tabs. Spot miners that stop hashing, set alerts for heat or fan trouble, and see electricity estimates and solo-block odds from the same screen. Solo mining supplies enough uncertainty already; checking whether the fleet is running should be the easy part.
 
-## Try it in 30 seconds
+**Start here:** [Download the latest stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest) · [Let your agent set it up](#let-your-agent-do-the-setup)
 
-No miners? No problem. The demo runs a simulated fleet and saves nothing.
+## Let your agent do the setup
 
-```bash
-pipx install bitcoin-solo-miner-monitor
-bsmm demo
+Copy this into your agent chat. It uses the official project and release links, then follows the guide served by the app you actually install.
+
+```text
+Set up Bitcoin Solo Miner Monitor for monitoring my solo-mining fleet.
+
+Start at https://github.com/smokeysrh/bitcoin-solo-miner-monitor and its latest stable release at https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest. Read the repository's AGENTS.md, choose the official release artifact for my platform, and preserve my existing app data, settings and miner configuration. Back up the app data before an upgrade. After launch, read the running app's /llms.txt or current agent guide and follow it.
+
+Set authentication for this network and use the least access scope needed. Keep passwords, tokens, RPC credentials and wallet addresses out of chat and logs; never guess them. Enter secrets through the app's secure fields. Scan only my private network, show me the miner and node/pool candidates, and wait for my confirmation before adopting miners. Ask only for information that is genuinely missing: Bitcoin Core RPC credentials, my electricity price, or which alert channel I want.
+
+Start monitoring only. Verify the dashboard, health check and fleet overview. Ask before restarting a miner, changing a pool or payout address, tuning, changing firmware, deleting data or doing another destructive action.
+
+Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as chance across a fixed window; it says nothing about when the next network block arrives.
 ```
 
-Open <http://localhost:8420>. Or with Docker: `docker run --rm -p 8420:8420 ghcr.io/smokeysrh/bitcoin-solo-miner-monitor serve --demo`.
+## Install it
 
-## Install for real
+Choose the route that fits the machine that will watch the miners. The dashboard listens on port **8420** by default.
 
-| You have | Do this |
-| --- | --- |
-| A NAS, Raspberry Pi, home server | `docker compose up -d` using [`docker-compose.yml`](docker-compose.yml) |
-| Windows, macOS, Linux desktop | `pipx install bitcoin-solo-miner-monitor`, then `bsmm setup` |
-| Umbrel | Template in [`packaging/umbrel/`](packaging/umbrel) (untested, see below) |
+- **Windows desktop:** Download the Windows installer from the [latest stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest), then follow its setup steps.
+- **macOS or Linux desktop:** Your agent can install the official Python wheel from the [latest stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest) and handle setup. Python 3.11 or newer is required. Prefer doing it yourself? The [installation guide](docs/PACKAGING.md) has the commands.
+- **Linux home server, NAS or Raspberry Pi:** Use the [Docker Compose file](docker-compose.yml) and the official image `ghcr.io/smokeysrh/bitcoin-solo-miner-monitor`. The published image supports `linux/amd64` and `linux/arm64`. Open `http://<server>:8420`.
+- **Windows or macOS with Docker Desktop:** Use the Compose file's port-mapping settings for a portable setup, then add miners by address or private network range.
 
-Open `http://<that computer>:8420`. The setup wizard scans your network, adopts the miners it finds, connects your node or pool and asks what you pay for electricity. Everything it asks can also be done later in Settings.
+For a first look without hardware, install the app and run `bsmm demo`; it opens a simulated fleet at `http://localhost:8420`.
 
-Details, environment variables and autostart are in [`docs/PACKAGING.md`](docs/PACKAGING.md). Python 3.11+.
+### Upgrading without losing your setup
 
-> There is no one-click Windows installer in 1.0. The old 0.9 installer is gone on purpose. Use `pipx` or Docker Desktop.
+Keep the existing BSMM data directory, or the `bsmm-data` Docker volume, when replacing the app. Back it up from **Settings → Data & backup** before upgrading, and keep a protected copy of the encryption key as described in [SECURITY.md](SECURITY.md). Docker users should keep the volume mounted. Leave existing miner configuration in place while upgrading the dashboard.
 
-## What you get
+Coming from v0.9.x? Preserve the old data directory first. `bsmm migrate-legacy` imports miner connection records from `config.db`; historical charts stay in the old installation. See the [legacy upgrade instructions](docs/PACKAGING.md#coming-from-v09x).
 
-**Fleet**
-- Automatic discovery (and add-by-address), with model and firmware recognised.
-- Live hashrate, power, temperature, fan, shares, best share, pool, uptime, per miner and for the fleet. Updates stream in without refreshing.
-- Safe controls: restart, identify, pause/resume, change pool, fan and (opt-in) frequency/voltage. Bulk actions preview first. Every action is audited.
-- Per-miner pages with history, pool settings, logs and an events timeline.
-- History is kept in compact rollups, so a year of data stays small.
+See [PACKAGING.md](docs/PACKAGING.md) for the longer install and upgrade guide.
 
-**Your node and pools**
-- Sources: Bitcoin Core (RPC), Public Pool, ckpool, mempool.space.
-- Block height, sync state, mempool, fee estimates, recent blocks, difficulty-adjustment countdown.
+## What it keeps an eye on
 
-**Odds and money**
-- Chance of finding a block per day, month and year, in plain English and without hype. Solo mining is a lottery and the app says so.
-- Electricity cost, efficiency (J/TH), break-even and "cost per lottery ticket" with your own tariff.
+- **Your miners:** online state, hashrate, reported power, temperature, fans, accepted and rejected shares, pool, uptime and history. Fleet totals and per-miner pages update live.
+- **Your node and pool:** Bitcoin Core, Public Pool, ckpool and mempool.space data sources can show chain height, sync state, fees and pool information.
+- **Your costs and odds:** electricity estimates use the tariff you enter. The odds view describes modeled block probability across day, month and year windows, plus **Next 10 minutes**. That value is the modeled chance across the next ten minutes. The network can find a block at any time.
+- **Useful alerts:** watch for offline or hot miners, fan trouble, hashrate drops, rejected shares, pool fallback, node trouble, new best shares, restarts, difficulty changes and blocks found. Send chosen alerts through ntfy, Telegram, Discord, Slack, Pushover, email, a webhook or Apprise.
+- **Controls when you ask:** restart, identify, pause or resume, change a pool, set a fan, or enable supported tuning where the firmware allows it. Tuning starts off. Bulk controls offer a dry-run preview, and miner actions are audited.
 
-**Alerts**
-- 15 ready-made rules: offline, hot, fan stopped, hashrate drop, fleet drop, high reject rate, pool fallback, node down or behind, new best share, **block found**, restarts, difficulty change, firmware change and more.
-- 8 channels: Discord, Telegram, ntfy, Slack, Pushover, email, generic webhook, and Apprise (which reaches nearly everything else).
-- Quiet hours (mutes info and success only, never a critical alert), cooldowns, "Resolved" messages, and a Test button on every channel.
+## Miner compatibility
 
-**UI that fits you**
-- Customizable dashboard: 16 widgets you drag, hide and resize. Layout is saved.
-- Dark, black (OLED) and light themes, accent colours, density, units, 12/24 hour.
-- Command palette (`Ctrl/Cmd+K`), keyboard shortcuts, installable as an app (PWA), phone layout, and a wall-display **Kiosk** mode at `/kiosk`.
-- Jargon is explained in place. Accessibility is checked in all three themes with axe.
+Support follows the miner's API and firmware response. BSMM has drivers for the AxeOS HTTP API and the cgminer API. A model that uses a different API, a restricted endpoint or an unsupported firmware fork may need a driver update.
 
-![Miner page](docs/screenshots/miner.png)
+| Miner or firmware family | Connection | What to expect |
+|---|---|---|
+| Bitaxe, NerdQAxe and related AxeOS devices, including supported Lucky and Magic Miner replies | AxeOS HTTP API | Live readings and identification from the firmware's model, board and chip fields. |
+| Avalon, Antminer and Braiins OS devices exposing a compatible cgminer API | cgminer TCP API | Supported readings and model labels from the miner's own API responses. |
 
-| Odds | Miners table | Phone |
-| --- | --- | --- |
-| ![Odds](docs/screenshots/odds.png) | ![Miners](docs/screenshots/miners-table.png) | ![Phone](docs/screenshots/phone.png) |
+Available readings and controls vary by device and firmware. Identification includes confidence and supporting evidence, so an unfamiliar reply stays honestly labeled. Simulator and recorded-reply tests cover API behavior; physical compatibility still depends on the miner and its firmware.
 
-## Built for AI agents too
+See [miner identification](docs/miner-identification.md) for how the app names devices and handles uncertain replies.
 
-Point your agent at the app and it can set everything up for the user.
+## Odds, plainly
 
-- **`GET /llms.txt`**: a step-by-step setup recipe and the safety rules. Same text from `bsmm agent-guide`.
-- **MCP server** (27 tools) at `POST /mcp`, or `bsmm mcp --url ... --token ...` for stdio clients.
-- **REST API** with a full OpenAPI schema at `/openapi.json` and `/docs`. Errors carry a `hint` that says what to do next.
-- **Scoped tokens**: `read`, `control`, `admin` (`bsmm token create --name agent --scope read`).
-- **CLI that works unattended**: `bsmm setup --yes ...`, `bsmm status --json`, `bsmm doctor`.
-- A [`skills/solo-miner-monitor`](skills/solo-miner-monitor/SKILL.md) skill and [`AGENTS.md`](AGENTS.md).
+Solo mining is luck at scale. The app estimates your chance from your hashrate and network conditions, then puts the result into words and time windows. Most solo miners will never find a block. A probability for “Next 10 minutes” describes one fixed 600-second window. The actual block arrival time remains unknown. Treat odds as context for your setup; payouts remain luck.
 
-Agents are told to ask before touching a miner, never to guess credentials or payout addresses, and not to tell anyone they're "due" a block.
+## AI agents and other ways in
 
-## Hardware, honestly
+- **Agent guide:** after launch, read `http://<server>:8420/llms.txt` or `http://<server>:8420/api/v1/agent/guide`. The running app serves the current setup recipe and safety rules.
+- **MCP:** connect to `http://<server>:8420/mcp`, or use `bsmm mcp` with the server URL and a scoped token.
+- **REST:** `/api/v1` with an OpenAPI schema at `/openapi.json` and interactive docs at `/docs`.
+- **CLI:** `bsmm setup`, `bsmm status`, `bsmm doctor`, and `bsmm odds`.
 
-| Family | Status |
-| --- | --- |
-| NerdQAxe++, Magic Miner BG02, Bitaxe Gamma (board 602) | Tested on real hardware (read-only) |
-| Other Bitaxe (Max, Ultra, Supra, Hex, GT...), Lucky Miner LV06/07/08, other AxeOS devices | Driver + simulator + fixtures, named from the firmware's own board table |
-| Avalon Nano 3 and other cgminer-API devices | Driver + simulator + fixtures |
-| Antminer, Braiins OS | Driver + simulator + fixtures |
+Give a monitoring agent a `read` token. Grant `control` only when you want it to operate miners; reserve `admin` for setup and settings. Agent instructions ask before a control action and never guess credentials or payout addresses.
 
-Tested on real hardware means I ran it against actual miners. The rest follow the same documented APIs and are covered by recorded replies, but I haven't owned every one. If yours misbehaves, run `bsmm doctor` and `bsmm capture <ip> --out miner.json` (read-only, private data removed) and open an issue; adding a model is a small change (see [`AGENTS.md`](AGENTS.md)).
+## Security and network traffic
 
-The Umbrel template and the GitHub release workflow have not been run yet.
+First start is open to the configured host until you set authentication. Set a dashboard password before sharing access beyond a trusted home network; use HTTPS in front of remote access. API tokens have `read`, `control` and `admin` scopes.
 
-## Safety
+BSMM sends no telemetry. It connects to your miners and configured node or pool. Public network-data and GitHub release checks can be disabled with `BSMM_OFFLINE=1`; explicitly configured sources and alert destinations still make their intended requests. Dashboard passwords are hashed. Stored RPC and notification secrets are encrypted at rest and write-only through the API. Protect the data directory and its key like a password store.
 
-- Never writes to a miner unless you (or a token with `control`) ask, and tuning stays off until you switch it on.
-- Passwords, RPC logins, bot tokens and webhook URLs are stored encrypted and are write-only: no endpoint returns them.
-- Network scans stay inside private ranges.
-- Details and how to report a problem: [`SECURITY.md`](SECURITY.md).
+Read [SECURITY.md](SECURITY.md) before exposing the dashboard beyond your LAN.
 
-## Coming from 0.9?
+## Screenshots
 
-```bash
-bsmm migrate-legacy path/to/old/data/config.db
-```
+![Fleet dashboard](docs/screenshots/dashboard.png)
 
-Your miners are imported and the old database is left untouched. The rewrite changed the app completely; see the [CHANGELOG](CHANGELOG.md) and [`docs/AUDIT.md`](docs/AUDIT.md).
+![Miner detail](docs/screenshots/miner.png)
 
-## Docs
+![Odds page](docs/screenshots/odds.png)
 
-[`docs/PACKAGING.md`](docs/PACKAGING.md) install and release · [`docs/miner-identification.md`](docs/miner-identification.md) how models are recognised · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) how it's built · [`AGENTS.md`](AGENTS.md) for agents · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`SECURITY.md`](SECURITY.md)
+![Miners table](docs/screenshots/miners-table.png)
 
-## License
+![Phone layout](docs/screenshots/phone.png)
 
-MIT. See [LICENSE](LICENSE).
+## Links
+
+- [Latest stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest)
+- [Source and issue tracker](https://github.com/smokeysrh/bitcoin-solo-miner-monitor)
+- [Install and upgrade details](docs/PACKAGING.md)
+- [Miner identification](docs/miner-identification.md)
+- [Security notes](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
+
+MIT licensed. See [LICENSE](LICENSE).

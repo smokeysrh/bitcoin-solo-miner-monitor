@@ -25,13 +25,16 @@ The default address is `http://<host>:8420`. `GET /api/v1/meta` needs no login a
 
 1. `GET /api/v1/meta`. If `auth.mode` is `password`, ask the user for a token (`bsmm token create --name agent --scope read`).
 2. `GET /api/v1/overview` answers "how are my miners doing?" in one call (fleet totals, odds, network, alerts, recent events).
-3. Setting up from nothing: follow the nine steps in `/llms.txt`. In short: scan (`POST /api/v1/discovery`), adopt, connect the node/pool, set the electricity price, add an alert channel, set a password.
+3. Setting up from nothing: use the [README setup prompt](README.md#let-your-agent-do-the-setup) and [platform install guide](docs/PACKAGING.md). Follow the running app's `/llms.txt` preflight and nine steps. Preserve data and the encryption key before an upgrade, arrange authentication before sharing access, scan the user's private range, show candidates and wait for confirmation before adopting. Preserve existing settings; ask only for missing credentials, tariff or alert choices.
+
+`bsmm setup --yes` can adopt newly found miners and connect a discovered Public Pool without pausing. Get approval for that behavior and range first; it scans again. Use API adoption with approved `keys` from the reviewed scan when approval names specific devices. Unattended setup skips the password prompt and can return an admin token; protect the output and switch to a read token for monitoring.
 
 ### Rules you must follow
 
 - **Ask before you change anything on a miner.** Restart, pause and pool changes interrupt hashing and are audited. Bulk actions preview by default (`dry_run: true`): show the user the preview first.
 - **Never guess credentials**, node RPC logins, payout addresses or passwords. If you need one, ask.
 - **A wrong payout address loses a found block.** When changing a miner's pool, read the address back to the user.
+- Keep secrets and wallet addresses out of chat and logs; use secure app fields and a private confirmation view. Ask before firmware changes, deleting data or other destructive actions too.
 - Frequency/voltage ("tuning") is off until the user enables `safety.allow_tuning`. Do not turn it on for them.
 - Read-only tokens are enough for monitoring. Use `control` only when the user asked for an action, and never `admin` unless you are doing setup.
 - Honest odds: solo mining is a lottery. Do not tell users they are "close" or "due". The app's `plain_english` field is worded carefully; reuse it.
@@ -89,6 +92,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - **Every control action goes through `Fleet.run_action`**, which checks permissions, safety settings and writes the audit log.
 - **Test the control.** A test that would still pass with the bug present proves nothing; make it fail first.
 - Packaging: build the UI before default `uv build`. Keep generated `src/bsmm/web/**` in the shared Hatch build artifacts so both the sdist and its wheel contain the real UI. Verify index/assets in both archives and a wheel rebuilt from the sdist; retain the release workflow's wheel-content assertion. See `docs/PACKAGING.md`.
+- Documentation: `src/bsmm/agent_docs.py` owns setup preflight, recipe and safety guidance for the JSON guide and served text. Regenerate root `llms.txt` with `scripts/gen_llms_txt.py`; never hand-edit it. Keep platform installation on verified GitHub artifacts until PyPI publication is verified. Version changes update `src/bsmm/__init__.py` and the web package/lock root metadata, then check `uv lock --check` without dependency upgrades. Preserve historical release notes and distinguish candidate documentation from a verified release.
 - Keyboard E2E tests must wait for the mounted UI before sending shortcuts: page load can finish before API bootstrap mounts `AppShell`. For the desktop palette, wait for `open-palette`, then use real key presses and assert input focus; do not replace shortcuts with clicks or sleeps.
 - Keep user-facing text plain: short sentences, no jargon without a `<Term>` explanation (`web/src/lib/glossary.ts`).
 - UI: semantic colour tokens only (`bg-surface-1`, `text-muted`, `text-accent-text`). Text must pass 4.5:1 in dark, black and light themes; run the axe audit (`web/e2e/audit.mjs`).

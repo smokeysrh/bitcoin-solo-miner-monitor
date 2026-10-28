@@ -12,32 +12,40 @@ from bsmm import __version__
 
 REPO = "https://github.com/smokeysrh/bitcoin-solo-miner-monitor"
 
+SETUP_PREFLIGHT: list[str] = [
+    f"Read {REPO}/blob/main/AGENTS.md and choose the official platform artifact from {REPO}/releases/latest: Windows installer, GitHub release wheel for pipx, or the GHCR image for Docker. Use the release wheel URL rather than a bare PyPI package name.",
+    "Before an upgrade, back up the app database and preserve its encryption key, data directory or Docker volume, settings and miner configuration. Legacy v0.9.x migrate-legacy imports miner hosts, ports and names; preserve the old data for historical telemetry.",
+    "After launch, read this running server's /llms.txt or /api/v1/agent/guide. Check /api/v1/meta, set authentication for the network before sharing access, and use the least scope needed. Start with monitoring only.",
+    "Preserve existing settings. Ask only for missing RPC credentials, electricity price or alert preferences. Have the user enter secrets through secure app fields; keep passwords, tokens, RPC credentials and wallet addresses out of chat and logs.",
+    "For CLI preflight, bsmm discover --cidr 192.168.1.0/24 --json scans without adopting; substitute the user's private range. Show candidates and wait for confirmation. bsmm setup --yes scans again and can adopt all new miners and connect a discovered Public Pool without asking. Use it only after approval of that behavior and range; for specific-device approval use the API flow below. --yes skips the password prompt, so arrange authentication first. Setup output may contain an admin token: protect it and use a read token after setup.",
+]
+
 SETUP_RECIPE: list[dict[str, Any]] = [
     {"step": 1, "goal": "Learn what this server is and how far setup has got",
      "request": {"method": "GET", "path": "/api/v1/meta"}, "notes": "No login needed. Look at auth.mode and setup.*"},
     {"step": 2, "goal": "Get a token (only if auth.mode is 'password')",
      "request": {"method": "POST", "path": "/api/v1/auth/tokens", "body": {"name": "my agent", "scope": "admin"}},
-     "notes": "Needs an admin session or an existing admin token. On the server itself you can run: bsmm token create --name agent --scope admin"},
+     "notes": "For setup only: needs an admin session or an existing admin token. On the server itself you can run: bsmm token create --name setup --scope admin. For monitoring use --scope read instead. Protect token output; never paste it into chat or logs."},
     {"step": 3, "goal": "Find the user's miners",
      "request": {"method": "POST", "path": "/api/v1/discovery", "body": {}},
      "notes": "Returns a job id. Poll GET /api/v1/discovery/{id} until status is 'finished' (about 20 s). Only private networks are scanned. "
               "If the server runs in Docker bridge mode pass the user's LAN, e.g. {\"cidrs\": [\"192.168.1.0/24\"]}."},
     {"step": 4, "goal": "Start monitoring what was found",
      "request": {"method": "POST", "path": "/api/v1/discovery/{id}/adopt", "body": {}},
-     "notes": "Adds every new miner; a miner that answers on two IPs is added once. Add one by hand with POST /api/v1/devices {\"host\": \"192.168.1.50\"}."},
+     "notes": "Show the miner and node/pool candidates and wait for confirmation before adopting. An empty body adds every new non-duplicate miner; pass keys containing only approved host:port values to select miners. Add one approved miner by hand with POST /api/v1/devices {\"host\": \"192.168.1.50\"}."},
     {"step": 5, "goal": "Connect the user's Bitcoin node or solo pool (optional but recommended)",
      "request": {"method": "POST", "path": "/api/v1/sources", "body": {"kind": "public_pool", "url": "http://umbrel.local:2019"}},
      "notes": "The discovery result lists likely candidates under 'sources'. kinds: bitcoin_core (needs rpc_user/rpc_password in 'secret'), public_pool, ckpool, mempool_space. "
-              "Ask the user for node credentials; never guess them."},
+              "Connect only the approved source. Ask for missing node credentials through secure app fields; never guess or expose them in chat."},
     {"step": 6, "goal": "Set the electricity price so costs are right",
-     "request": {"method": "PATCH", "path": "/api/v1/settings", "body": {"energy": {"price_per_kwh": 0.12}}}, "notes": "Currency units are the user's local currency."},
+     "request": {"method": "PATCH", "path": "/api/v1/settings", "body": {"energy": {"price_per_kwh": 0.12}}}, "notes": "Example only: preserve an existing tariff or ask for the missing price. Currency units are the user's local currency."},
     {"step": 7, "goal": "Set up an alert channel",
      "request": {"method": "POST", "path": "/api/v1/notifications/channels", "body": {"kind": "ntfy", "name": "Phone", "config": {"topic": "pick-a-secret-topic"}}},
-     "notes": "GET /api/v1/notifications/channel-types lists every kind and its fields. Then POST /api/v1/notifications/channels/{id}/test."},
+     "notes": "Preserve existing channels or ask which destination the user wants. GET /api/v1/notifications/channel-types lists every kind and its fields. After agreement, POST /api/v1/notifications/channels/{id}/test."},
     {"step": 8, "goal": "Protect the dashboard (recommended if others share the network)",
-     "request": {"method": "POST", "path": "/api/v1/auth/password", "body": {"new_password": "<ask the user>"}}, "notes": "Then create a token for yourself."},
+     "request": {"method": "POST", "path": "/api/v1/auth/password", "body": {"new_password": "<enter securely>"}}, "notes": "Do this before exposing the server to an untrusted network. Preserve existing authentication; enter the password through secure app fields. Use a read-scoped token for monitoring after setup."},
     {"step": 9, "goal": "Verify",
-     "request": {"method": "GET", "path": "/api/v1/overview"}, "notes": "One call with fleet totals, odds, network, alerts, events. Also GET /api/v1/system/diagnostics."},
+     "request": {"method": "GET", "path": "/api/v1/overview"}, "notes": "One call with fleet totals, odds, network, alerts, events. Also check the dashboard, GET /api/v1/health and GET /api/v1/system/diagnostics. Return the dashboard URL and a plain-English report; identify anything unavailable."},
 ]
 
 #: The MCP tools, in the order the server registers them. tests/test_agent_docs.py fails if this drifts from the real server.
@@ -61,12 +69,14 @@ TASKS: dict[str, str] = {
 }
 
 SAFETY: list[str] = [
+    "Ask before hardware controls, restarts, pool or payout changes, tuning, firmware changes, deleting data or other destructive actions. Confirm the target; read payout changes back through a private confirmation view.",
     "Control actions are audited and can be switched off in Settings > Safety (allow_control). Frequency/voltage changes are OFF until the user enables allow_tuning.",
     "Bulk actions preview by default (dry_run: true). Show the user the preview before sending dry_run=false.",
     "Secrets (RPC passwords, bot tokens, webhook URLs) are write-only: they are never returned by any endpoint.",
-    "Do not guess node credentials, wallet addresses or passwords. Ask the user.",
+    "Do not guess node credentials, wallet addresses or passwords. Ask for missing information through secure app fields; keep secrets and addresses out of chat and logs.",
     "Network scans are limited to private address ranges.",
-    "Restarting a miner interrupts hashing for about a minute. Solo mining odds are not affected by short outages.",
+    "Restarting a miner interrupts hashing; downtime depends on firmware. Lost hashing time reduces the chance of finding a block.",
+    "Solo mining is a lottery. Never promise a block or profit or say the user is due. When available, horizons.ten_minutes (Next 10 minutes) estimates chance over a fixed 600-second window; the next network block can arrive at any time.",
 ]
 
 
@@ -83,8 +93,9 @@ def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> di
             "mode": auth_mode,
             "how": "Send 'Authorization: Bearer <token>' (or header X-API-Key). When mode is 'none' no credentials are needed.",
             "scopes": {"read": "look only", "control": "restart / scan / add miners / change pools", "admin": "settings, sources, channels, rules, tokens"},
-            "create_token_on_server": "bsmm token create --name agent --scope admin",
+            "create_token_on_server": "bsmm token create --name agent --scope read",
         },
+        "setup_preflight": SETUP_PREFLIGHT,
         "setup_recipe": SETUP_RECIPE,
         "common_tasks": TASKS,
         "safety": SAFETY,
@@ -110,23 +121,28 @@ def llms_txt(base: str = "http://localhost:8420") -> str:
         for s in SETUP_RECIPE
     )
     tasks = "\n".join(f"- {k} -> {v}" for k, v in TASKS.items())
+    preflight = "\n".join(f"- {s}" for s in SETUP_PREFLIGHT)
     safety = "\n".join(f"- {s}" for s in SAFETY)
     return f"""# Bitcoin Solo Miner Monitor
 
-> Self-hosted dashboard, REST API and MCP server for people who solo mine Bitcoin with ASIC miners (Bitaxe, NerdQAxe, Lucky/Magic Miner, Avalon Nano/Q, Antminer and other cgminer-API miners). It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), computes the odds of finding a block, sends alerts, and lets an agent control miners within safe limits. Version {__version__}.
+> Self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version {__version__}.
 
 This server: {base}
 Everything below is also available as JSON at {base}/api/v1/agent/guide.
 
-## Set it up for a user (about two minutes)
+## Before setup or upgrade
+
+{preflight}
+
+## Set it up for a user
 
 {recipe}
 
 ## Authentication
 
 - Read {base}/api/v1/meta first (no login). If `auth.mode` is `none`, no credentials are needed.
-- Otherwise send `Authorization: Bearer <token>`. Scopes: `read` < `control` < `admin`.
-- On the machine running the app: `bsmm token create --name agent --scope admin` prints a token once.
+- Otherwise send the token in the `Authorization` header with the `Bearer` scheme. Scopes: `read` < `control` < `admin`.
+- On the machine running the app: `bsmm token create --name agent --scope read` prints a token once. Protect that output. Setup may need admin access temporarily; routine monitoring uses read.
 
 ## Common tasks
 
@@ -140,7 +156,7 @@ Everything below is also available as JSON at {base}/api/v1/agent/guide.
 
 - Field names carry units: `hashrate_hs` (H/s), `power_w`, `temp_asic_c`, `efficiency_j_th`.
 - Errors are always `{{"error": {{"code", "message", "hint", "status"}}}}`.
-- Bulk and destructive operations take `dry_run`.
+- Bulk miner actions preview with `dry_run: true`; check the endpoint schema before assuming another operation supports a preview.
 - Live updates: `GET {base}/api/v1/stream?topics=device,fleet,event` (Server-Sent Events).
 
 ## Docs

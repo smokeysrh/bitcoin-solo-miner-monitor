@@ -4,6 +4,8 @@
 
 Pick the one that matches your computer. All of them give you the same app on port **8420**.
 
+An agent can handle installation and setup using the [copyable README prompt](../README.md#let-your-agent-do-the-setup). Use artifacts from the [official stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest).
+
 ### Docker (best for a NAS, Raspberry Pi, Umbrel-style box or home server)
 
 ```bash
@@ -14,21 +16,53 @@ docker compose up -d
 Open `http://<that computer>:8420`.
 
 - **Linux:** the compose file uses `network_mode: host` so the app can see your miners and scan the network.
-- **Docker Desktop (Windows, macOS):** host networking is not available. Remove `network_mode: host`, enable the `ports:` lines, then add miners by address or type your range (for example `192.168.1.0/24`) into the scan box. Everything else works the same.
+- **Docker Desktop (Windows, macOS):** for a portable setup, remove `network_mode: host`, enable the `ports:` lines, then add miners by address or type your private range (for example `192.168.1.0/24`) into the scan box.
 - Images are published for `linux/amd64` and `linux/arm64` (Raspberry Pi 4/5) at `ghcr.io/smokeysrh/bitcoin-solo-miner-monitor`.
 - Data lives in the `bsmm-data` volume. Back it up from **Settings → Data & backup**.
 - To require a password from the first start, set `BSMM_ADMIN_PASSWORD` in the compose file.
 
-### pipx (Windows, macOS, Linux desktop)
+### Windows installer
+
+Download the Windows installer attached to the [v1.1.2 release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v1.1.2). Follow its setup steps, launch the app and open the dashboard. Keep the existing data directory when upgrading. The v0.9.3 installer belongs to the older app; use the legacy instructions below for that installation.
+
+### Python wheel with pipx (Windows, macOS, Linux)
+
+Install Python 3.11 or newer and pipx, then use the versioned GitHub wheel:
 
 ```bash
-pipx install bitcoin-solo-miner-monitor      # once the package is on PyPI; until then use the wheel from the GitHub release
-bsmm setup                                   # starts it, finds your miners, asks about your electricity price
+pipx install https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.1.2/bitcoin_solo_miner_monitor-1.1.2-py3-none-any.whl
+bsmm setup                                   # interactive setup; review the discovered miners before accepting
 ```
 
-Python 3.11 or newer. `bsmm start` / `bsmm stop` control the background server. `bsmm service install --apply` makes it start by itself when you log in (a systemd user unit, a launchd agent, or a Windows scheduled task). Without `--apply` it only prints what it would do.
+The wheel is distributed through GitHub Releases. Choose its `.whl` asset rather than asking pipx to find the package on PyPI. For a hardware-free preview after installation, run `bsmm demo`.
 
-> Windows: there is no one-click installer for 1.0. `pipx` or Docker Desktop are the supported routes. (The old 0.9 Windows installer is gone on purpose; see CHANGELOG.)
+`bsmm start` / `bsmm stop` control the background server. `bsmm service install` previews autostart configuration; `bsmm service install --apply` installs it after you approve (a systemd user unit, a launchd agent, or a Windows scheduled task). Ask before changing an existing service.
+
+### Agent setup and unattended commands
+
+Read the running app's `/llms.txt` or `/api/v1/agent/guide` first. Set authentication for the network, keep secrets in secure app fields, and preserve existing settings. Ask only for missing RPC credentials, electricity price or alert preferences. Use a `read` token for routine monitoring; setup may need `control` or `admin` temporarily.
+
+For discovery without adoption, use `bsmm discover --cidr 192.168.1.0/24 --json` with the user's actual private range. Show the miner and source candidates, then wait for confirmation. The guide's API flow can adopt selected `host:port` keys from that scan.
+
+`bsmm setup --yes` skips confirmation and can adopt all newly found miners and connect a discovered Public Pool. Use it only after the user approves that behavior and scan range. It scans again, so use the API flow when approval is limited to specific candidates. `--yes` also skips the password prompt: arrange authentication first. Its output can contain a new admin token; keep it out of chat and logs, then use a read-scoped token for monitoring. Ask before miner controls, pool or payout changes, tuning, firmware changes or deletion.
+
+### Upgrades and backups
+
+Before replacing the app, download a database backup from **Settings → Data & backup**. Keep a protected copy of `secret.key` (or your configured `BSMM_SECRET_KEY`) too; the database download omits the key. See [SECURITY.md](../SECURITY.md#secrets). Preserve the whole data directory and existing miner configuration. `BSMM_DATA_DIR` selects a custom data directory; `bsmm doctor` reports the current one.
+
+For a wheel installation, stop the existing app through its normal launcher or service after approval, then reinstall from the versioned wheel URL above with `pipx install --force <wheel-url>`. Start it with the same data directory and verify `bsmm version`, `bsmm doctor` and `bsmm status` before continuing. For Docker, keep the same `bsmm-data` volume mounted while pulling and recreating the container; avoid volume-removal commands.
+
+### Coming from v0.9.x
+
+The v0.9.3 Windows installer placed the program under `Program Files\Bitcoin Solo Miner Monitor` and user data under `%APPDATA%\Bitcoin Solo Miner Monitor`. Preserve that data folder before installing the rebuilt app. Find the old `config.db` and keep its companion `-wal` and `-shm` files with it if present.
+
+After starting the new app, and after confirming which miners to import:
+
+```bash
+bsmm migrate-legacy path/to/old/data/config.db --url http://localhost:8420
+```
+
+This reads a private copy of the legacy database and imports miner hosts, ports and names. It probes each miner and reports the result; the original database stays untouched. Historical telemetry, charts, alert settings and credentials remain in the old installation. Keep that archive for reference and configure those settings in the new app. Automatic v0.9.x history migration is unsupported.
 
 ### Umbrel / Start9 / other node OSes
 
@@ -42,7 +76,7 @@ A starting-point app definition for Umbrel is in [`packaging/umbrel/`](../packag
 | `BSMM_DATA_DIR` | Where the database lives (`/data` in Docker) |
 | `BSMM_ADMIN_PASSWORD` | Set the dashboard password at start-up. Never logged |
 | `BSMM_AUTH` | `none` or `password`; wins over what the setup wizard stored |
-| `BSMM_OFFLINE=1` | Never contact the internet (no mempool.space, prices or update check) |
+| `BSMM_OFFLINE=1` | Disable automatic public network-data, price and release checks; configured sources and alert destinations still make requests |
 | `BSMM_NO_UPDATE_CHECK=1` | Skip only the update check |
 | `BSMM_SERVE_UI=0` | API and MCP only, no web interface |
 | `BSMM_TRUSTED_PROXIES` | Comma-separated proxy IPs whose `X-Forwarded-For` is believed (rate limiting by real client) |
@@ -67,11 +101,14 @@ Before release, check that both archives contain `index.html` and actual files u
 
 ### Releasing
 
-1. Update `src/bsmm/__init__.py` (`__version__`), the web package/lock root versions, Umbrel template version/image tag and `CHANGELOG.md`. Regenerate `llms.txt` with `python scripts/gen_llms_txt.py`; check `uv lock --check` without upgrading dependencies.
-2. After verification, create and push the new version tag (for this hotfix, `v1.1.1`; pre-releases: `v1.2.0-rc.1`). Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
-3. `.github/workflows/release.yml` checks the tag matches the version, builds the UI and the package, verifies the wheel contains the UI, attaches both to a GitHub release, and pushes the multi-architecture image to ghcr.io.
+1. Update `src/bsmm/__init__.py` (`__version__`), the web package/lock root versions, Umbrel template version/image tag and `CHANGELOG.md`. Regenerate `llms.txt` with `python scripts/gen_llms_txt.py`; check `uv lock --check` and preserve locked dependency versions. The local project entry may use dynamic version metadata rather than a literal version in `uv.lock`.
+2. Verify the integrated v1.1.2 candidate: focused repair regressions, backend/web suites, built wheel and sdist UI contents, and native Windows install/launch/upgrade/data preservation. Check `ten_minutes` covers 600 seconds and the UI says **Next 10 minutes**. Refresh screenshots against a disposable demo only. Review the exact public docs and final asset filenames before publication.
+3. After release approval and verification, create and push `v1.1.2`. Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
+4. `.github/workflows/release.yml` handles GitHub release artifacts and the multi-architecture image at ghcr.io. Read back the published assets, wheel URL and container tags. Verify the Windows installer is attached to the same release before announcing it. The v1.1.1 wheel and image were published; the current candidate still needs its own checks.
 
 ### Publishing to PyPI (one-time setup)
+
+PyPI publication is optional and currently disabled. Keep user installation instructions on GitHub artifacts until an actual PyPI release is verified.
 
 1. On pypi.org, add a **trusted publisher** for this repository: workflow `release.yml`, environment `pypi`.
 2. In the GitHub repository settings create the environment `pypi` and the repository variable `PUBLISH_PYPI=true`.

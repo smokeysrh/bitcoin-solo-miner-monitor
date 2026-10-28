@@ -5,6 +5,29 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - Unreleased
+
+Release preparation: the repairs and platform additions below await final integration and release verification.
+
+### Added
+- **Next 10 minutes** block odds: a fixed 600-second probability window (`ten_minutes`) alongside day, month and year estimates. The next network block can arrive at any time.
+- A rebuilt native Windows installer for the v1.1.x app. Preserve v0.9.x data; `bsmm migrate-legacy` imports miner connection records while historical telemetry remains in the old installation.
+
+### Repairs planned for this release
+The repair set covers 48 distinct audited defects, grouped below.
+- **Storage and controls:** keep concurrent database writes in their own transactions. Reject conflicting miner identities and invalid edits without disturbing the saved device. Queue controls per miner, validate previews, finish pending samples at shutdown and keep removed history from reappearing.
+- **Monitoring:** show zero when a miner stops hashing, use fresh fallback sources and refresh device-reported difficulty. Retry incomplete block reads. Calculate history averages from valid samples and use retained rollups for older ranges.
+- **Alerts and delivery:** honor device/tag scope, retain critical events and reject invalid thresholds. Preserve notification secrets exactly, report partial email failures and keep credentials out of error logs.
+- **Authentication and API:** preserve password protection when unrelated settings fail validation. Check request origins and hosts, segregate imported secrets, enforce streamed-body limits and close streams after token revocation. Correct address validation, capture redaction, credential rotation, null settings and discovery shutdown.
+- **Dashboard:** restore sign-in from public viewing and return to login after logout or expiry. Preserve layouts and unsaved edits, show failed data loads honestly, test edited notification drafts and prevent duplicate setup channels. Save notes without reverting a rename and retain local appearance choices.
+- **CLI and platform tools:** correct Windows liveness checks and stale PID handling. Change passwords on the intended server, report service-manager failures, escape launchd paths and emit one setup JSON result. Restrict screenshot tooling to demo backends and fix its Playwright project selection.
+
+### Documentation
+- A prominent agent setup prompt, mixed-fleet overview, official GitHub artifact installation, legacy-data preservation and firmware/API compatibility limits.
+- Running agent guidance now requires confirmation before adoption, explains unattended setup and starts with least-scope monitoring. Public docs clarify outbound traffic, backups and fixed-window odds.
+
+Optional performance work is outside this repair set.
+
 ## [1.1.1] - 2026-10-27
 
 ### Fixed
@@ -78,7 +101,7 @@ Based on the `feature/home-miner-identification` work on the 0.9 code base, port
   - Automated build process with `build.ps1` script
   - One-time bundle preparation with `prepare-bundle.ps1`
   - Inline launcher creation (prevents bugs from forgotten macro calls)
-  - Comprehensive error handling and verification
+  - Error handling and verification
   - Improved uninstaller with user data preservation options
 
 ### 🐛 Bug Fixes

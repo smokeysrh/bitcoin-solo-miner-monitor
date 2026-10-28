@@ -3,10 +3,12 @@ llms.txt in the repository root is exactly what the generator produces."""
 
 from __future__ import annotations
 
-import subprocess
+import json
+import runpy
 import sys
 from pathlib import Path
 
+from bsmm import __version__
 from bsmm.agent_docs import MCP_TOOLS, agent_guide, llms_txt
 from bsmm.mcp_server import build_server
 
@@ -29,11 +31,36 @@ def test_the_guide_and_llms_txt_mention_the_same_setup_steps():
     for step in guide["setup_recipe"]:
         assert step["request"]["path"] in text
     assert guide["mcp"]["tools"] == MCP_TOOLS
+    for note in guide["setup_preflight"]:
+        assert note in text
+    for note in guide["safety"]:
+        assert note in text
 
 
-def test_the_root_llms_txt_is_up_to_date():
-    done = subprocess.run([sys.executable, str(ROOT / "scripts" / "gen_llms_txt.py"), "--check"], capture_output=True, text=True, check=False)
-    assert done.returncode == 0, done.stderr
+def test_monitoring_defaults_to_read_and_adoption_requires_confirmation():
+    guide = agent_guide("http://x:8420")
+    assert guide["auth"]["create_token_on_server"].endswith("--scope read")
+    adoption = next(s for s in guide["setup_recipe"] if s["request"]["path"].endswith("/adopt"))
+    assert "wait for confirmation" in adoption["notes"]
+    assert "keys" in adoption["notes"]
+    unattended = next(s for s in guide["setup_preflight"] if "setup --yes" in s)
+    assert "scans again" in unattended and "skips the password prompt" in unattended
+    assert "admin token" in unattended
+
+
+def test_documented_and_web_versions_match_the_python_version():
+    package = json.loads((ROOT / "web" / "package.json").read_text())
+    lock = json.loads((ROOT / "web" / "package-lock.json").read_text())
+    assert package["version"] == lock["version"] == lock["packages"][""]["version"] == __version__
+    assert agent_guide("http://x:8420")["version"] == __version__
+    assert f"Version {__version__}." in llms_txt()
+
+
+def test_the_root_llms_txt_is_up_to_date(monkeypatch):
+    # Reuse pytest's source imports so this check also works without installing the app.
+    generator = ROOT / "scripts" / "gen_llms_txt.py"
+    monkeypatch.setattr(sys, "argv", [str(generator), "--check"])
+    assert runpy.run_path(str(generator))["main"]() == 0
 
 
 def test_every_cli_command_the_agent_docs_mention_exists():
