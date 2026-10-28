@@ -22,6 +22,13 @@ try {
     $setupInfo = (Get-Item -LiteralPath $Installer).VersionInfo
     $diagnostic.installer_product = Safe-Version $setupInfo.ProductVersion
     $diagnostic.installer_file = Safe-Version $setupInfo.FileVersion
+    $diagnostic.installer_product_empty = [string]::IsNullOrEmpty($setupInfo.ProductVersion)
+    $diagnostic.installer_file_empty = [string]::IsNullOrEmpty($setupInfo.FileVersion)
+    $diagnostic.installer_fixed = Safe-Version (@($setupInfo.ProductMajorPart, $setupInfo.ProductMinorPart, $setupInfo.ProductBuildPart, $setupInfo.ProductPrivatePart) -join '.')
+    $directInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Installer)
+    $diagnostic.direct_product = Safe-Version $directInfo.ProductVersion
+    $diagnostic.direct_file = Safe-Version $directInfo.FileVersion
+    $diagnostic.direct_fixed = Safe-Version (@($directInfo.ProductMajorPart, $directInfo.ProductMinorPart, $directInfo.ProductBuildPart, $directInfo.ProductPrivatePart) -join '.')
     if ($setupInfo.ProductVersion -ne $Version) { throw 'Installer product version mismatch' }
     if ($Shortcuts) {
         $diagnostic.stage = 'shortcut-shell'

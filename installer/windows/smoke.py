@@ -33,8 +33,10 @@ def native_check(exe: str, installer: Path, version: str, env: dict[str, str]) -
     # output remains withheld, including setup's one-time token and all stderr.
     stages = {"exe-resource", "installer-resource", "shortcut-shell", "start-shortcut",
               "stop-shortcut", "guide-shortcut", "complete"}
-    versions = {"shell_version", "exe_product", "exe_file", "installer_product", "installer_file"}
-    flags = {"ok", "shortcut_exists", "target_matches", "arguments_match", "guide_exists"}
+    versions = {"shell_version", "exe_product", "exe_file", "installer_product", "installer_file",
+                "installer_fixed", "direct_product", "direct_file", "direct_fixed"}
+    flags = {"ok", "shortcut_exists", "target_matches", "arguments_match", "guide_exists",
+             "installer_product_empty", "installer_file_empty"}
     metadata = None
     try:
         metadata = json.loads(result.stdout) if len(result.stdout) <= NATIVE_DIAGNOSTIC_LIMIT else None
