@@ -91,8 +91,28 @@ jobs:
             @{ name = $_.Name; status = $_.Status.ToString() }
           })
           @{ native_port_preflight = $true; listeners = $listeners; services = $services } | ConvertTo-Json -Depth 4 -Compress
-          uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
-          if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
+          if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or $env:RUNNER_OS -ne 'Windows') {
+            throw 'Native fixture preparation is restricted to disposable GitHub-hosted Windows'
+          }
+          # The hosted image runs IIS on wildcard port 80. Restore its state;
+          # do not change startup configuration, stop HTTP.sys or kill PID 4.
+          $iis = Get-Service -Name W3SVC
+          $restoreIis = $iis.Status -eq 'Running'
+          try {
+            if ($restoreIis) {
+              Stop-Service -Name W3SVC -ErrorAction Stop
+              $iis.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
+            }
+            # Smoke must still exclusively bind ALL six ports, or fail closed.
+            uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
+            if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
+          } finally {
+            if ($restoreIis) {
+              Start-Service -Name W3SVC -ErrorAction Stop
+              $iis.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
+            }
+            @{ native_iis_restored = $true; originally_running = $restoreIis } | ConvertTo-Json -Compress
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-dist

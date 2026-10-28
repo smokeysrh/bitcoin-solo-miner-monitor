@@ -26,6 +26,16 @@ def test_discovery_fixture_covers_every_real_sweep_port():
     assert smoke.DISCOVERY_PORTS == SWEEP_PORTS
 
 
+def test_native_runner_preparation_is_hosted_only_and_restores_iis():
+    workflow = (ROOT / ".github/workflows/windows.yml").read_text()
+    guard = "$env:RUNNER_ENVIRONMENT -ne 'github-hosted'"
+    stop = "Stop-Service -Name W3SVC -ErrorAction Stop"
+    restore = "Start-Service -Name W3SVC -ErrorAction Stop"
+    assert workflow.index(guard) < workflow.index(stop)
+    assert "finally {" in workflow[workflow.index(stop):workflow.index(restore)]
+    assert "Stop-Process" not in workflow and "Set-Service" not in workflow
+
+
 def test_discovery_fixture_refuses_busy_port_before_setup(monkeypatch):
     with socket.socket() as busy:
         busy.bind(("127.0.0.1", 0))
