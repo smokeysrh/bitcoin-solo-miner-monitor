@@ -45,6 +45,14 @@ try {
     }
     if ($Shortcuts) {
         $diagnostic.stage = 'shortcut-shell'
+        Add-Type -TypeDefinition @'
+using System.Runtime.InteropServices;
+using System.Text;
+public static class NativeShortcutPath {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern uint GetLongPathName(string path, StringBuilder buffer, uint size);
+}
+'@
         $shell = New-Object -ComObject WScript.Shell
         $group = Join-Path $shell.SpecialFolders.Item('Programs') 'Bitcoin Solo Miner Monitor'
         foreach ($item in @(@('Start dashboard', 'start --open', 'start-shortcut'), @('Stop dashboard', 'stop', 'stop-shortcut'))) {
@@ -55,6 +63,14 @@ try {
             $link = $shell.CreateShortcut($path)
             $diagnostic.target_matches = $link.TargetPath -eq $Exe
             $diagnostic.arguments_match = $link.Arguments -eq $item[1]
+            $diagnostic.target_exists = Test-Path -LiteralPath $link.TargetPath -PathType Leaf
+            $diagnostic.target_short_alias = $link.TargetPath.Contains('~')
+            $size = [NativeShortcutPath]::GetLongPathName($link.TargetPath, $null, 0)
+            if ($size -eq 0) { throw 'Cannot resolve shortcut target' }
+            $buffer = New-Object System.Text.StringBuilder ([int]$size)
+            $written = [NativeShortcutPath]::GetLongPathName($link.TargetPath, $buffer, $size)
+            if ($written -eq 0 -or $written -ge $size) { throw 'Cannot resolve shortcut target' }
+            $diagnostic.target_long_matches = [string]::Equals($buffer.ToString(), $Exe, [StringComparison]::OrdinalIgnoreCase)
             if (-not $diagnostic.target_matches -or -not $diagnostic.arguments_match) { throw 'Shortcut points to incorrect executable or arguments' }
         }
         $diagnostic.stage = 'guide-shortcut'

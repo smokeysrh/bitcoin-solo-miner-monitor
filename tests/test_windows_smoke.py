@@ -81,6 +81,8 @@ def test_command_failure_does_not_log_token_or_password(monkeypatch):
     {"stage": "installer-resource", "ok": False, "installer_product_space_padded": True,
      "installer_file_space_padded": True, "installer_fixed": "1.1.2.0", "installer_file_fixed": "1.1.2.1"},
     {"stage": "start-shortcut", "ok": False, "shortcut_exists": True, "target_matches": False},
+    {"stage": "start-shortcut", "ok": False, "target_exists": True,
+     "target_short_alias": True, "target_long_matches": True},
 ])
 def test_native_failure_emits_only_bounded_metadata(monkeypatch, capsys, metadata):
     monkeypatch.setattr(smoke, "run", lambda *args, **kwargs:

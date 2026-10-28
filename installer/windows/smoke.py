@@ -36,7 +36,8 @@ def native_check(exe: str, installer: Path, version: str, env: dict[str, str]) -
     versions = {"shell_version", "exe_product", "exe_file", "installer_product", "installer_file",
                 "installer_fixed", "installer_file_fixed"}
     flags = {"ok", "shortcut_exists", "target_matches", "arguments_match", "guide_exists",
-             "installer_product_space_padded", "installer_file_space_padded"}
+             "installer_product_space_padded", "installer_file_space_padded",
+             "target_exists", "target_short_alias", "target_long_matches"}
     metadata = None
     try:
         metadata = json.loads(result.stdout) if len(result.stdout) <= NATIVE_DIAGNOSTIC_LIMIT else None
