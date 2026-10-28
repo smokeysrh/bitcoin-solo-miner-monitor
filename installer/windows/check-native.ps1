@@ -13,6 +13,8 @@ function Safe-Version($Value) {
 }
 $diagnostic = [ordered]@{ stage = 'exe-resource'; ok = $false; shell_version = (Safe-Version $PSVersionTable.PSVersion.ToString()) }
 try {
+    if ($Version -cnotmatch '^([0-9]+)\.([0-9]+)\.([0-9]+)(?:(?:a|b|rc)[0-9]+)?$') { throw 'Unsupported canonical version' }
+    $fixedVersion = @($Matches[1], $Matches[2], $Matches[3], '0') -join '.'
     $info = (Get-Item -LiteralPath $Exe).VersionInfo
     $diagnostic.exe_product = Safe-Version $info.ProductVersion
     $diagnostic.exe_file = Safe-Version $info.FileVersion
@@ -21,16 +23,21 @@ try {
     }
     $diagnostic.stage = 'installer-resource'
     $setupInfo = (Get-Item -LiteralPath $Installer).VersionInfo
-    $diagnostic.installer_product = Safe-Version $setupInfo.ProductVersion
-    $diagnostic.installer_file = Safe-Version $setupInfo.FileVersion
-    $diagnostic.installer_product_empty = [string]::IsNullOrEmpty($setupInfo.ProductVersion)
-    $diagnostic.installer_file_empty = [string]::IsNullOrEmpty($setupInfo.FileVersion)
+    # Inno 6.7.1 UpdateStringValue overwrites a fixed resource buffer's prefix,
+    # leaving ASCII-space padding. Strip ONLY trailing ASCII spaces in Inno text;
+    # executable text remains exact, and both binary tuples must also match.
+    $productText = ([string]$setupInfo.ProductVersion).TrimEnd([char]' ')
+    $fileText = ([string]$setupInfo.FileVersion).TrimEnd([char]' ')
+    $diagnostic.installer_product = Safe-Version $productText
+    $diagnostic.installer_file = Safe-Version $fileText
+    $diagnostic.installer_product_space_padded = $productText -cne $setupInfo.ProductVersion
+    $diagnostic.installer_file_space_padded = $fileText -cne $setupInfo.FileVersion
     $diagnostic.installer_fixed = Safe-Version (@($setupInfo.ProductMajorPart, $setupInfo.ProductMinorPart, $setupInfo.ProductBuildPart, $setupInfo.ProductPrivatePart) -join '.')
-    $directInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($Installer)
-    $diagnostic.direct_product = Safe-Version $directInfo.ProductVersion
-    $diagnostic.direct_file = Safe-Version $directInfo.FileVersion
-    $diagnostic.direct_fixed = Safe-Version (@($directInfo.ProductMajorPart, $directInfo.ProductMinorPart, $directInfo.ProductBuildPart, $directInfo.ProductPrivatePart) -join '.')
-    if ($setupInfo.ProductVersion -ne $Version) { throw 'Installer product version mismatch' }
+    $diagnostic.installer_file_fixed = Safe-Version (@($setupInfo.FileMajorPart, $setupInfo.FileMinorPart, $setupInfo.FileBuildPart, $setupInfo.FilePrivatePart) -join '.')
+    if ($productText -cne $Version -or $fileText -cne $fixedVersion -or
+        $diagnostic.installer_fixed -cne $fixedVersion -or $diagnostic.installer_file_fixed -cne $fixedVersion) {
+        throw 'Installer text or fixed version mismatch'
+    }
     if ($Shortcuts) {
         $diagnostic.stage = 'shortcut-shell'
         $shell = New-Object -ComObject WScript.Shell

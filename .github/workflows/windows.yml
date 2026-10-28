@@ -77,6 +77,10 @@ jobs:
         run: |
           uv run --no-sync python installer/windows/build.py --installer --output dist/windows
           if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+      - name: Native resource verifier regression cases
+        run: |
+          powershell -NoProfile -File installer/windows/test-check-native.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Resource verifier regression failed' }
       - name: Native disposable lifecycle and installer smoke
         run: |
           uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1

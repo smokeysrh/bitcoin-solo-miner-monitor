@@ -78,9 +78,8 @@ def test_command_failure_does_not_log_token_or_password(monkeypatch):
 @pytest.mark.parametrize("metadata", [
     {"stage": "exe-resource", "ok": False, "exe_product": "1.1.2.0", "exe_file": "1.1.2"},
     {"stage": "installer-resource", "ok": False, "installer_product": "1.1.2\u0000", "installer_file": "1, 1, 2, 0"},
-    {"stage": "installer-resource", "ok": False, "installer_product_empty": True,
-     "installer_file_empty": True, "installer_fixed": "0.0.0.0", "direct_product": "1.1.2",
-     "direct_file": "1.1.2.0", "direct_fixed": "1.1.2.0"},
+    {"stage": "installer-resource", "ok": False, "installer_product_space_padded": True,
+     "installer_file_space_padded": True, "installer_fixed": "1.1.2.0", "installer_file_fixed": "1.1.2.1"},
     {"stage": "start-shortcut", "ok": False, "shortcut_exists": True, "target_matches": False},
 ])
 def test_native_failure_emits_only_bounded_metadata(monkeypatch, capsys, metadata):
