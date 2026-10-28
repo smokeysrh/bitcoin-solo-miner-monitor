@@ -23,6 +23,39 @@ from urllib.request import urlopen
 
 DISCOVERY_PORTS = (80, 4028, 8332, 2019, 3334, 3006)
 LEGACY_COMMIT = "5674faad417911c92c526ebf5bf78a57b09ed1af"
+NATIVE_DIAGNOSTIC_LIMIT = 4096
+
+
+def native_check(exe: str, installer: Path, version: str, env: dict[str, str]) -> None:
+    result = run(["powershell", "-NoProfile", "-File", str(Path(__file__).with_name("check-native.ps1")),
+                  "-Exe", exe, "-Installer", str(installer), "-Version", version, "-Shortcuts"], env, success=False)
+    # This one metadata-only command has a strict output schema. General run/CLI
+    # output remains withheld, including setup's one-time token and all stderr.
+    stages = {"exe-resource", "installer-resource", "shortcut-shell", "start-shortcut",
+              "stop-shortcut", "guide-shortcut", "complete"}
+    versions = {"shell_version", "exe_product", "exe_file", "installer_product", "installer_file"}
+    flags = {"ok", "shortcut_exists", "target_matches", "arguments_match", "guide_exists"}
+    metadata = None
+    try:
+        metadata = json.loads(result.stdout) if len(result.stdout) <= NATIVE_DIAGNOSTIC_LIMIT else None
+        valid = (isinstance(metadata, dict) and metadata.get("stage") in stages
+                 and type(metadata.get("ok")) is bool
+                 and all((key == "stage" and value in stages)
+                         or (key in flags and type(value) is bool)
+                         or (key in versions and isinstance(value, str)
+                             and (value == "withheld" or re.fullmatch(r"\d{1,5}\.\d{1,5}\.\d{1,5}(?:\.\d{1,5}|(?:a|b|rc)\d{1,5})?", value)))
+                         for key, value in metadata.items()))
+    except (ValueError, TypeError):
+        valid = False
+    if not valid or not isinstance(metadata, dict):
+        # Shell policy/parse failures can occur before our script emits metadata.
+        policy = "PSSecurityException" in result.stderr or "UnauthorizedAccess" in result.stderr
+        print(json.dumps({"native_check": "metadata-unavailable", "exit": result.returncode,
+                          "shell_policy_error": policy}), flush=True)
+        raise RuntimeError("Native check metadata unavailable; raw output withheld")
+    print(json.dumps({"native_check": metadata, "exit": result.returncode}), flush=True)
+    if result.returncode != 0 or not metadata["ok"] or metadata["stage"] != "complete":
+        raise RuntimeError("Native resource/shortcut check failed; see bounded metadata")
 
 
 def run(command: list[str], env: dict[str, str], *, success: bool = True) -> subprocess.CompletedProcess[str]:
@@ -284,8 +317,7 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
             command = [str(target / "bsmm.exe")]
             cold_command = command
             assert (target / "AGENT-GUIDE.txt").is_file()
-            run(["powershell", "-NoProfile", "-File", str(Path(__file__).with_name("check-native.ps1")),
-                 "-Exe", command[0], "-Installer", str(installer), "-Version", version, "-Shortcuts"], env)
+            native_check(command[0], installer, version, env)
             assert saved_data(data) == before
             cli(command, env, "start")
             check_assets(base, version)

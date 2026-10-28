@@ -5,21 +5,47 @@ param(
     [switch]$Shortcuts
 )
 $ErrorActionPreference = 'Stop'
-$info = (Get-Item -LiteralPath $Exe).VersionInfo
-if ($info.ProductVersion -ne $Version -or $info.FileVersion -ne $Version) {
-    throw 'Executable resource version differs from the package version'
+# No exception text, paths, environment or arbitrary resource strings escape.
+function Safe-Version($Value) {
+    if ($Value -cmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}(\.\d{1,5}|(a|b|rc)\d{1,5})?$') { return $Value }
+    return 'withheld'
 }
-$setupInfo = (Get-Item -LiteralPath $Installer).VersionInfo
-if ($setupInfo.ProductVersion -ne $Version) { throw 'Installer product version mismatch' }
-if ($Shortcuts) {
-    $shell = New-Object -ComObject WScript.Shell
-    $group = Join-Path $shell.SpecialFolders.Item('Programs') 'Bitcoin Solo Miner Monitor'
-    foreach ($item in @(@('Start dashboard', 'start --open'), @('Stop dashboard', 'stop'))) {
-        $path = Join-Path $group ($item[0] + '.lnk')
-        if (-not (Test-Path -LiteralPath $path)) { throw 'Missing application shortcut' }
-        $link = $shell.CreateShortcut($path)
-        if ($link.TargetPath -ne $Exe -or $link.Arguments -ne $item[1]) { throw 'Shortcut points to incorrect executable or arguments' }
+$diagnostic = [ordered]@{ stage = 'exe-resource'; ok = $false; shell_version = (Safe-Version $PSVersionTable.PSVersion.ToString()) }
+try {
+    $info = (Get-Item -LiteralPath $Exe).VersionInfo
+    $diagnostic.exe_product = Safe-Version $info.ProductVersion
+    $diagnostic.exe_file = Safe-Version $info.FileVersion
+    if ($info.ProductVersion -ne $Version -or $info.FileVersion -ne $Version) {
+        throw 'Executable resource version differs from the package version'
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $group 'Agent guide.lnk'))) { throw 'Missing agent guide shortcut' }
+    $diagnostic.stage = 'installer-resource'
+    $setupInfo = (Get-Item -LiteralPath $Installer).VersionInfo
+    $diagnostic.installer_product = Safe-Version $setupInfo.ProductVersion
+    $diagnostic.installer_file = Safe-Version $setupInfo.FileVersion
+    if ($setupInfo.ProductVersion -ne $Version) { throw 'Installer product version mismatch' }
+    if ($Shortcuts) {
+        $diagnostic.stage = 'shortcut-shell'
+        $shell = New-Object -ComObject WScript.Shell
+        $group = Join-Path $shell.SpecialFolders.Item('Programs') 'Bitcoin Solo Miner Monitor'
+        foreach ($item in @(@('Start dashboard', 'start --open', 'start-shortcut'), @('Stop dashboard', 'stop', 'stop-shortcut'))) {
+            $diagnostic.stage = $item[2]
+            $path = Join-Path $group ($item[0] + '.lnk')
+            $diagnostic.shortcut_exists = Test-Path -LiteralPath $path
+            if (-not $diagnostic.shortcut_exists) { throw 'Missing application shortcut' }
+            $link = $shell.CreateShortcut($path)
+            $diagnostic.target_matches = $link.TargetPath -eq $Exe
+            $diagnostic.arguments_match = $link.Arguments -eq $item[1]
+            if (-not $diagnostic.target_matches -or -not $diagnostic.arguments_match) { throw 'Shortcut points to incorrect executable or arguments' }
+        }
+        $diagnostic.stage = 'guide-shortcut'
+        $diagnostic.guide_exists = Test-Path -LiteralPath (Join-Path $group 'Agent guide.lnk')
+        if (-not $diagnostic.guide_exists) { throw 'Missing agent guide shortcut' }
+    }
+    $diagnostic.stage = 'complete'
+    $diagnostic.ok = $true
+} catch {
+    # Failure is retained by stage and nonzero exit; raw error stays private.
+    $diagnostic.ok = $false
 }
-Write-Output 'Native version resources and requested shortcuts verified.'
+$diagnostic | ConvertTo-Json -Compress
+if (-not $diagnostic.ok) { exit 1 }

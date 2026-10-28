@@ -10,6 +10,14 @@ from bsmm import __version__
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_ci_installs_both_browsers_without_reassigning_frontend_cases():
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "npx playwright install --with-deps chromium firefox" in ci
+    assert "npx playwright test --project=desktop --project=phone" in ci
+    frontend = (ROOT / "web/e2e/frontend-repairs.spec.ts").read_text()
+    assert "browserName: 'firefox'" in frontend
+
+
 def test_windows_resource_uses_canonical_version():
     assert package_version() == __version__
     resource = version_resource(__version__)

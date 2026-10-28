@@ -75,6 +75,50 @@ def test_command_failure_does_not_log_token_or_password(monkeypatch):
     assert "private" not in str(caught.value)
 
 
+@pytest.mark.parametrize("metadata", [
+    {"stage": "exe-resource", "ok": False, "exe_product": "1.1.2.0", "exe_file": "1.1.2"},
+    {"stage": "start-shortcut", "ok": False, "shortcut_exists": True, "target_matches": False},
+])
+def test_native_failure_emits_only_bounded_metadata(monkeypatch, capsys, metadata):
+    monkeypatch.setattr(smoke, "run", lambda *args, **kwargs:
+                        subprocess.CompletedProcess([], 1, json.dumps(metadata), "private-error"))
+    with pytest.raises(RuntimeError, match="bounded metadata"):
+        smoke.native_check("private-path", Path("installer"), "1.1.2", {})
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["native_check"] == metadata
+    assert "private" not in captured.out + captured.err
+
+
+@pytest.mark.parametrize("output", [
+    "private-output", '{"stage":"private","ok":true}',
+    '{"stage":"complete","ok":true,"exe_product":"private-version"}',
+    '{"stage":"complete","ok":true,"token":"private-token"}',
+    '{"stage":"complete","ok":true,"target_matches":"private"}',
+    '{"stage":[],"ok":true}', "x" * (smoke.NATIVE_DIAGNOSTIC_LIMIT + 1),
+])
+def test_native_metadata_rejects_unknown_or_secret_values(monkeypatch, capsys, output):
+    monkeypatch.setattr(smoke, "run", lambda *args, **kwargs:
+                        subprocess.CompletedProcess([], 1, output, "private-error PSSecurityException"))
+    with pytest.raises(RuntimeError, match="raw output withheld"):
+        smoke.native_check("private-path", Path("installer"), "1.1.2", {})
+    captured = capsys.readouterr()
+    assert "private" not in captured.out + captured.err
+    assert json.loads(captured.out)["shell_policy_error"] is True
+
+
+@pytest.mark.parametrize("exit_code,ok,stage", [(0, True, "complete"), (1, True, "complete"),
+                                               (0, False, "complete"), (0, True, "exe-resource")])
+def test_native_success_requires_exit_and_completed_checks(monkeypatch, capsys, exit_code, ok, stage):
+    monkeypatch.setattr(smoke, "run", lambda *args, **kwargs:
+                        subprocess.CompletedProcess([], exit_code, json.dumps({"stage": stage, "ok": ok}), ""))
+    if exit_code == 0 and ok and stage == "complete":
+        smoke.native_check("fixture", Path("installer"), "1.1.2", {})
+    else:
+        with pytest.raises(RuntimeError, match="bounded metadata"):
+            smoke.native_check("fixture", Path("installer"), "1.1.2", {})
+    assert json.loads(capsys.readouterr().out)["exit"] == exit_code
+
+
 @pytest.mark.parametrize("field", ["devices", "settings", "samples", "events", "password", "key", "decrypted"])
 def test_logical_gate_detects_each_preservation_failure(monkeypatch, tmp_path, field):
     before = {"schema": 1, "devices": [{"id": "old", "name": "miner"}], "settings": {"energy": {"price": 0.234}},

@@ -73,9 +73,9 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build:fast
-      - name: Install a browser
+      - name: Install required browsers
         working-directory: web
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
       - name: Start a simulated fleet (no hardware needed)
         run: |
           uv run bsmm serve --demo --port 8422 --host 127.0.0.1 > demo.log 2>&1 &
