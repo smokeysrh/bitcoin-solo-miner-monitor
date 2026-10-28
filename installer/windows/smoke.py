@@ -120,6 +120,19 @@ def credentials(data: Path) -> tuple[str, bytes]:
     return stored, (data / "secret.key").read_bytes()
 
 
+def snapshot_matches(data: Path, before: dict[str, str], stage: str) -> bool:
+    after = saved_data(data)
+    known = {"bsmm.db", "bsmm.db-wal", "bsmm.db-shm", "secret.key", "preserve.txt"}
+    changes = {kind: sorted(names & known) for kind, names in {
+        "added": set(after) - set(before), "removed": set(before) - set(after),
+        "changed": {name for name in set(before) & set(after) if before[name] != after[name]},
+    }.items()}
+    # Fixed filenames only; never log hashes, arbitrary names or stored values.
+    print(json.dumps({"data_snapshot": stage, "matches": after == before, "changes": changes,
+                      "other_names_present": bool((set(before) | set(after)) - known)}), flush=True)
+    return after == before
+
+
 def isolated_env(root: Path, data: Path) -> dict[str, str]:
     # No inherited password, token, key, demo switch, remote URL or proxy can
     # silently redirect this fixture into a real account/service/data directory.
@@ -308,6 +321,10 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
         (data / "preserve.txt").write_text("user-owned sentinel", encoding="utf-8")
         before = saved_data(data)
         credential_snapshot = credentials(data)
+        snapshot_matches(data, before, "credential-read")
+        # SQLite mode=ro can create WAL/SHM sidecars. Capture every file AFTER
+        # our observer, so strict byte preservation measures the installer only.
+        before = saved_data(data)
         assert before
         print(json.dumps({"fresh_lifecycle": True, "platform": sys.platform,
                           "checks": ["version", "assets", "repeat-start", "safe-stop", "stale-pid", "failed-start"]}))
@@ -322,7 +339,7 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
             cold_command = command
             assert (target / "AGENT-GUIDE.txt").is_file()
             native_check(command[0], installer, version, env)
-            assert saved_data(data) == before
+            assert snapshot_matches(data, before, "initial-install")
             cli(command, env, "start")
             check_assets(base, version)
             cli(command, env, "stop")
@@ -348,7 +365,7 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
             while (target / "bsmm.exe").exists() and time.monotonic() < deadline:
                 time.sleep(0.2)
             assert not (target / "bsmm.exe").exists()
-            assert saved_data(data) == before and sentinel.poll() is None
+            assert snapshot_matches(data, before, "uninstall") and sentinel.poll() is None
             assert credentials(data) == credential_snapshot
         else:
             cold_setup(cold_command, root / "cold-setup", version)

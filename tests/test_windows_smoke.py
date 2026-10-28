@@ -2,6 +2,7 @@
 import copy
 import json
 import socket
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -73,6 +74,41 @@ def test_command_failure_does_not_log_token_or_password(monkeypatch):
     with pytest.raises(RuntimeError) as caught:
         smoke.run(["fixture", "private-argument"], {})
     assert "private" not in str(caught.value)
+
+
+def test_snapshot_diagnostics_retain_strict_equality_without_values(tmp_path, capsys):
+    (tmp_path / "bsmm.db").write_text("private-before")
+    before = smoke.saved_data(tmp_path)
+    assert smoke.snapshot_matches(tmp_path, before, "fixture")
+    (tmp_path / "bsmm.db").write_text("private-after")
+    (tmp_path / "private-name").write_text("private-value")
+    assert not smoke.snapshot_matches(tmp_path, before, "fixture")
+    output = capsys.readouterr().out
+    assert "private" not in output
+    diagnostic = json.loads(output.splitlines()[-1])
+    assert diagnostic["changes"]["changed"] == ["bsmm.db"]
+    assert diagnostic["other_names_present"] is True
+
+
+def test_sqlite_observer_precedes_full_file_preservation_baseline(tmp_path):
+    database = sqlite3.connect(tmp_path / "bsmm.db")
+    try:
+        database.execute("PRAGMA journal_mode=WAL")
+        database.execute("CREATE TABLE kv (key TEXT, value TEXT)")
+        database.execute("INSERT INTO kv VALUES (?, ?)", ("auth.password", "synthetic-password-hash"))
+        database.commit()
+    finally:
+        database.close()
+    (tmp_path / "secret.key").write_bytes(b"synthetic-key")
+    before_observer = smoke.saved_data(tmp_path)
+    observed = smoke.credentials(tmp_path)
+    baseline = smoke.saved_data(tmp_path)
+    assert set(baseline) - set(before_observer) == {"bsmm.db-wal", "bsmm.db-shm"}
+    assert baseline["bsmm.db"] == before_observer["bsmm.db"]
+    assert observed == ("synthetic-password-hash", b"synthetic-key")
+    assert smoke.snapshot_matches(tmp_path, baseline, "fixture")
+    (tmp_path / "bsmm.db-wal").write_bytes(b"changed")
+    assert not smoke.snapshot_matches(tmp_path, baseline, "fixture")
 
 
 @pytest.mark.parametrize("metadata", [
