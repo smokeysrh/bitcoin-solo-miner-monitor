@@ -5,11 +5,97 @@ import socket
 import sqlite3
 import subprocess
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from installer.windows import legacy_seed, smoke
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_owned_temp_cleanup_retries_sharing_violation_on_same_directory(monkeypatch, tmp_path):
+    monkeypatch.setattr(smoke.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(smoke.sys, "platform", "win32")
+    neighbor = tmp_path / "not-owned"
+    neighbor.write_text("preserve")
+    original = smoke.tempfile.TemporaryDirectory.cleanup
+    calls = []
+    sleep = Mock()
+    monkeypatch.setattr(smoke.time, "sleep", sleep)
+
+    def cleanup(directory):
+        calls.append(directory.name)
+        if len(calls) == 1:
+            # Partial cleanup must be safe to repeat on this same owned root.
+            (Path(directory.name) / "already-removed").unlink()
+            error = PermissionError("uninstaller self-cleanup pending")
+            error.winerror = 32
+            raise error
+        original(directory)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(smoke.tempfile.TemporaryDirectory, "cleanup", cleanup)
+        with smoke.owned_temp_directory() as root:
+            (root / "already-removed").touch()
+            (root / "remaining").touch()
+        assert not root.exists()
+    assert calls == [str(root), str(root)]
+    sleep.assert_called_once_with(smoke.CLEANUP_RETRY_DELAY)
+    assert neighbor.read_text() == "preserve"
+
+
+@pytest.mark.parametrize("platform,winerror,attempts", [
+    ("win32", 32, 81), ("win32", 5, 1), ("win32", None, 1), ("linux", 32, 1),
+])
+def test_owned_temp_cleanup_propagates_unexpected_or_exhausted_failure(monkeypatch, tmp_path,
+                                                                    platform, winerror, attempts):
+    monkeypatch.setattr(smoke.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(smoke.sys, "platform", platform)
+    error = PermissionError("fixture cleanup failure")
+    if winerror is not None:
+        error.winerror = winerror
+    cleanup, sleep = Mock(side_effect=error), Mock()
+    monkeypatch.setattr(smoke.time, "sleep", sleep)
+    with monkeypatch.context() as patch:
+        patch.setattr(smoke.tempfile.TemporaryDirectory, "cleanup", cleanup)
+        with pytest.raises(PermissionError) as caught, smoke.owned_temp_directory() as root:
+            assert root.exists()
+    assert caught.value is error
+    assert cleanup.call_count == attempts
+    assert sleep.call_count == attempts - 1
+    assert all(call.args == (smoke.CLEANUP_RETRY_DELAY,) for call in sleep.call_args_list)
+
+
+def test_owned_temp_cleanup_preserves_body_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(smoke.tempfile, "tempdir", str(tmp_path))
+    with pytest.raises(RuntimeError, match="functional failure"), smoke.owned_temp_directory() as root:
+        raise RuntimeError("functional failure")
+    assert not root.exists()
+
+
+@pytest.mark.parametrize("cleanup_fails", [False, True])
+def test_overall_success_is_emitted_only_after_cleanup(monkeypatch, tmp_path, capsys, cleanup_fails):
+    monkeypatch.setattr(smoke.tempfile, "tempdir", str(tmp_path))
+    roots = []
+
+    def checked_smoke(command, root, version, installer, legacy_source):
+        assert root.exists()
+        roots.append(root)
+        return {"ok": True, "version": version}
+
+    monkeypatch.setattr(smoke, "smoke", checked_smoke)
+    args = ["--expected-version", "1.1.2", "--legacy-source", str(tmp_path)]
+    if cleanup_fails:
+        with monkeypatch.context() as patch:
+            patch.setattr(smoke.tempfile.TemporaryDirectory, "cleanup", Mock(side_effect=OSError("failure")))
+            with pytest.raises(OSError, match="failure"):
+                smoke.main(args)
+        assert not capsys.readouterr().out
+    else:
+        smoke.main(args)
+        assert not roots[0].exists()
+        result = json.loads(capsys.readouterr().out)
+        assert result["ok"] and result["temporary_directory_removed"]
 
 
 def test_workflow_pins_separate_old_source_and_requires_it():

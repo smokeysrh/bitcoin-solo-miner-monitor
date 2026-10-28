@@ -100,6 +100,14 @@ no configured sources, disabled fixture device/channel and the absence of mDNS
 calls keep these checks off the LAN and external providers. On Linux, reserving
 port 80 may be denied; do not weaken this gate or probe an existing service.
 
+Overall success is printed only after child cleanup and removal of this smoke
+run's owned temporary directory. Inno's uninstaller can briefly retain a
+self-cleanup file after exiting. Only Windows sharing violation 32 is retried:
+up to 81 cleanup attempts with 0.25 seconds between attempts (20 seconds of
+waiting). Other errors and retry exhaustion fail the smoke; no cleanup errors
+are ignored and no paths outside that owned directory are removed. These
+cleanup retries do not replace or relax any data-preservation check.
+
 The separate pinned v1.1.1 checkout seeds synthetic device/settings/history,
 password and encrypted notification data through its own Store/Auth code;
 commit, imported version and module locations are checked. No old server runs.

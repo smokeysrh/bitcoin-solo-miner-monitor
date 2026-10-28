@@ -24,6 +24,28 @@ from urllib.request import urlopen
 DISCOVERY_PORTS = (80, 4028, 8332, 2019, 3334, 3006)
 LEGACY_COMMIT = "5674faad417911c92c526ebf5bf78a57b09ed1af"
 NATIVE_DIAGNOSTIC_LIMIT = 4096
+WINDOWS_SHARING_VIOLATION = 32
+CLEANUP_ATTEMPTS = 81
+CLEANUP_RETRY_DELAY = 0.25  # At most 20 seconds of waiting for Inno self-cleanup.
+
+
+@contextlib.contextmanager
+def owned_temp_directory():
+    directory = tempfile.TemporaryDirectory(prefix="bsmm-native-")
+    try:
+        yield Path(directory.name)
+    finally:
+        for attempt in range(CLEANUP_ATTEMPTS):
+            try:
+                directory.cleanup()
+                break
+            except OSError as error:
+                # Only retry sharing violations on this run's exact owned root.
+                # Uninstaller exit can precede release of its self-cleanup file.
+                if (sys.platform != "win32" or getattr(error, "winerror", None) != WINDOWS_SHARING_VIOLATION
+                        or attempt == CLEANUP_ATTEMPTS - 1):
+                    raise
+                time.sleep(CLEANUP_RETRY_DELAY)
 
 
 def native_check(exe: str, installer: Path, version: str, env: dict[str, str]) -> None:
@@ -283,7 +305,7 @@ def data_upgrade(command: list[str], root: Path, version: str, installer: Path |
             run([*command, "stop"], env)
 
 
-def smoke(command: list[str], root: Path, version: str, installer: Path | None, legacy_source: Path) -> None:
+def smoke(command: list[str], root: Path, version: str, installer: Path | None, legacy_source: Path) -> dict:
     data = root / "data"
     env = isolated_env(root, data)
     chosen = port()
@@ -371,10 +393,10 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
             cold_setup(cold_command, root / "cold-setup", version)
         data_upgrade(cold_command, root / "legacy-upgrade", version, installer, legacy_source)
         assert sentinel.poll() is None
-        print(json.dumps({"ok": True, "platform": sys.platform, "version": version,
-                          "checks": ["version", "assets", "repeat-start", "safe-stop", "stale-pid", "failed-start",
-                                     "cold-setup-json", "v1.1.1-data-upgrade"],
-                          "installer": installer is not None}))
+        return {"ok": True, "platform": sys.platform, "version": version,
+                "checks": ["version", "assets", "repeat-start", "safe-stop", "stale-pid", "failed-start",
+                           "cold-setup-json", "v1.1.1-data-upgrade"],
+                "installer": installer is not None}
     finally:
         # Always request cooperative cleanup of only the instance in our data dir.
         if Path(command[0]).exists():
@@ -385,15 +407,20 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
         sentinel.wait(timeout=10)
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path)
     parser.add_argument("--installer", type=Path)
     parser.add_argument("--legacy-source", type=Path, required=True,
                         help="Separate clean checkout of pinned v1.1.1 source (not an old Windows installer)")
     parser.add_argument("--expected-version", required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     command = [str(args.exe.resolve())] if args.exe else [sys.executable, "-m", "bsmm"]
-    with tempfile.TemporaryDirectory(prefix="bsmm-native-") as folder:
-        smoke(command, Path(folder), args.expected_version, args.installer.resolve() if args.installer else None,
-              args.legacy_source.resolve())
+    with owned_temp_directory() as folder:
+        result = smoke(command, folder, args.expected_version, args.installer.resolve() if args.installer else None,
+                       args.legacy_source.resolve())
+    print(json.dumps({**result, "temporary_directory_removed": True}), flush=True)
+
+
+if __name__ == "__main__":
+    main()
