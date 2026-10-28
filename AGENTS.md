@@ -69,7 +69,7 @@ docs/                architecture, audit, packaging notes
 
 ```bash
 uv sync --extra dev                      # Python env in .venv (3.11+)
-.venv/bin/python -m pytest               # backend tests (~800); live-hardware tests need BSMM_LIVE=1
+.venv/bin/python -m pytest               # backend tests; live-hardware tests need BSMM_LIVE=1
 .venv/bin/ruff check src tests           # lint
 .venv/bin/mypy                           # strict types over src/
 
@@ -129,7 +129,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - `installer/windows/smoke.py` requires `--legacy-source` pointing to a separate clean checkout of immutable v1.1.1 commit `5674faad417911c92c526ebf5bf78a57b09ed1af`. `legacy_seed.py` uses that checkout's verified Store/Auth imports without starting an old server. The installed candidate must be the first candidate executable to open those data; compare logical records and exact credential preservation, not database-file bytes across schema migration. The native smoke also requires actual frozen cold `setup --yes --json` in empty owned data, literal loopback CIDR and owned discovery ports; refuse rather than contacting an installed service when a port is unavailable, and never log setup token output. This is v1.1.1 data-upgrade acceptance, not an old Windows-installer upgrade or v0.9.3 GUI/history migration.
 - Windows CI derives isolated build/cache paths from runtime `RUNNER_TEMP` in the first PowerShell step and writes `GITHUB_ENV` before tools run. Do not use `runner.temp` in job-level `env`. Run real actionlint against every workflow; syntax/string tests alone do not validate GitHub expression contexts.
 - Browser tests/screenshots pass `web/scripts/demo-preflight.mjs` before fixture access. Use an owned loopback `--demo --offline` backend and matching BASE / BSMM_DEV_API. `npm run shots` uses the guarded generator; `-- --list` needs no browser. Default output is disposable `web/test-results/screenshots`, not documentation.
-- This v1.1.2 candidate includes the legacy notification-secret repair and Windows cold-setup/v1.1.1-data-upgrade acceptance source. README screenshots show the current simulated fleet, not hardware measurements. Independent integrated review, exact-byte public-copy review, native Windows build/install/cold setup/upgrade, immutable tag, release assets and download verification remain separate gates. Linux fixture checks do not waive native port ownership or prove installed Windows behavior. No live installation or hardware proof follows from fixtures.
+- v1.1.2 includes the legacy notification-secret repair and Windows cold-setup/v1.1.1-data-upgrade acceptance source. README screenshots show the current simulated fleet, not hardware measurements. Release requires independent integrated review, exact-byte public-copy review, native Windows build/install/cold setup and v1.1.1 old-data-upgrade proof, plus verification of the immutable release tag, assets and downloads. Linux fixture checks do not waive native port ownership or prove installed Windows behavior. No live installation or hardware proof follows from fixtures.
 
 ### Startup alert baseline and history projection
 

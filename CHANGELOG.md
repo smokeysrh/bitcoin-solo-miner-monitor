@@ -5,15 +5,15 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.2] - Unreleased
+## [1.1.2] - 2026-10-28
 
-Local candidate: the repairs and platform additions below await independent review, native Windows acceptance and release verification.
+This targeted release repairs storage, miner controls, monitoring, alerts, authentication, dashboard behavior and platform tooling, and includes a rebuilt Windows installer.
 
 ### Added
 - **Next 10 minutes** block odds: a fixed 600-second probability window (`ten_minutes`) alongside day, month and year estimates. The next network block can arrive at any time.
 - A rebuilt native Windows installer for the v1.1.x app. Preserve v0.9.x data; `bsmm migrate-legacy` imports miner connection records while historical telemetry remains in the old installation.
 
-### Repairs planned for this release
+### Fixed
 The repair set covers 48 distinct audited defects, grouped below.
 - **Storage and controls:** keep concurrent database writes in their own transactions. Reject conflicting miner identities and invalid edits without disturbing the saved device. Queue controls per miner, validate previews, finish pending samples at shutdown and keep removed history from reappearing.
 - **Monitoring:** show zero when a miner stops hashing, use fresh fallback sources and refresh device-reported difficulty. Retry incomplete block reads. Calculate history averages from valid samples and use retained rollups for older ranges.
