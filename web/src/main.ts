@@ -29,7 +29,10 @@ app.mount('#app')
 
 // Installable app + instant repeat loads. Never caches API calls (see public/sw.js).
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
+  const register = () => {
     navigator.serviceWorker.register('/sw.js').catch(() => undefined)
-  })
+  }
+  // Async bootstrap may finish after load has already fired.
+  if (document.readyState === 'complete') register()
+  else window.addEventListener('load', register, { once: true })
 }
