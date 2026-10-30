@@ -28,14 +28,18 @@ const extraPorts = ref('')
 const job = ref<DiscoveryJob | null>(null)
 const starting = ref(false)
 const error = ref<string | null>(null)
+const statusError = ref<string | null>(null)
+const refreshing = ref(false)
 const selected = ref<Set<string>>(new Set())
 const adopting = ref(false)
 const addingSource = ref<string | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
 let preselected = false
+let unmounted = false
+const POLL_INTERVAL_MS = 1000
 
 const running = computed(() => job.value?.status === 'running')
-const finished = computed(() => job.value && job.value.status !== 'running')
+const finished = computed(() => !statusError.value && job.value?.status === 'finished')
 
 function isNew(m: MinerCandidate): boolean {
   return !m.already_added && !m.duplicate_of
@@ -50,9 +54,10 @@ onMounted(async () => {
   } catch {
     /* the server picks sensible defaults when no range is sent */
   }
-  if (props.autoStart) void start()
+  if (props.autoStart && !unmounted) void start()
 })
 onBeforeUnmount(() => {
+  unmounted = true
   stopPolling()
   if (job.value?.status === 'running') void api.cancelDiscovery(job.value.id).catch(() => undefined)
 })
@@ -71,6 +76,7 @@ function parseList(text: string): string[] {
 
 async function start(): Promise<void> {
   error.value = null
+  statusError.value = null
   starting.value = true
   preselected = false
   selected.value = new Set()
@@ -79,9 +85,14 @@ async function start(): Promise<void> {
     const ports = parseList(extraPorts.value)
       .map(Number)
       .filter((n) => Number.isInteger(n) && n > 0 && n < 65536)
-    job.value = await api.startDiscovery({ cidrs: cidrs.length ? cidrs : undefined, ports: ports.length ? ports : undefined, include_sources: true })
+    const started = await api.startDiscovery({ cidrs: cidrs.length ? cidrs : undefined, ports: ports.length ? ports : undefined, include_sources: true })
+    if (unmounted) {
+      if (started.status === 'running') void api.cancelDiscovery(started.id).catch((e) => console.warn('Could not stop discovery after closing the panel', describeError(e)))
+      return
+    }
+    job.value = started
     stopPolling()
-    timer = setInterval(() => void refresh(), 1000)
+    if (running.value) timer = setInterval(() => void refresh(), POLL_INTERVAL_MS)
   } catch (e) {
     error.value = describeError(e)
   } finally {
@@ -90,13 +101,21 @@ async function start(): Promise<void> {
 }
 
 async function refresh(): Promise<void> {
-  if (!job.value) return
+  if (!job.value || refreshing.value || unmounted) return
+  const id = job.value.id
+  refreshing.value = true
   try {
-    job.value = await api.discovery(job.value.id)
+    const latest = await api.discovery(id)
+    if (unmounted || job.value?.id !== id) return
+    job.value = latest
+    statusError.value = null
   } catch (e) {
-    error.value = describeError(e)
+    if (unmounted || job.value?.id !== id) return
+    statusError.value = describeError(e)
     stopPolling()
     return
+  } finally {
+    refreshing.value = false
   }
   if (job.value.status !== 'running') {
     stopPolling()
@@ -104,6 +123,8 @@ async function refresh(): Promise<void> {
       preselected = true
       selected.value = new Set(newMiners.value.map((m) => m.key))
     }
+  } else if (!timer) {
+    timer = setInterval(() => void refresh(), POLL_INTERVAL_MS)
   }
 }
 
@@ -199,7 +220,8 @@ const kindLabel: Record<string, string> = { bitcoin_core: 'Bitcoin Core node', p
       <div class="rounded-2xl border border-line bg-surface-2/60 p-4">
         <div class="mb-3 flex items-center justify-between gap-3">
           <p class="text-sm font-medium text-fg" aria-live="polite">
-            <template v-if="running">Scanning… {{ job.miners.length }} miner{{ job.miners.length === 1 ? '' : 's' }} found so far</template>
+            <template v-if="statusError">Scan status unknown</template>
+            <template v-else-if="running">Scanning… {{ job.miners.length }} miner{{ job.miners.length === 1 ? '' : 's' }} found so far</template>
             <template v-else-if="job.status === 'finished'">Scan finished: {{ job.miners.length }} miner{{ job.miners.length === 1 ? '' : 's' }} found</template>
             <template v-else-if="job.status === 'cancelled'">Scan stopped</template>
             <template v-else>The scan failed</template>
@@ -210,10 +232,15 @@ const kindLabel: Record<string, string> = { bitcoin_core: 'Bitcoin Core node', p
             Scan again
           </Button>
         </div>
-        <ProgressBar :value="job.progress" label="Scan progress" />
+        <div v-if="statusError" class="mb-3 space-y-2">
+          <p class="text-sm text-bad" role="alert">Could not refresh scan status: {{ statusError }}</p>
+          <p class="text-sm text-muted">Showing the last known progress and results. The scan may still be running.</p>
+          <Button size="sm" :loading="refreshing" @click="refresh">Retry status</Button>
+        </div>
+        <ProgressBar :value="job.progress" :label="statusError ? 'Last known scan progress' : 'Scan progress'" />
         <p class="mt-2 text-xs text-subtle">
           {{ job.scanned_hosts }} of {{ job.total_hosts || '…' }} addresses checked · {{ job.cidrs.join(', ') }}
-          <span v-if="running" class="capitalize"> · {{ job.phase }}</span>
+          <span v-if="running && !statusError" class="capitalize"> · {{ job.phase }}</span>
         </p>
         <p v-if="job.error" class="mt-2 text-sm text-bad" role="alert">{{ job.error }}</p>
       </div>
