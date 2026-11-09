@@ -194,6 +194,8 @@ def _v2() -> str:
 
 #: (version, script). Never edit a released migration; append a new one.
 MIGRATIONS: list[tuple[int, str]] = [(1, _v1()), (2, _v2())]
+#: Highest schema this build understands; a database above it is refused, never downgraded.
+SUPPORTED_SCHEMA_VERSION = MIGRATIONS[-1][0]
 
 
 class Database:
@@ -210,6 +212,20 @@ class Database:
             Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = await aiosqlite.connect(self.path)
         self._conn.row_factory = sqlite3.Row
+        try:
+            # Before the first write (journal mode changes the file): never touch a newer database.
+            found = await self.schema_version()
+            if found > SUPPORTED_SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"This database was written by a newer Solo Miner Monitor (schema {found}; this version "
+                    f"understands up to {SUPPORTED_SCHEMA_VERSION}). Nothing was changed. Reinstall the "
+                    f"matching newer version, or restore the backup you made before upgrading."
+                )
+        except BaseException:
+            # Plain close: Database.close() runs PRAGMA optimize, which can write.
+            await self._conn.close()
+            self._conn = None
+            raise
         await self._conn.execute("PRAGMA journal_mode=WAL")
         await self._conn.execute("PRAGMA synchronous=NORMAL")
         await self._conn.execute("PRAGMA foreign_keys=ON")
