@@ -153,10 +153,12 @@ def build_summary(runtimes: list[DeviceRuntime], settings: Settings, *, demo: bo
             expected += t.hashrate_expected_hs
             expected_actual += hr_s
             have_expected = True
-        if t.power_w:
+        if t.power_w is None:
+            s.devices_without_power += 1
+        else:
             power += t.power_w
             have_power = True
-            if hr_s > 0:
+            if t.power_w and hr_s > 0:
                 eff_power += t.power_w
                 eff_hash += hr_s
         if t.temp_asic_c is not None:

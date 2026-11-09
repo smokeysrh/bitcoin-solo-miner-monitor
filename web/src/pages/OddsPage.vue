@@ -136,6 +136,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               { label: 'Payout vs. cost', value: o.economics.ev_to_cost_ratio != null ? `${(o.economics.ev_to_cost_ratio * 100).toFixed(0)}%` : '–', tone: (o.economics.ev_to_cost_ratio ?? 0) >= 1 ? 'ok' : 'warn' },
               { label: 'Break-even Bitcoin price', value: o.economics.break_even_btc_price ? fmt.money(o.economics.break_even_btc_price, 0) : '–' },
             ]" />
+            <p v-if="o.economics.cost_note" class="mt-4 text-xs leading-relaxed text-warn" data-testid="odds-cost-note">{{ o.economics.cost_note }}</p>
             <p class="mt-4 text-xs leading-relaxed text-subtle">
               “Expected payout” is an average over many lifetimes: you will almost certainly receive nothing, and very rarely a whole block ({{ o.economics.block_reward_btc }} BTC) at once.
               Electricity price: {{ fmt.money(o.economics.price_per_kwh, 3) }}/kWh. <RouterLink to="/settings/energy" class="text-accent-text underline underline-offset-2 hover:no-underline">Change</RouterLink>
