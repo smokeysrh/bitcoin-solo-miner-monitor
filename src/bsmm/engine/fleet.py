@@ -48,6 +48,8 @@ log = logging.getLogger(__name__)
 SMOOTHING_TAU_S = 45.0
 SPARK_POINTS = 30
 RESTART_GRACE_S = 150.0
+MONITOR_RETRY_MAX_S = 300.0
+MONITOR_RETRY_MAX_STEPS = 5
 
 _T = TypeVar("_T")
 
@@ -87,6 +89,8 @@ class DeviceRuntime:
     spark: deque[float | None] = field(default_factory=lambda: deque(maxlen=SPARK_POINTS * 3))
     last_seen_dirty: bool = False
     offline_since: float | None = None
+    #: consecutive poll iterations that failed after the miner answered (storage/event errors)
+    monitor_failures: int = 0
 
 
 @dataclass(slots=True)
@@ -473,13 +477,35 @@ class Fleet:
         steps = min(4, rt.failures - cfg.offline_after_failures)
         return min(300.0, max(cfg.offline_interval_s, base) * float(2**steps))
 
+    def _monitor_retry_delay(self, rt: DeviceRuntime) -> float:
+        """Back-off after an iteration failed for a reason other than the miner not answering."""
+        base = rt.device.poll_interval_s or self.settings.current.polling.interval_s
+        return min(MONITOR_RETRY_MAX_S, base * float(2 ** min(rt.monitor_failures - 1, MONITOR_RETRY_MAX_STEPS)))
+
+    def _note_monitor_failure(self, rt: DeviceRuntime, error: Exception) -> None:
+        """Make a failed iteration visible without touching storage or blaming the miner."""
+        log.exception("polling iteration for %s failed (attempt %d); retrying", rt.device.name, rt.monitor_failures)
+        if rt.status == DeviceStatus.OFFLINE:
+            return  # the miner's own failure is already what the user sees
+        rt.last_error = str(error) or error.__class__.__name__
+        self._set_status(rt, DeviceStatus.DEGRADED, "Readings could not be saved; trying again")
+
     async def _loop(self, rt: DeviceRuntime) -> None:
         try:
             await asyncio.sleep(random.uniform(0.0, min(4.0, self.settings.current.polling.interval_s)))
             while self._running:
                 started = time.monotonic()
-                await self._poll_once(rt)
-                delay = max(0.5, self._interval_for(rt) - (time.monotonic() - started))
+                try:
+                    await self._poll_once(rt)
+                except Exception as e:
+                    # Not a driver failure (those are handled in _poll_locked): a storage or event write
+                    # failed after the read. Keep the task alive; cancellation is not an Exception.
+                    rt.monitor_failures += 1
+                    self._note_monitor_failure(rt, e)
+                    delay = self._monitor_retry_delay(rt)
+                else:
+                    rt.monitor_failures = 0
+                    delay = max(0.5, self._interval_for(rt) - (time.monotonic() - started))
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(rt.wake.wait(), timeout=delay)
                 rt.wake.clear()
