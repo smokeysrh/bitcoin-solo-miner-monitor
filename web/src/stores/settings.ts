@@ -119,11 +119,14 @@ export const useSettings = defineStore('settings', () => {
       return
     }
     const entry: PendingSave = { change }
-    if (queue.length === 0) confirmed = data.value
+    const idle = queue.length === 0
+    if (idle) confirmed = data.value
     queue.push(entry)
     data.value = mergeSettings(data.value, change as Json)
     saving.value = true
-    const sent = tail.then(() => send(entry, started))
+    // With nothing ahead of it the request starts in this same tick (so a later `clear()` still finds it in flight);
+    // otherwise it waits for the save before it.
+    const sent = idle ? send(entry, started) : tail.then(() => send(entry, started))
     // The next save waits for this one to finish either way; its error still reaches this caller through `sent`.
     tail = sent.catch(() => undefined)
     await sent
