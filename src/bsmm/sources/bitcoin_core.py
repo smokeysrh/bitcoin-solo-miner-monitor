@@ -58,6 +58,7 @@ ALLOWED_METHODS = frozenset(
 )
 DEFAULT_PORT = 8332
 COOKIE_MAX_BYTES = 4096  # a real cookie is under 100 bytes
+_COOKIE_LINE = re.compile(r"__cookie__:\S+")  # Bitcoin Core always writes user "__cookie__", one line
 _PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{4,}")
 
 
@@ -103,9 +104,13 @@ def read_cookie_file(path: str) -> str:
     if len(data) > COOKIE_MAX_BYTES:
         raise SourceAuthError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
     try:
-        return data.decode().strip()
+        text = data.decode().strip()
     except UnicodeDecodeError as e:
         raise SourceAuthError("the RPC cookie file is not text") from e
+    if not _COOKIE_LINE.fullmatch(text):
+        # never echo the content: it may be some other secret file
+        raise SourceAuthError("the file is not a Bitcoin Core cookie file")
+    return text
 
 
 async def check_cookie_option(options: dict[str, Any]) -> None:

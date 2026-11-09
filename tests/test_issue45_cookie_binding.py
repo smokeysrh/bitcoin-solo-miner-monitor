@@ -113,3 +113,42 @@ async def test_cookie_path_survives_same_host_edit_and_can_be_resupplied(api, tm
     moved = await c.patch(source_url, json={"url": OTHER_URL, "options": {"cookie_path": str(fresh)}})
     assert moved.status_code == 200, moved.text
     assert moved.json()["source"]["options"] == {"cookie_path": str(fresh)}
+
+
+NOT_COOKIES = {
+    "login": "user:hunter2\n",
+    "multiline": COOKIE + "\nsecondline-hunter2\n",
+    "empty_token": "__cookie__:\n",
+    "spaced_token": "__cookie__:abc 123\n",
+}
+
+
+@pytest.mark.parametrize("content", NOT_COOKIES.values(), ids=NOT_COOKIES.keys())
+async def test_small_file_that_is_not_a_cookie_is_rejected_by_test_and_add(api, tmp_path, content):
+    c, _ctx, hosts = api
+    node, other = _nodes(hosts)
+    not_cookie = tmp_path / "notes.txt"
+    not_cookie.write_text(content)
+    tested = await c.post("/api/v1/sources/test", json=_body(NODE_URL, not_cookie))
+    assert tested.status_code == 200
+    assert tested.json()["ok"] is False and "cookie" in tested.json()["message"].lower()
+    assert "hunter2" not in tested.text
+    for query in ("", "?force=true"):
+        added = await c.post(f"/api/v1/sources{query}", json=_body(NODE_URL, not_cookie))
+        assert added.status_code in (400, 422), (query, added.text)
+        assert "cookie" in added.json()["error"]["message"].lower()
+        assert "hunter2" not in added.text
+    assert await _saved_sources(c) == []
+    assert node.calls == [] and other.calls == []  # nothing was sent to any node
+
+
+async def test_rpc_client_refuses_a_file_that_is_not_a_cookie(tmp_path):
+    node = FakeBitcoinCore(user="user", password="hunter2")
+    not_cookie = tmp_path / "notes.txt"
+    not_cookie.write_text("user:hunter2\n")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=node.app()), timeout=5) as client:
+        rpc = BitcoinRPC(NODE_URL, client, user=None, password=None, cookie_path=str(not_cookie))
+        with pytest.raises(SourceAuthError) as raised:
+            await rpc.call("getblockcount")
+    assert "hunter2" not in str(raised.value)
+    assert node.calls == []  # nothing was sent to the node
