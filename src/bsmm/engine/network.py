@@ -52,6 +52,7 @@ POLL_EVERY = {"demo": 15.0, "bitcoin_core": 12.0, "public_pool": 30.0, "mempool_
 PUBLIC_SOURCE_ID = "public-mempool"
 STALE_AFTER_S = 600
 BLOCK_CHECK_BATCH = 60
+REORG_WINDOW = 12  # how many recent heights keep their checked hash (the size of the recent-block list)
 
 
 class _M(BaseModel):
@@ -316,10 +317,10 @@ class NetworkService:
             st.available = st.difficulty is not None
             if "difficulty" in st.field_sources:
                 st.source = st.field_sources["difficulty"].source
-            blocks: dict[str, BlockInfo] = {}
+            blocks: dict[int, BlockInfo] = {}
             for _, s in reversed(snaps):
                 for b in s.recent_blocks:
-                    blocks[b.hash] = b
+                    blocks[b.height] = b  # one block per height: the best source's view wins, never both
             st.recent_blocks = sorted(blocks.values(), key=lambda b: -b.height)[:12]
             st.warnings = [w for _, s in snaps for w in s.warnings]
             est_pct = next((s.est_difficulty_change_pct for _, s in snaps if s.est_difficulty_change_pct is not None), None)
@@ -396,7 +397,7 @@ class NetworkService:
             marker = await self.store.kv_get("blocks.last_checked")
             if marker is None:
                 await self.store.kv_set("blocks.last_checked", st.height)
-            elif st.height > int(marker):
+            else:
                 await self._check_blocks(st, int(marker))
             return
         if st.height > old_height:
@@ -404,22 +405,88 @@ class NetworkService:
         # A failed detail read must also be retried at an unchanged tip.
         await self._check_blocks(st, old_height)
 
+    async def _lookup_block(self, height: int) -> BlockInfo | None:
+        """A block older than the recent list, from the best source that can look it up (node first)."""
+        for p in sorted(self._pollers.values(), key=lambda q: PRIORITY.get(q.source.kind, 5)):
+            if not isinstance(p.impl, DataSource):
+                continue
+            block = await p.impl.block_info(height)
+            if block is not None and (block.coinbase_addresses or block.coinbase_complete):
+                return block
+        return None
+
+    async def _revalidate_recent(self, st: NetworkState, last_checked: int) -> None:
+        """Compare already-checked recent heights with the chain as it is now (a reorganisation can replace them).
+
+        A found block that no longer sits at its height is kept as history but marked orphaned, so it is not counted;
+        it counts again if it returns. A replacement block is checked against the watched addresses. Only the
+        recent-block window is looked at; the chain is never rescanned.
+        """
+        recent = {b.height: b for b in st.recent_blocks if b.height <= last_checked}
+        if not recent:
+            return
+        for row in [*await self.store.list_blocks_found(), *await self.store.list_blocks_found(orphaned=True)]:
+            current = recent.get(row["height"])
+            if current is None or row["source"] != "chain":
+                continue  # blocks reported by devices or the demo carry no chain hash to compare
+            replaced = current.hash != row["hash"]
+            was_orphaned = bool(row["data"].get("orphaned_ts"))
+            if replaced and not was_orphaned and await self.store.set_block_orphaned(row["hash"], time.time()):
+                await self.events.emit(
+                    "block_orphaned", "A block you found was replaced", severity=Severity.WARNING,
+                    body=f"Block {row['height']:,} is no longer the block at that height. The record is kept as history "
+                         "and is not counted. This is a chain reorganisation, not a payout statement.",
+                    data={"height": row["height"], "hash": row["hash"]}, dedupe_key=f"block-orphaned:{row['hash']}",
+                )
+            elif not replaced and was_orphaned and await self.store.set_block_orphaned(row["hash"], None):
+                await self.events.emit(
+                    "block_restored", "A block you found is on the chain again", severity=Severity.INFO,
+                    data={"height": row["height"], "hash": row["hash"]}, dedupe_key=f"block-restored:{row['hash']}",
+                )
+        checked = await self._checked_hashes()
+        watch = set(self.watch_addresses())
+        for height, block in sorted(recent.items()):
+            seen = checked.get(str(height))
+            if seen is None or seen == block.hash or not (block.coinbase_addresses or block.coinbase_complete):
+                continue  # unknown, unchanged, or payout details not yet available (retried on the next look)
+            mine = sorted(watch.intersection(block.coinbase_addresses))
+            if mine:
+                await self.record_block_found(block, mine[0], source="chain")
+            await self._remember_checked(checked, height, block.hash)
+
+    async def _checked_hashes(self) -> dict[str, str]:
+        """Hash of each recently checked height, so a same-height replacement can be noticed."""
+        stored = await self.store.kv_get("blocks.checked_hashes", {})
+        return {str(k): str(v) for k, v in stored.items()} if isinstance(stored, dict) else {}
+
+    async def _remember_checked(self, checked: dict[str, str], height: int, block_hash: str) -> None:
+        checked[str(height)] = block_hash
+        keep = sorted(int(k) for k in checked)[-REORG_WINDOW:]
+        await self.store.kv_set("blocks.checked_hashes", {str(k): checked[str(k)] for k in keep})
+
     async def _check_blocks(self, st: NetworkState, old_height: int) -> None:
         last_checked = int(await self.store.kv_get("blocks.last_checked", old_height))
-        if st.height is None or st.height <= last_checked:
+        if st.height is None:
+            return
+        await self._revalidate_recent(st, last_checked)
+        if st.height <= last_checked:
             return
         watch = set(self.watch_addresses())
         by_height = {b.height: b for b in st.recent_blocks}
-        core = next((p.impl for p in self._pollers.values() if isinstance(p.impl, BitcoinCoreSource)), None)
+        checked = await self._checked_hashes()
         for h in range(last_checked + 1, min(st.height, last_checked + BLOCK_CHECK_BATCH) + 1):
             block = by_height.get(h)
-            if (block is None or not (block.coinbase_addresses or block.coinbase_complete)) and core is not None:
-                block = await core.block_info(h)
+            if block is None or not (block.coinbase_addresses or block.coinbase_complete):
+                block = await self._lookup_block(h)
             if block is None or not (block.coinbase_addresses or block.coinbase_complete):
                 log.warning("Block %s payout details unresolved; will retry without advancing the checked height", h)
                 break
             mine = sorted(watch.intersection(block.coinbase_addresses))
             if mine:
+                await self.record_block_found(block, mine[0], source="chain")
+            await self._remember_checked(checked, h, block.hash)
+            await self.store.kv_set("blocks.last_checked", h)
+
                 await self.record_block_found(block, mine[0], source="chain")
             await self.store.kv_set("blocks.last_checked", h)
 
