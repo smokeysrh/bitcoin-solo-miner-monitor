@@ -111,6 +111,33 @@ def owned_process(data: Path, record: dict[str, Any]) -> psutil.Process | None:
         raise CliError("Cannot verify the background process identity; state was retained.") from e
 
 
+def unresolved_state(data: Path, record: dict[str, Any]) -> bool:
+    """True when saved state may still name a live process this CLI cannot prove it owns.
+
+    Used after ``owned_process`` returned ``None``. Only a missing process, or a PID now held by a
+    process created at a different time, is positive absence. Query only; nothing is signalled.
+    """
+    pid: object = record.get("pid") if record else None
+    if not record:
+        try:
+            pid = int((data / "bsmm.pid").read_text(encoding="utf-8").strip())  # legacy PID-only file
+        except (OSError, ValueError):
+            return True  # unreadable or malformed: cannot tell
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return True
+    try:
+        if not psutil.pid_exists(pid):
+            return False
+        created = record.get("created")
+        if isinstance(created, int | float) and psutil.Process(pid).create_time() != created:
+            return False
+    except psutil.NoSuchProcess:
+        return False
+    except psutil.AccessDenied as e:
+        raise CliError("Cannot verify the background process identity; state was retained.") from e
+    return True
+
+
 def clear(data: Path) -> None:
     for name in ("bsmm.pid", "bsmm.ready", "bsmm.stop"):
         (data / name).unlink(missing_ok=True)

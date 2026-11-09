@@ -32,7 +32,8 @@ Persistent data is separate from the program: normally
 `%LOCALAPPDATA%\bitcoin-solo-miner-monitor`, or the selected `BSMM_DATA_DIR` /
 `--data-dir`. The database and `secret.key` belong together. Repair/reinstall and
 uninstall preserve both, including passwords and encrypted credentials. There is
-no data-purge uninstall option. A failed safe stop aborts installation/removal.
+no data-purge uninstall option. A failed safe stop (`bsmm stop --strict`, which also
+refuses state it cannot positively resolve) aborts installation/removal.
 The old v0.9 installation is not auto-deleted or auto-migrated; use the explicit
 `migrate-legacy` command if needed, after keeping its original data.
 

@@ -9,12 +9,16 @@ import sys
 from pathlib import Path
 
 
-def exe_command(port: int | None = None, data_dir: str | None = None) -> list[str]:
+def exe_command(port: int | None = None, data_dir: str | None = None, host: str | None = None, offline: bool = False) -> list[str]:
     exe = shutil.which("bsmm") if not getattr(sys, "frozen", False) else sys.executable
     base = [exe] if exe else [sys.executable, "-m", "bsmm"]
     base.append("serve")
     if port:
         base += ["--port", str(port)]
+    if host:
+        base += ["--host", host]
+    if offline:
+        base.append("--offline")
     if data_dir:
         base += ["--data-dir", data_dir]
     return base

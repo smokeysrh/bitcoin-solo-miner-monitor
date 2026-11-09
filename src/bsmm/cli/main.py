@@ -239,7 +239,10 @@ def _start(cfg: RuntimeConfig, wait: bool) -> dict[str, Any]:
 
 
 @app.command()
-def stop(data_dir: DATA = None, as_json: JSON = False) -> None:
+def stop(
+    data_dir: DATA = None, as_json: JSON = False,
+    strict: Annotated[bool, typer.Option("--strict", help="Fail unless the server is confirmed stopped or confirmed absent")] = False,
+) -> None:
     """Stop the background server started with `bsmm start`."""
     cfg = _config(data_dir)
     pidf = _pid_file(cfg)
@@ -254,6 +257,11 @@ def stop(data_dir: DATA = None, as_json: JSON = False) -> None:
             record = lifecycle.read_record(cfg.data_dir)
             proc = lifecycle.owned_process(cfg.data_dir, record)
             if proc is None:
+                if strict and lifecycle.unresolved_state(cfg.data_dir, record):
+                    raise CliError(
+                        "Cannot confirm that the server is stopped; saved state was kept and no process was stopped.",
+                        "Stop it with whatever started it (terminal, service or scheduled task), then retry.",
+                    )
                 lifecycle.clear(cfg.data_dir)
                 _emit({"stopped": False, "reason": "stale or unverified PID state removed"}, as_json, lambda d: console.print(d["reason"]))
                 return
@@ -734,7 +742,9 @@ def service_install(
     port: Annotated[int | None, typer.Option()] = None, data_dir: DATA = None,
 ) -> None:
     """Make the server start automatically (systemd user unit / launchd agent / Windows scheduled task)."""
-    cmd = svc.exe_command(port, str(data_dir) if data_dir else None)
+    # Pin the effective nonsecret settings: service managers do not inherit this terminal's environment.
+    cfg = _config(data_dir, port=port)
+    cmd = svc.exe_command(cfg.port, str(cfg.data_dir.resolve()), cfg.host, cfg.offline)
     if sys.platform.startswith("linux"):
         unit = svc.systemd_unit(cmd)
         path = svc.systemd_path()

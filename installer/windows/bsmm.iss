@@ -50,7 +50,7 @@ begin
   Exe := ExpandConstant('{app}\bsmm.exe');
   Result := True;
   if FileExists(Exe) then
-    Result := Exec(Exe, 'stop', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+    Result := Exec(Exe, 'stop --strict', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
