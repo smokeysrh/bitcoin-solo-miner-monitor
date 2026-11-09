@@ -32,6 +32,8 @@ const picked = ref<Set<string>>(new Set())
 const data = ref<HistoryResult | null>(null)
 const loading = ref(true)
 const error = ref<unknown>(null)
+const successfulQuery = ref<string | null>(null)
+const lastSuccess = ref<number | null>(null)
 let ctrl: AbortController | null = null
 
 const choices = METRIC_LIST.filter((m) => m.key !== 'online').map((m) => ({ value: m.key, label: m.label }))
@@ -40,18 +42,38 @@ watch(metric, () => {
   if (second.value && METRICS[second.value]?.kind === METRICS[metric.value]?.kind) second.value = ''
 })
 
+// Exactly what is requested; a response is only shown, labelled and exported for the query that produced it.
+const query = computed(() => ({
+  range: range.value,
+  metrics: mode.value === 'fleet' && second.value ? [metric.value, second.value] : [metric.value],
+  per_device: mode.value === 'miners',
+}))
+const queryKey = computed(() => JSON.stringify(query.value))
+
 async function load(): Promise<void> {
   ctrl?.abort()
-  ctrl = new AbortController()
+  const request = new AbortController()
+  ctrl = request
+  const key = queryKey.value
+  if (successfulQuery.value !== key) {
+    data.value = null
+    successfulQuery.value = null
+    lastSuccess.value = null
+    error.value = null
+  }
   loading.value = !data.value
   try {
-    const metrics = mode.value === 'fleet' && second.value ? [metric.value, second.value] : [metric.value]
-    data.value = await api.fleetHistory({ range: range.value, metrics, per_device: mode.value === 'miners' }, ctrl.signal)
+    const result = await api.fleetHistory(query.value, request.signal)
+    if (request.signal.aborted || ctrl !== request) return
+    data.value = result
+    successfulQuery.value = key
+    lastSuccess.value = Date.now()
     error.value = null
   } catch (e) {
-    if (!ctrl?.signal.aborted) error.value = e
+    if (request.signal.aborted || ctrl !== request) return
+    error.value = e
   } finally {
-    loading.value = false
+    if (ctrl === request) loading.value = false
   }
 }
 watch([range, metric, second, mode], () => void load(), { immediate: true })
@@ -139,6 +161,9 @@ function togglePick(id: string): void {
         <span v-if="!picked.size" class="self-center text-xs text-subtle">Showing all. Pick some to narrow it down.</span>
       </div>
 
+      <p v-if="error && data && lastSuccess" class="mb-2 text-sm text-warn" role="status">
+        Chart is stale. Last updated: {{ new Date(lastSuccess).toLocaleString() }}.
+      </p>
       <Skeleton v-if="loading" class="h-[420px] w-full rounded-xl" />
       <ErrorState v-else-if="error && !data" compact :error="error" title="Could not load history" @retry="load" />
       <EmptyState v-else-if="!hasData" compact :icon="ChartLine" title="No data for this range yet" description="History builds up while the app runs. Try a shorter range." />
