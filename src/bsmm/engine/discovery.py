@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -360,15 +361,17 @@ class DiscoveryService:
                 for res in (await probe_host(h, client=self.http, timeout=3.0))[:1]:
                     for v in lost:
                         if res.info.identity_key == _identity_of(v) and v.host != h:
-                            rt = self.fleet.runtimes[v.id]
-                            old = rt.device.host
-                            rt.device.host, rt.device.port = h, res.info.port
-                            if old not in rt.device.alt_hosts:
-                                rt.device.alt_hosts.append(old)
-                            await self.store.save_device(rt.device)
-                            rt.driver = None
-                            rt.wake.set()
-                            await self.events.emit("device_moved", f"{v.name} moved from {old} to {h}", severity=Severity.INFO,
+                            identity = res.info.identity_key
+                            try:
+                                moved_to = await self.fleet.relocate_endpoint(
+                                    v.id, h, res.info.port, from_endpoint=(v.host, v.port),
+                                    same_miner=lambda dev, identity=identity: _identity_of(dev) == identity)
+                            except sqlite3.Error:
+                                log.warning("could not save the new address of %s; leaving it as it was", v.name, exc_info=True)
+                                continue
+                            if moved_to is None:  # removed, edited or recovered while we were scanning
+                                continue
+                            await self.events.emit("device_moved", f"{v.name} moved from {v.host} to {h}", severity=Severity.INFO,
                                                    device_id=v.id, body="Found it again by its hardware identity after a DHCP change.")
                             moved.append(v.id)
         return moved
