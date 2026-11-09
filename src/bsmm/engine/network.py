@@ -31,7 +31,7 @@ from bsmm.sources.base import (
     PoolStatus,
     SourceError,
 )
-from bsmm.sources.bitcoin_core import BitcoinCoreSource
+from bsmm.sources.bitcoin_core import BitcoinCoreSource, check_cookie_option
 from bsmm.sources.ckpool import CkpoolSource
 from bsmm.sources.demo import DemoSource
 from bsmm.sources.mempool_space import MempoolSpaceSource
@@ -191,6 +191,8 @@ class NetworkService:
             return ConnectionTest(ok=False, message=f"Unknown source type {kind!r}.")
         src = Source(id="test", kind=kind, name="test", url=url, options=options or {})
         try:
+            if kind == BitcoinCoreSource.kind:
+                await check_cookie_option(src.options)
             return await SOURCE_CLASSES[kind](src, secret, self.http).test()
         except ValueError as e:
             return ConnectionTest(ok=False, message=str(e))
@@ -202,6 +204,11 @@ class NetworkService:
             raise ValueError(f"unknown source type {kind!r}")
         src = Source(id=new_id("src"), kind=kind, name=name or SOURCE_CLASSES[kind].label, url=url, options=options or {},
                      has_secret=bool(secret))
+        if kind == BitcoinCoreSource.kind:
+            try:
+                await check_cookie_option(src.options)
+            except SourceError as e:
+                raise ValueError(str(e)) from e
         await self.store.save_source(src, secret=secret or {})
         await self.reload_sources()
         self.refresh_soon()
