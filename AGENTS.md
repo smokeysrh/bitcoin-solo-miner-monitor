@@ -110,6 +110,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - Keyboard E2E tests must wait for the mounted UI before sending shortcuts: page load can finish before API bootstrap mounts `AppShell`. For the desktop palette, wait for `open-palette`, then use real key presses and assert input focus; do not replace shortcuts with clicks or sleeps.
 - PWA startup in `web/src/main.ts` registers once after load, including when asynchronous session/settings bootstrap finishes after load has already fired. Preserve the production/browser-support gate, same-origin `/sw.js`, default scope and browser secure-context restrictions. `web/src/main.test.ts` imports the actual entrypoint with deferred startup dependencies to cover both load orderings; do not replace it with a copied registration implementation or source-text assertion.
 - Keep user-facing text plain: short sentences, no jargon without a `<Term>` explanation (`web/src/lib/glossary.ts`).
+- Command palette `results` is the one displayed order (rows grouped, best match first within a group); arrows, active descendant and Enter index it. Collapsed sidebar links keep an `sr-only` page label.
 - UI: semantic colour tokens only (`bg-surface-1`, `text-muted`, `text-accent-text`). Text must pass 4.5:1 in dark, black and light themes; run the axe audit (`web/e2e/audit.mjs`).
 - Decorative overlays must preserve text contrast: the kiosk's accent glow is dark/black-only because it lowers light-theme subtle text below 4.5:1. The phone kiosk E2E covers this with axe.
 
