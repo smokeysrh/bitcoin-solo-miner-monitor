@@ -7,6 +7,7 @@ import { useSession } from './session'
 
 type Json = Record<string, unknown>
 export type SettingsPatch = { [K in keyof Settings]?: Partial<Settings[K]> }
+interface PendingSave { change: SettingsPatch }
 const LOCAL_UI_KEY = 'bsmm.localAppearance'
 const LOCAL_FIELDS = ['theme', 'accent', 'density', 'reduce_motion', 'view_miners', 'sound_on_block', 'simple_mode'] as const
 
@@ -46,11 +47,23 @@ export const useSettings = defineStore('settings', () => {
   /** true when a change could only be kept on this device (read-only session) */
   const localOnly = ref(false)
   let epoch = 0
+  /** Saves not yet answered, oldest first. They go to the server one at a time. */
+  let queue: PendingSave[] = []
+  /** The last settings the server confirmed. Only meaningful while `queue` is not empty. */
+  let confirmed: Settings | null = null
+  let tail: Promise<void> = Promise.resolve()
 
   function clear(): void {
     epoch++
+    queue = []
+    confirmed = null
     data.value = null
     saving.value = localOnly.value = false
+  }
+
+  /** What the screen shows while saves are pending: the confirmed settings with every unanswered save on top. */
+  function withPending(base: Settings): Settings {
+    return queue.reduce((acc, entry) => mergeSettings(acc, entry.change as Json), base)
   }
 
   async function load(): Promise<Settings> {
@@ -59,40 +72,61 @@ export const useSettings = defineStore('settings', () => {
     if (started !== epoch) throw new DOMException('Session ended', 'AbortError')
     const local = useSession().readOnly ? localAppearance() : {}
     localOnly.value = Object.keys(local).length > 0
-    data.value = mergeSettings(result, { ui: local })
+    const loaded = mergeSettings(result, { ui: local })
+    confirmed = loaded
+    data.value = withPending(loaded)
     return data.value
   }
 
+  /** Called once a save has an answer. Drops only that save from what is pending and keeps showing the rest. */
+  function settle(entry: PendingSave): void {
+    queue = queue.filter((item) => item !== entry)
+    if (confirmed) data.value = withPending(confirmed)
+    saving.value = queue.length > 0
+  }
+
+  async function send(entry: PendingSave, started: number): Promise<void> {
+    try {
+      if (started !== epoch) throw new DOMException('Session ended', 'AbortError')
+      const result = await api.updateSettings(entry.change as Json)
+      if (started !== epoch) throw new DOMException('Session ended', 'AbortError')
+      confirmed = result
+      localOnly.value = false
+      settle(entry)
+    } catch (e) {
+      if (started !== epoch) throw e
+      settle(entry)
+      throw e
+    }
+  }
+
   /**
-   * Optimistic update: the UI changes instantly, the server confirms, and a failure rolls everything back.
+   * Optimistic update: the UI changes instantly and the server confirms. Saves are sent one at a time, so an older
+   * answer can never replace a newer one. A failure removes only that save's change; other saves stay.
    * Appearance settings fall back to "this device only" when the session is read-only.
    */
   async function patch(change: SettingsPatch): Promise<void> {
     if (!data.value) return
     const started = epoch
-    const before = data.value
-    data.value = mergeSettings(before, change as Json)
-    saving.value = true
-    try {
-      const appearanceOnly = Object.keys(change).every((key) => key === 'ui') &&
-        Object.keys(change.ui ?? {}).every((key) => LOCAL_FIELDS.some((field) => field === key))
-      if (useSession().readOnly && appearanceOnly) {
-        // Public principals receive 401 on writes: do not attempt a forbidden request just to save a local look.
-        localStorage.setItem(LOCAL_UI_KEY, JSON.stringify({ ...localAppearance(), ...change.ui }))
-        localOnly.value = true
-        return
-      }
-      const result = await api.updateSettings(change as Json)
-      if (started !== epoch) throw new DOMException('Session ended', 'AbortError')
-      data.value = result
-      localOnly.value = false
-    } catch (e) {
-      if (started !== epoch) throw e
-      data.value = before
-      throw e
-    } finally {
-      if (started === epoch) saving.value = false
+    const appearanceOnly = Object.keys(change).every((key) => key === 'ui') &&
+      Object.keys(change.ui ?? {}).every((key) => LOCAL_FIELDS.some((field) => field === key))
+    if (useSession().readOnly && appearanceOnly) {
+      // Public principals receive 401 on writes: do not attempt a forbidden request just to save a local look.
+      localStorage.setItem(LOCAL_UI_KEY, JSON.stringify({ ...localAppearance(), ...change.ui }))
+      if (confirmed) confirmed = mergeSettings(confirmed, change as Json)
+      data.value = mergeSettings(data.value, change as Json)
+      localOnly.value = true
+      return
     }
+    const entry: PendingSave = { change }
+    if (queue.length === 0) confirmed = data.value
+    queue.push(entry)
+    data.value = mergeSettings(data.value, change as Json)
+    saving.value = true
+    const sent = tail.then(() => send(entry, started))
+    // The next save waits for this one to finish either way; its error still reaches this caller through `sent`.
+    tail = sent.catch(() => undefined)
+    await sent
   }
 
   const tempUnit = computed(() => data.value?.units.temperature ?? 'c')
