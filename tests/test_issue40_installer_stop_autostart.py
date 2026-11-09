@@ -48,7 +48,13 @@ def _stop(data: Path, *extra: str):
 
 def _forbid_signals(monkeypatch: pytest.MonkeyPatch) -> list[object]:
     calls: list[object] = []
-    monkeypatch.setattr(main.os, "kill", lambda *args: calls.append(args))
+
+    def fake_kill(pid: int, sig: int) -> None:
+        # Signal 0 is the POSIX existence probe psutil.pid_exists uses; it delivers nothing, so it is not a stop attempt.
+        if sig != 0:
+            calls.append((pid, sig))
+
+    monkeypatch.setattr(main.os, "kill", fake_kill)
     monkeypatch.setattr(main.subprocess, "run", lambda *args, **kw: calls.append(args))
     return calls
 
