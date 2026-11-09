@@ -56,7 +56,10 @@ jobs:
           $version = uv run --no-sync python installer/windows/build.py --version
           if ($LASTEXITCODE -ne 0) { throw 'Version lookup failed' }
           if ($env:EXPECTED_VERSION -and $version -ne $env:EXPECTED_VERSION) { throw 'Canonical version does not match candidate' }
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag/version mismatch' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tagVersion = uv run --no-sync python scripts/release_version.py $env:GITHUB_REF_NAME --canonical
+            if ($LASTEXITCODE -ne 0 -or $tagVersion -ne $version) { throw 'Tag/version mismatch' }
+          }
           "BSMM_BUILD_VERSION=$version" >> $env:GITHUB_ENV
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
