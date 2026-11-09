@@ -64,8 +64,9 @@ BAD_LATE_PARTS = {
 async def test_rejected_import_changes_nothing(imp, name):
     c, ctx = imp
     before = await _snapshot(ctx)
-    payload = _file(settings=GOOD_SETTINGS, channels=[GOOD_CHANNEL], sources=[GOOD_SOURCE], devices=[GOOD_DEVICE],
-                    **BAD_LATE_PARTS[name])
+    good_parts: dict[str, Any] = {"settings": GOOD_SETTINGS, "channels": [GOOD_CHANNEL],
+                                  "sources": [GOOD_SOURCE], "devices": [GOOD_DEVICE]}
+    payload = _file(**{**good_parts, **BAD_LATE_PARTS[name]})  # the bad part replaces its good counterpart
     r = await c.post("/api/v1/system/import", json=payload)
     assert r.status_code in (400, 422), r.text
     assert await _snapshot(ctx) == before
