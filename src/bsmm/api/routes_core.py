@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import shutil
+import sqlite3
 import sys
 import tempfile
 import time
@@ -22,13 +24,16 @@ from bsmm.api.errors import ApiError, bad_request, not_found
 from bsmm.api.routes_alerts import _check_kind, _split_fields
 from bsmm.auth import COOKIE_NAME, SESSION_TTL_S, Principal
 from bsmm.context import AppContext
+from bsmm.engine.alerts import validate_rule
 from bsmm.engine.insights import build_insights, dismiss
+from bsmm.engine.network import SOURCE_CLASSES
 from bsmm.models import AlertRule, Channel, Device, Source
 from bsmm.net import local_ipv4_networks
-from bsmm.settings import Settings
+from bsmm.settings import KEY, Settings, deep_merge
 from bsmm.updates import check_for_update
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------------------------------ meta / health
@@ -189,48 +194,74 @@ class ImportBody(BaseModel):
     sources: list[dict[str, Any]] = Field(default_factory=list)
 
 
-@router.post("/system/import", tags=["system"], operation_id="importConfig", summary="Import a config export (merges; never overwrites existing miners)")
+@router.post("/system/import", tags=["system"], operation_id="importConfig", summary="Import a config export (merges; never overwrites existing miners)",
+             description="All or nothing: the whole file is checked first and saved in one step, so a rejected import changes nothing.")
 async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     if body.format != "bsmm-config-v1":
         raise bad_request("This is not a config export from this app.", "Use a file produced by GET /api/v1/system/export.")
-    # Validate the whole channel list before any import writes. Credentials are not imported.
+    # Check every part of the file before any write. Credentials are not imported.
     channels = [Channel.model_validate(raw) for raw in body.channels]
     for ch in channels:
         _check_kind(ch.kind)
         ch.config, _secrets = _split_fields(ch.kind, ch.config, {})
         ch.has_secret = False
-    added = {"devices": 0, "rules": 0, "channels": 0, "sources": 0}
-    if body.settings:
-        await ctx.settings.update({k: v for k, v in body.settings.items() if k != "auth"})
+    settings_patch = {k: v for k, v in (body.settings or {}).items() if k != "auth"}
+    new_settings = Settings.model_validate(deep_merge(ctx.settings.current.model_dump(), settings_patch)) if settings_patch else None
+    devices = [Device.model_validate(raw) for raw in body.devices]
+    rules = [AlertRule.model_validate(raw) for raw in body.rules]
+    for rule in rules:
+        try:
+            validate_rule(rule)  # the same checks as creating a rule by hand
+        except ValueError as e:
+            raise bad_request(f"Alert rule {rule.name!r}: {e}") from e
+    sources = [Source.model_validate(raw) for raw in body.sources]
+    for src in sources:
+        if src.kind not in SOURCE_CLASSES or src.kind == "demo":
+            raise bad_request(f"Unknown source type {src.kind!r}.", "Valid: " + ", ".join(k for k in SOURCE_CLASSES if k != "demo"))
     from bsmm.drivers.registry import device_info
 
-    for raw in body.devices:
-        dev = Device.model_validate(raw)
-        if await ctx.store.find_device(device_info(dev)):
-            continue
-        await ctx.store.save_device(dev, create=True)
-        ctx.fleet._spawn(dev)
-        added["devices"] += 1
-    existing_rules = {r.id for r in await ctx.store.list_rules()}
-    for raw in body.rules:
-        rule = AlertRule.model_validate(raw)
-        if rule.id not in existing_rules:
-            await ctx.store.save_rule(rule)
-            added["rules"] += 1
-    existing_ch = {c.id for c in await ctx.store.list_channels()}
-    for ch in channels:
-        if ch.id not in existing_ch:
-            ch.enabled = False  # it has no secret yet, so it cannot work until the user re-enters it
-            await ctx.store.save_channel(ch, secret={})
-            added["channels"] += 1
-    existing_src = {s.id for s in await ctx.store.list_sources()}
-    for raw in body.sources:
-        src = Source.model_validate(raw)
-        if src.id not in existing_src:
-            src.enabled = False
-            await ctx.store.save_source(src, secret={})
-            added["sources"] += 1
-    await ctx.network.reload_sources()
+    added = {"devices": 0, "rules": 0, "channels": 0, "sources": 0}
+    new_devices: list[Device] = []
+    try:
+        async with ctx.store.db.tx():  # one commit: a failure anywhere below rolls back every write
+            if new_settings is not None:
+                await ctx.store.kv_set(KEY, new_settings.model_dump())
+            for dev in devices:
+                if await ctx.store.find_device(device_info(dev)):
+                    continue
+                await ctx.store.save_device(dev, create=True)
+                new_devices.append(dev)
+            existing_rules = {r.id for r in await ctx.store.list_rules()}
+            for rule in rules:
+                if rule.id not in existing_rules:
+                    await ctx.store.save_rule(rule)
+                    added["rules"] += 1
+            existing_ch = {c.id for c in await ctx.store.list_channels()}
+            for ch in channels:
+                if ch.id not in existing_ch:
+                    ch.enabled = False  # it has no secret yet, so it cannot work until the user re-enters it
+                    await ctx.store.save_channel(ch, secret={})
+                    added["channels"] += 1
+            existing_src = {s.id for s in await ctx.store.list_sources()}
+            for src in sources:
+                if src.id not in existing_src:
+                    src.enabled = False
+                    await ctx.store.save_source(src, secret={})
+                    added["sources"] += 1
+    except sqlite3.IntegrityError as e:
+        raise bad_request("Two miners in this file share an id or an address.", "Nothing was imported. Fix the file and try again.") from e
+    added["devices"] = len(new_devices)
+    # Saved. Only now touch the running monitor; that part cannot be undone by the database.
+    try:
+        for dev in new_devices:
+            ctx.fleet.adopt(dev)
+        if new_settings is not None:
+            await ctx.settings.update(settings_patch)  # same values as saved above; refreshes the cache and listeners
+        await ctx.network.reload_sources()
+    except Exception as e:
+        log.exception("Config import was saved but the running monitor could not refresh")
+        raise ApiError(500, "import_refresh_failed", "The import was saved, but the running monitor could not pick it up.",
+                       "Restart the app: saved miners, settings and sources load on start. Do not import again.", {"added": added}) from e
     return {"ok": True, "added": added, "note": "Channels and sources arrive switched off: re-enter their secrets, then enable them."}
 
 
