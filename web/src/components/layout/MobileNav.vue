@@ -28,7 +28,7 @@ function go(path: string): void {
     class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface-1/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
     aria-label="Main navigation"
   >
-    <ul class="mx-auto grid max-w-lg grid-cols-5">
+    <ul class="mx-auto grid max-w-lg grid-cols-6">
       <li v-for="item in primary" :key="item.name">
         <RouterLink :to="item.to" custom v-slot="{ href, navigate, isActive, isExactActive }">
           <a
@@ -49,6 +49,16 @@ function go(path: string): void {
               {{ live.alerts.length }}
             </span>
           </a>
+        </RouterLink>
+      </li>
+      <li>
+        <RouterLink
+          to="/kiosk"
+          class="flex h-16 flex-col items-center justify-center gap-1 px-0.5 text-center text-[11px] leading-tight font-medium text-subtle"
+          data-testid="mobile-open-kiosk"
+        >
+          <Tv class="size-5" aria-hidden="true" />
+          Wall display
         </RouterLink>
       </li>
       <li>
