@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -25,6 +26,18 @@ ops_router = APIRouter()  # mounted at the root (/metrics, /llms.txt)
 
 
 # ------------------------------------------------------------------------------------------ metrics
+
+#: A reading counts as current for this many poll periods (at least MIN_FRESH_S seconds).
+FRESH_POLL_PERIODS = 3
+MIN_FRESH_S = 30.0
+#: Statuses whose retained telemetry is not a current reading.
+_NO_CURRENT_READING = frozenset({DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.DISABLED})
+#: Cumulative or best-ever values stay exposed with the last observation time rather than being hidden.
+_HISTORICAL_METRICS = frozenset({
+    "bsmm_device_shares_accepted_total",
+    "bsmm_device_shares_rejected_total",
+    "bsmm_device_best_share_difficulty",
+})
 
 
 def _esc(v: str) -> str:
@@ -60,9 +73,30 @@ async def render_metrics(ctx: AppContext) -> str:
     metric("bsmm_fleet_efficiency_joules_per_terahash", "Fleet efficiency (lower is better)")
     sample("bsmm_fleet_efficiency_joules_per_terahash", summary.efficiency_j_th)
 
+    now = time.time()
+    default_interval_s = ctx.settings.current.polling.interval_s
+
+    def is_fresh(v: DeviceView) -> bool:
+        """A reading is current only for an enabled miner that has answered within a few poll periods."""
+        t = v.telemetry
+        if t is None or v.status in _NO_CURRENT_READING:
+            return False
+        return now - t.ts <= max(MIN_FRESH_S, FRESH_POLL_PERIODS * (v.poll_interval_s or default_interval_s))
+
+    fresh = {v.id: is_fresh(v) for v in views}
+    metric("bsmm_device_up", "1 if the miner is enabled and answered a poll recently; 0 if unknown, disabled, offline or silent")
+    for v in views:
+        sample("bsmm_device_up", 1 if fresh[v.id] else 0, device=v.id, name=v.name, model=v.display_model)
+    metric("bsmm_device_enabled", "1 if polling of the miner is switched on")
+    for v in views:
+        sample("bsmm_device_enabled", 1 if v.enabled else 0, device=v.id, name=v.name, model=v.display_model)
+    metric("bsmm_device_last_observation_timestamp_seconds", "Unix time of the last successful reading; absent if never read")
+    for v in views:
+        sample("bsmm_device_last_observation_timestamp_seconds", v.telemetry.ts if v.telemetry else None,
+               device=v.id, name=v.name, model=v.display_model)
+
     per: list[tuple[str, str, Callable[[DeviceView, Telemetry | None], float | None], str]] = [
-        ("bsmm_device_up", "1 if the miner answered its last poll", lambda v, t: 0 if v.status == DeviceStatus.OFFLINE else 1, "gauge"),
-        ("bsmm_device_hashrate_hashes_per_second", "Smoothed hashrate", lambda v, t: v.hashrate_smooth_hs, "gauge"),
+        ("bsmm_device_hashrate_hashes_per_second", "Smoothed hashrate (absent unless the reading is current)", lambda v, t: v.hashrate_smooth_hs if t else None, "gauge"),
         ("bsmm_device_power_watts", "Power draw", lambda v, t: t.power_w if t else None, "gauge"),
         ("bsmm_device_efficiency_joules_per_terahash", "Efficiency", lambda v, t: t.efficiency_j_th if t else None, "gauge"),
         ("bsmm_device_temperature_asic_celsius", "ASIC temperature", lambda v, t: t.temp_asic_c if t else None, "gauge"),
@@ -78,7 +112,8 @@ async def render_metrics(ctx: AppContext) -> str:
     for name, help_, fn, kind in per:
         metric(name, help_, kind)
         for v in views:
-            sample(name, fn(v, v.telemetry), device=v.id, name=v.name, model=v.display_model)
+            reading = v.telemetry if fresh[v.id] or name in _HISTORICAL_METRICS else None
+            sample(name, fn(v, reading), device=v.id, name=v.name, model=v.display_model)
 
     n = ctx.network.state
     metric("bsmm_network_block_height", "Current block height")
