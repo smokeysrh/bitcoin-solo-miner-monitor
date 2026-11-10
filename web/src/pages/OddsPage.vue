@@ -29,20 +29,24 @@ const o = computed<OddsAvailable | null>(() => (shown.value?.available ? shown.v
 
 async function run(): Promise<void> {
   ctrl?.abort()
-  ctrl = new AbortController()
+  const request = new AbortController()
+  ctrl = request
   try {
-    result.value = await api.odds(
+    const answer = await api.odds(
       {
         hashrate_ths: whatIf.ths ?? undefined,
         difficulty: whatIf.difficulty ?? undefined,
         power_w: whatIf.power ?? undefined,
         growth: whatIf.growth !== null ? whatIf.growth / 100 : undefined,
       },
-      ctrl.signal,
+      request.signal,
     )
+    if (request.signal.aborted || ctrl !== request) return
+    result.value = answer
     error.value = null
   } catch (e) {
-    if (!ctrl?.signal.aborted) error.value = describeError(e)
+    if (request.signal.aborted || ctrl !== request) return
+    error.value = describeError(e)
   }
 }
 watch(whatIf, () => {
@@ -63,8 +67,13 @@ function bumpDifficulty(f: number): void {
   if (d) whatIf.difficulty = Math.round(d * f)
 }
 function reset(): void {
+  if (timer) clearTimeout(timer)
+  timer = null
+  ctrl?.abort()
+  ctrl = null
   Object.assign(whatIf, { ths: null, difficulty: null, power: null, growth: null })
   result.value = null
+  error.value = null
 }
 
 const HORIZONS: [HorizonKey, string][] = [

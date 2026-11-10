@@ -48,6 +48,8 @@ log = logging.getLogger(__name__)
 SMOOTHING_TAU_S = 45.0
 SPARK_POINTS = 30
 RESTART_GRACE_S = 150.0
+#: Most unsaved sample rows kept in memory while storage is failing (a few MB; hours for a home fleet).
+MAX_PENDING_SAMPLES = 10_000
 
 _T = TypeVar("_T")
 
@@ -218,6 +220,9 @@ class Fleet:
         self.runtimes: dict[str, DeviceRuntime] = {}
         self._sem = asyncio.Semaphore(settings.current.polling.concurrency)
         self._pending: list[dict[str, Any]] = []
+        self._sample_write_failing = False
+        self._samples_dropped = 0
+        self._dropped_ts: tuple[int, int] | None = None
         self._sample_lock = asyncio.Lock()
         self._bg: list[asyncio.Task[None]] = []
         self._running = False
@@ -540,6 +545,7 @@ class Fleet:
         if rt.failures >= cfg.offline_after_failures or restarting:
             # one row per failed poll lets availability be computed later
             self._pending.append(telemetry_to_row(rt.device.id, Telemetry(ts=now, online=False)))
+            self._bound_pending()
         self.bus.publish("device", {"id": rt.device.id, "view": self.view(rt.device.id).model_dump(mode="json")})  # type: ignore[union-attr]
 
     async def _on_success(self, rt: DeviceRuntime, t: Telemetry) -> None:
@@ -562,6 +568,7 @@ class Fleet:
         self._smooth(rt, t, prev, now)
         self._accumulate_work(rt, t, prev, now)
         self._pending.append(telemetry_to_row(rt.device.id, t))
+        self._bound_pending()
 
         status, reason = derive_status(t, self.settings.current)
         if was_offline:
@@ -692,7 +699,35 @@ class Fleet:
         except BaseException:
             log.exception("could not write %d samples; keeping them for the next attempt", len(rows))
             self._pending = rows + self._pending
+            self._sample_write_failing = True
+            self._bound_pending()
             raise
+        self._sample_write_failing = False
+
+    def _bound_pending(self) -> None:
+        """Keep at most MAX_PENDING_SAMPLES unsaved rows. Discard the oldest and remember the gap."""
+        excess = len(self._pending) - MAX_PENDING_SAMPLES
+        if excess <= 0:
+            return
+        stamps = [row["ts"] for row in self._pending[:excess]]
+        lo, hi = min(stamps), max(stamps)
+        if self._dropped_ts is not None:
+            lo, hi = min(lo, self._dropped_ts[0]), max(hi, self._dropped_ts[1])
+        self._dropped_ts = (lo, hi)
+        self._samples_dropped += excess
+        del self._pending[:excess]
+        log.warning("sample backlog is full; discarded the %d oldest unsaved samples", excess)
+
+    @property
+    def sample_storage(self) -> dict[str, Any]:
+        """Health of sample persistence: failing now, backlog size and any gap left by discarded samples."""
+        return {
+            "failing": self._sample_write_failing,
+            "backlog": len(self._pending),
+            "dropped": self._samples_dropped,
+            "dropped_from_ts": self._dropped_ts[0] if self._dropped_ts else None,
+            "dropped_to_ts": self._dropped_ts[1] if self._dropped_ts else None,
+        }
 
     async def _writer_loop(self) -> None:
         while self._running:

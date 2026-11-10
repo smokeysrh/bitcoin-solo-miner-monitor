@@ -7,10 +7,12 @@ import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import Switch from '@/components/ui/Switch.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { confirmDialog } from '@/composables/useConfirm'
@@ -36,16 +38,21 @@ const kinds = ref<SourceKind[]>([])
 const sources = ref<Source[]>([])
 const implicit = ref<ImplicitSource[]>([])
 const loading = ref(true)
+const loaded = ref(false)
+const loadError = ref<unknown>(null)
 
+// The two requests recover independently: a failed one never erases what the other returned or the last good list.
 async function load(): Promise<void> {
-  try {
-    const [k, s] = await Promise.all([api.sourceKinds(), api.sources()])
-    kinds.value = k
-    sources.value = s.sources
-    implicit.value = s.implicit
-  } finally {
-    loading.value = false
+  const [k, s] = await Promise.allSettled([api.sourceKinds(), api.sources()])
+  if (k.status === 'fulfilled') kinds.value = k.value
+  if (s.status === 'fulfilled') {
+    sources.value = s.value.sources
+    implicit.value = s.value.implicit
+    loaded.value = true
   }
+  const failed = [k, s].find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  loadError.value = failed ? failed.reason : null
+  loading.value = false
 }
 
 // ---- dialog
@@ -155,9 +162,11 @@ onMounted(async () => {
 
 <template>
   <SettingsCard title="Your node &amp; pool" description="Connect your own Bitcoin node or solo pool. You get private network data, pool-side statistics, and the app notices a found block immediately.">
-    <div class="mb-4 flex justify-end"><Button v-if="admin" variant="primary" size="sm" data-testid="add-source" @click="openAdd()"><template #icon><Plus class="size-4" /></template>Connect a node or pool</Button></div>
+    <div class="mb-4 flex justify-end"><Button v-if="admin" variant="primary" size="sm" data-testid="add-source" :disabled="!!loadError" @click="openAdd()"><template #icon><Plus class="size-4" /></template>Connect a node or pool</Button></div>
     <div v-if="loading" class="space-y-2"><Skeleton v-for="i in 2" :key="i" class="h-16 rounded-xl" /></div>
-    <ul v-else-if="sources.length" class="space-y-3" data-testid="source-list">
+    <ErrorState v-else-if="!loaded" compact title="Could not load your sources" :error="loadError" @retry="load" />
+    <StaleNotice v-else-if="loadError" :error="loadError" @retry="load" />
+    <ul v-if="loaded && sources.length" class="space-y-3" data-testid="source-list">
       <li v-for="s in sources" :key="s.id" class="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/50 p-4">
         <component :is="s.kind === 'bitcoin_core' ? Server : Globe" class="size-5 shrink-0 text-muted" aria-hidden="true" />
         <div class="min-w-0 flex-1 basis-56">
@@ -175,7 +184,7 @@ onMounted(async () => {
         </template>
       </li>
     </ul>
-    <EmptyState v-else compact :icon="Server" title="Nothing connected yet" description="Umbrel, Start9, RaspiBlitz, myNode and a plain Bitcoin Core all work. If you already scanned the network, we may have spotted yours.">
+    <EmptyState v-else-if="loaded" compact :icon="Server" title="Nothing connected yet" description="Umbrel, Start9, RaspiBlitz, myNode and a plain Bitcoin Core all work. If you already scanned the network, we may have spotted yours.">
       <Button v-if="admin" variant="soft" @click="openAdd()">Connect now</Button>
     </EmptyState>
   </SettingsCard>
