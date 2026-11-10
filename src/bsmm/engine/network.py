@@ -487,9 +487,6 @@ class NetworkService:
             await self._remember_checked(checked, h, block.hash)
             await self.store.kv_set("blocks.last_checked", h)
 
-                await self.record_block_found(block, mine[0], source="chain")
-            await self.store.kv_set("blocks.last_checked", h)
-
     async def record_block_found(self, block: BlockInfo, address: str | None, *, source: str, device_id: str | None = None) -> bool:
         new = await self.store.add_block_found(
             hash_=block.hash, height=block.height, ts=block.ts, device_id=device_id, address=address,
