@@ -164,10 +164,11 @@ def test_smoke_cli_wires_the_previous_installer_after_the_main_smoke(monkeypatch
     monkeypatch.setattr(smoke.tempfile, "tempdir", str(tmp_path))
     calls: list[str] = []
     monkeypatch.setattr(smoke, "smoke", lambda *a: calls.append("smoke") or {"ok": True})
+    monkeypatch.setattr(smoke, "refusal_with_live_server", lambda *a: calls.append("refusal"))  # native-only; ordered in test_issue40_native_refusal
     monkeypatch.setattr(smoke, "previous_release_upgrade", lambda *a: calls.append("previous"))
     smoke.main(["--expected-version", "1.1.3", "--legacy-source", str(tmp_path),
                 "--installer", str(tmp_path / "new.exe"), "--previous-installer", str(tmp_path / "old.exe")])
-    assert calls == ["smoke", "previous"]
+    assert calls == ["smoke", "refusal", "previous"]
 
 
 def test_previous_installer_requires_the_candidate_installer(tmp_path):
