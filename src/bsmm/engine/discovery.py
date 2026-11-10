@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -23,7 +24,7 @@ from bsmm.drivers.registry import probe_host
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
-from bsmm.models import ProbeResult, Severity, Source
+from bsmm.models import Device, ProbeResult, Severity, Source
 from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
 from bsmm.sources.base import SourceError
 from bsmm.sources.public_pool import PublicPoolSource
@@ -360,15 +361,21 @@ class DiscoveryService:
                 for res in (await probe_host(h, client=self.http, timeout=3.0))[:1]:
                     for v in lost:
                         if res.info.identity_key == _identity_of(v) and v.host != h:
-                            rt = self.fleet.runtimes[v.id]
-                            old = rt.device.host
-                            rt.device.host, rt.device.port = h, res.info.port
-                            if old not in rt.device.alt_hosts:
-                                rt.device.alt_hosts.append(old)
-                            await self.store.save_device(rt.device)
-                            rt.driver = None
-                            rt.wake.set()
-                            await self.events.emit("device_moved", f"{v.name} moved from {old} to {h}", severity=Severity.INFO,
+                            identity = res.info.identity_key
+
+                            def same_identity(dev: Device, identity: str = identity) -> bool:
+                                return _identity_of(dev) == identity
+
+                            try:
+                                moved_to = await self.fleet.relocate_endpoint(
+                                    v.id, h, res.info.port, from_endpoint=(v.host, v.port),
+                                    same_miner=same_identity)
+                            except sqlite3.Error:
+                                log.warning("could not save the new address of %s; leaving it as it was", v.name, exc_info=True)
+                                continue
+                            if moved_to is None:  # removed, edited or recovered while we were scanning
+                                continue
+                            await self.events.emit("device_moved", f"{v.name} moved from {v.host} to {h}", severity=Severity.INFO,
                                                    device_id=v.id, body="Found it again by its hardware identity after a DHCP change.")
                             moved.append(v.id)
         return moved

@@ -282,7 +282,7 @@ export const api = {
   sourceKinds: () => get<{ kinds: SourceKind[] }>('/sources/kinds').then((r) => r.kinds),
   sources: () => get<{ sources: Source[]; implicit: ImplicitSource[] }>('/sources'),
   testSource: (b: SourceBody) => post<ConnectionTest>('/sources/test', b),
-  addSource: (b: SourceBody, force = false) => post<{ source: Source; test: ConnectionTest }>('/sources', b, { force }),
+  addSource: (b: SourceBody, force = false) => post<{ source: Source; test: ConnectionTest | null }>('/sources', b, { force }),
   updateSource: (id: string, b: Partial<SourceBody>) => patch<{ source: Source }>(`/sources/${id}`, b),
   deleteSource: (id: string) => del<{ ok: boolean }>(`/sources/${id}`),
 
