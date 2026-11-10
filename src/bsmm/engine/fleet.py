@@ -489,6 +489,9 @@ class Fleet:
             return  # the miner's own failure is already what the user sees
         rt.last_error = str(error) or error.__class__.__name__
         self._set_status(rt, DeviceStatus.DEGRADED, "Readings could not be saved; trying again")
+        view = self.view(rt.device.id)
+        if view is not None:  # tiles and detail update from this topic, not from REST
+            self.bus.publish("device", {"id": rt.device.id, "view": view.model_dump(mode="json")})
 
     async def _loop(self, rt: DeviceRuntime) -> None:
         try:
@@ -504,7 +507,6 @@ class Fleet:
                     self._note_monitor_failure(rt, e)
                     delay = self._monitor_retry_delay(rt)
                 else:
-                    rt.monitor_failures = 0
                     delay = max(0.5, self._interval_for(rt) - (time.monotonic() - started))
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(rt.wake.wait(), timeout=delay)
@@ -586,14 +588,26 @@ class Fleet:
         self._pending.append(telemetry_to_row(rt.device.id, t))
 
         status, reason = derive_status(t, self.settings.current)
+        if rt.monitor_failures:
+            # An earlier iteration failed after its read. Announce status changes (recovery, back online)
+            # only once the rest of this iteration has completed, so a persistent failure cannot repeat them.
+            await self._detect_events(rt, prev, t)
+            await self._announce_status(rt, was_offline, recovered_after, status, reason)
+        else:
+            await self._announce_status(rt, was_offline, recovered_after, status, reason)
+            await self._detect_events(rt, prev, t)
+        rt.monitor_failures = 0
+        self.bus.publish("device", {"id": rt.device.id, "view": self.view(rt.device.id).model_dump(mode="json")})  # type: ignore[union-attr]
+
+    async def _announce_status(
+        self, rt: DeviceRuntime, was_offline: bool, recovered_after: float | None, status: DeviceStatus, reason: str | None,
+    ) -> None:
         if was_offline:
             await self.events.emit(
                 "device_online", f"{rt.device.name} is back online", severity=Severity.SUCCESS, device_id=rt.device.id,
                 body=f"It was unreachable for {mining_duration(recovered_after)}." if recovered_after else None,
             )
         await self._set_status_async(rt, status, reason)
-        await self._detect_events(rt, prev, t)
-        self.bus.publish("device", {"id": rt.device.id, "view": self.view(rt.device.id).model_dump(mode="json")})  # type: ignore[union-attr]
 
     def _smooth(self, rt: DeviceRuntime, t: Telemetry, prev: Telemetry | None, now: float) -> None:
         hr = t.hashrate_hs
