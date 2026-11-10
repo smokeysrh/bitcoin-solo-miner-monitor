@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { KeyRound, Plus, ShieldCheck, Trash2 } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import SettingsCard from '@/components/settings/SettingsCard.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import CodeBlock from '@/components/ui/CodeBlock.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { confirmDialog } from '@/composables/useConfirm'
 import { useFmt } from '@/composables/useFmt'
@@ -76,20 +78,28 @@ async function setPublicRead(on: boolean): Promise<void> {
 
 // ---- tokens
 const tokens = ref<ApiToken[]>([])
+const tokensLoaded = ref(false)
+const tokenListError = ref<unknown>(null)
 const tokenDialog = ref(false)
 const created = ref<CreatedToken | null>(null)
 const tokenForm = reactive<{ name: string; scope: Scope; days: number | null }>({ name: '', scope: 'read', days: null })
 const tokenBusy = ref(false)
 const tokenError = ref<string | null>(null)
 
+// A failed refresh keeps the last known list (shown as possibly out of date); it is never shown as "no tokens".
 async function loadTokens(): Promise<void> {
   try {
     tokens.value = await api.tokens()
-  } catch {
-    tokens.value = []
+    tokensLoaded.value = true
+    tokenListError.value = null
+  } catch (e) {
+    tokenListError.value = e
   }
 }
-onMounted(() => void loadTokens())
+// The inventory is admin-only: do not ask for it when the session is known not to be an admin.
+watch(admin, (isAdmin) => {
+  if (isAdmin) void loadTokens()
+}, { immediate: true })
 
 async function createToken(): Promise<void> {
   tokenError.value = null
@@ -114,6 +124,7 @@ async function revoke(t: ApiToken): Promise<void> {
   if (!(await confirmDialog({ title: `Revoke “${t.name}”?`, message: 'Anything using this token stops working immediately.', confirmLabel: 'Revoke', tone: 'danger' }))) return
   try {
     await api.deleteToken(t.id)
+    tokens.value = tokens.value.filter((x) => x.id !== t.id)
     await loadTokens()
   } catch (e) {
     toasts.error('Could not revoke it', describeError(e))
@@ -147,18 +158,23 @@ const scopeHelp: Record<Scope, string> = {
 
   <SettingsCard title="API tokens" description="Give an AI agent, a script or Home Assistant its own key instead of sharing your password. Each token has a limited power and can be revoked.">
     <div class="mb-4 flex justify-end"><Button v-if="admin" variant="secondary" size="sm" data-testid="new-token" @click="openCreate"><template #icon><Plus class="size-4" /></template>New token</Button></div>
-    <ul v-if="tokens.length" class="divide-y divide-line rounded-xl border border-line" data-testid="token-list">
-      <li v-for="t in tokens" :key="t.id" class="flex flex-wrap items-center gap-3 px-4 py-3">
-        <KeyRound class="size-4 shrink-0 text-muted" aria-hidden="true" />
-        <div class="min-w-0 flex-1 basis-48">
-          <p class="text-sm font-medium text-fg">{{ t.name }}</p>
-          <p class="text-xs text-subtle">Created {{ fmt.formatAgo(t.created_at) }} · {{ t.last_used_at ? `last used ${fmt.formatAgo(t.last_used_at)}` : 'never used' }}<template v-if="t.expires_at"> · expires {{ fmt.formatDate(t.expires_at) }}</template></p>
-        </div>
-        <Badge :tone="t.scope === 'admin' ? 'bad' : t.scope === 'control' ? 'warn' : 'info'" size="sm">{{ t.scope }}</Badge>
-        <Button v-if="admin" size="iconSm" variant="ghost" :aria-label="`Revoke ${t.name}`" @click="revoke(t)"><Trash2 class="size-4" /></Button>
-      </li>
-    </ul>
-    <EmptyState v-else compact :icon="ShieldCheck" title="No tokens yet" description="Create one when you want to connect an AI agent or a script." />
+    <p v-if="!admin" class="text-sm text-muted">Only an administrator can see or manage API tokens.</p>
+    <ErrorState v-else-if="!tokensLoaded && tokenListError" compact title="Could not load your tokens" :error="tokenListError" @retry="loadTokens" />
+    <template v-else-if="tokensLoaded">
+      <StaleNotice v-if="tokenListError" :error="tokenListError" @retry="loadTokens" />
+      <ul v-if="tokens.length" class="divide-y divide-line rounded-xl border border-line" data-testid="token-list">
+        <li v-for="t in tokens" :key="t.id" class="flex flex-wrap items-center gap-3 px-4 py-3">
+          <KeyRound class="size-4 shrink-0 text-muted" aria-hidden="true" />
+          <div class="min-w-0 flex-1 basis-48">
+            <p class="text-sm font-medium text-fg">{{ t.name }}</p>
+            <p class="text-xs text-subtle">Created {{ fmt.formatAgo(t.created_at) }} · {{ t.last_used_at ? `last used ${fmt.formatAgo(t.last_used_at)}` : 'never used' }}<template v-if="t.expires_at"> · expires {{ fmt.formatDate(t.expires_at) }}</template></p>
+          </div>
+          <Badge :tone="t.scope === 'admin' ? 'bad' : t.scope === 'control' ? 'warn' : 'info'" size="sm">{{ t.scope }}</Badge>
+          <Button v-if="admin" size="iconSm" variant="ghost" :aria-label="`Revoke ${t.name}`" @click="revoke(t)"><Trash2 class="size-4" /></Button>
+        </li>
+      </ul>
+      <EmptyState v-else compact :icon="ShieldCheck" title="No tokens yet" description="Create one when you want to connect an AI agent or a script." />
+    </template>
     <p class="mt-4 text-xs text-subtle">Prefer the command line? <code class="rounded bg-surface-3 px-1.5 py-0.5">bsmm token create --scope read</code></p>
   </SettingsCard>
 
