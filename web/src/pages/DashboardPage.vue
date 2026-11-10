@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Check, EyeOff, GripVertical, Maximize2, Pencil, Plus, RotateCcw, Radar } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { Check, ChevronLeft, ChevronRight, EyeOff, GripVertical, Maximize2, Pencil, Plus, RotateCcw, Radar } from 'lucide-vue-next'
+import { computed, nextTick, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useNowSec } from '@/composables/useNowSec'
 import { describeError } from '@/lib/api'
@@ -27,6 +27,9 @@ const saved = computed(() => resolveLayout(settings.data?.ui.dashboard, settings
 const draft = ref<DashboardWidgetPlacement[]>([])
 const editing = ref(false)
 const saving = ref(false)
+const root = ref<HTMLElement | null>(null)
+// Spoken by screen readers after a keyboard move; cleared whenever editing starts.
+const announcement = ref('')
 
 // What is on screen: the draft while editing, the saved layout otherwise. Widgets that mean nothing without a
 // miner are skipped until one exists, so a brand-new install is not a wall of empty charts.
@@ -39,6 +42,7 @@ const noMiners = computed(() => live.loaded && live.deviceCount === 0)
 
 function startEdit(): void {
   draft.value = saved.value.map((p) => ({ ...p }))
+  announcement.value = ''
   editing.value = true
 }
 
@@ -72,6 +76,29 @@ function resize(p: DashboardWidgetPlacement): void {
 function hide(id: string): void {
   draft.value = draft.value.filter((p) => p.id !== id)
 }
+
+type MoveDirection = 'earlier' | 'later'
+
+/** Keyboard and single-pointer alternative to dragging: moves a card one place in the same draft array. */
+function move(id: string, direction: MoveDirection): void {
+  const from = draft.value.findIndex((p) => p.id === id)
+  const to = direction === 'earlier' ? from - 1 : from + 1
+  if (from < 0 || to < 0 || to >= draft.value.length) return
+  const next = [...draft.value]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item!)
+  draft.value = next
+  announcement.value = `${WIDGET_BY_ID[id]?.title ?? id} moved to position ${to + 1} of ${next.length}`
+  void nextTick(() => focusMoveControl(id, direction, to, next.length))
+}
+
+/** Re-inserting the card's element drops keyboard focus: restore it to the same control, or the opposite one at an end. */
+function focusMoveControl(id: string, direction: MoveDirection, position: number, count: number): void {
+  const atEnd = direction === 'earlier' ? position === 0 : position === count - 1
+  const target: MoveDirection = atEnd ? (direction === 'earlier' ? 'later' : 'earlier') : direction
+  const buttons = Array.from(root.value?.querySelectorAll<HTMLButtonElement>('[data-move]') ?? [])
+  buttons.find((b) => b.dataset.move === `${id}:${target}`)?.focus()
+}
 function add(id: string): void {
   const def = WIDGET_BY_ID[id]
   if (def) draft.value = [...draft.value, { id, span: def.defaultSpan }]
@@ -86,7 +113,7 @@ const subtitle = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div ref="root" class="space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div class="min-w-0">
         <h2 class="truncate text-2xl font-semibold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Dashboard' }}</h2>
@@ -113,8 +140,9 @@ const subtitle = computed(() => {
     </header>
 
     <p v-if="editing" class="rounded-xl border border-accent-line bg-accent-soft px-4 py-3 text-sm text-accent-text" role="status">
-      Drag a card by its handle to move it, use the size button to resize it, or hide what you do not need. Press Done to save.
+      Drag a card by its handle, or use the arrow buttons to move it earlier or later. Use the size button to resize it, or hide what you do not need. Press Done to save.
     </p>
+    <p v-if="editing" class="sr-only" role="status" aria-live="polite" data-testid="reorder-announcement">{{ announcement }}</p>
 
     <ErrorState v-if="live.loadError && !live.loaded" :error="live.loadError" title="Could not load your dashboard" @retry="live.reload()" />
 
@@ -160,13 +188,34 @@ const subtitle = computed(() => {
         ghost-class="opacity-40"
         class="grid gap-[var(--gap-grid)] md:grid-cols-6 xl:grid-cols-12"
       >
-        <div v-for="p in draft" :key="p.id" :class="['relative min-h-[84px] min-w-0', SPAN_CLASS[p.span]]">
-          <component :is="WIDGET_BY_ID[p.id]!.component" class="pointer-events-none" />
+        <div v-for="(p, index) in draft" :key="p.id" :class="['relative min-h-[84px] min-w-0', SPAN_CLASS[p.span]]">
+          <!-- inert: the preview is a picture while editing, so Tab and assistive tech only meet the editing controls -->
+          <div inert class="pointer-events-none h-full">
+            <component :is="WIDGET_BY_ID[p.id]!.component" />
+          </div>
           <div class="drag-handle absolute inset-0 z-10 flex cursor-grab items-start justify-between rounded-[var(--radius-card)] bg-bg/40 p-2.5 ring-2 ring-accent/50 backdrop-blur-[1px] active:cursor-grabbing">
             <span class="inline-flex items-center gap-1.5 rounded-lg bg-surface-3 px-2 py-1.5 text-xs font-medium text-fg shadow">
               <GripVertical class="size-4 text-muted" aria-hidden="true" /> {{ WIDGET_BY_ID[p.id]!.title }}
             </span>
             <span class="no-drag flex gap-1.5">
+              <button
+                class="grid size-8 place-items-center rounded-lg bg-surface-3 text-fg shadow hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-surface-3"
+                :aria-label="`Move ${WIDGET_BY_ID[p.id]!.title} earlier`"
+                :data-move="`${p.id}:earlier`"
+                :disabled="index === 0"
+                @click="move(p.id, 'earlier')"
+              >
+                <ChevronLeft class="size-4" aria-hidden="true" />
+              </button>
+              <button
+                class="grid size-8 place-items-center rounded-lg bg-surface-3 text-fg shadow hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-surface-3"
+                :aria-label="`Move ${WIDGET_BY_ID[p.id]!.title} later`"
+                :data-move="`${p.id}:later`"
+                :disabled="index === draft.length - 1"
+                @click="move(p.id, 'later')"
+              >
+                <ChevronRight class="size-4" aria-hidden="true" />
+              </button>
               <button
                 v-if="WIDGET_BY_ID[p.id]!.spans.length > 1"
                 class="inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-3 px-2.5 text-xs font-medium text-fg shadow hover:bg-surface-2"
