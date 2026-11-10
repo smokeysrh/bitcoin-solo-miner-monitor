@@ -770,10 +770,15 @@ export interface DashboardLayout {
   widgets: DashboardWidgetPlacement[]
 }
 
+/** Which odds horizon is the big number on the wall display. */
+export type OddsHeadline = 'ten_minutes' | 'day' | 'month' | 'year' | 'five_years' | 'ten_years'
+
 export interface KioskConfig {
   rotate_s: number
   panels: string[]
   show_clock: boolean
+  /** Missing or unknown means `year`. */
+  odds_headline?: OddsHeadline
 }
 
 // ----------------------------------------------------------------------------------- live stream
