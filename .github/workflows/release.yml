@@ -29,9 +29,11 @@ jobs:
         id: channel
         run: |
           version="$(python3 -c "import re;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/bsmm/__init__.py').read()).group(1))")"
-          # One parse of the tag (scripts/release_version.py) gives the canonical version and the channel
-          outputs="$(uv run --no-project --with "packaging>=24" python scripts/release_version.py "$GITHUB_REF_NAME")"
-          norm="$(uv run --no-project --with "packaging>=24" python scripts/release_version.py "$GITHUB_REF_NAME" --canonical)"
+          # One parse of the tag (scripts/release_version.py) gives the canonical version and the channel.
+          # It runs in the locked environment (uv.lock pins packaging), like the Windows job.
+          uv sync --frozen --no-install-project
+          outputs="$(uv run --no-sync python scripts/release_version.py "$GITHUB_REF_NAME")"
+          norm="$(uv run --no-sync python scripts/release_version.py "$GITHUB_REF_NAME" --canonical)"
           if [ "$version" != "$norm" ]; then echo "tag $GITHUB_REF_NAME does not match package version $version"; exit 1; fi
           echo "$outputs" >> "$GITHUB_OUTPUT"
       - name: Build the web UI
