@@ -11,6 +11,7 @@ import EventIcon from '@/components/ui/EventIcon.vue'
 import MetricCard from '@/components/ui/MetricCard.vue'
 import Select from '@/components/ui/Select.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import Switch from '@/components/ui/Switch.vue'
 import Tabs from '@/components/ui/Tabs.vue'
 import { confirmDialog } from '@/composables/useConfirm'
@@ -155,6 +156,7 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
     <Tabs v-model="tab" label="Alerts sections" :tabs="[{ value: 'activity', label: 'Activity', icon: History, badge: live.alerts.length || null }, { value: 'rules', label: 'Rules', icon: BellRing }]">
       <template #activity>
         <div class="space-y-5">
+          <StaleNotice v-if="live.loaded && live.loadError" :error="live.loadError" @retry="live.reload()" />
           <section v-if="live.alerts.length" aria-label="Active alerts" class="space-y-2.5" data-testid="active-alerts">
             <h3 class="eyebrow">Happening now</h3>
             <div v-for="a in live.alerts" :key="a.key" class="flex items-start gap-3 rounded-2xl border p-4" :class="a.severity === 'critical' ? 'border-bad/30 bg-bad-soft' : 'border-warn/30 bg-warn-soft'">
@@ -167,6 +169,8 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
               <span class="shrink-0 text-xs text-muted">since {{ fmt.formatAgo(a.since, now) }}</span>
             </div>
           </section>
+          <ErrorState v-else-if="!live.loaded && live.loadError" compact title="Could not load your alerts" :error="live.loadError" @retry="live.reload()" />
+          <p v-else-if="!live.loaded" class="rounded-2xl border border-line bg-surface-2/60 p-4 text-sm text-muted" role="status">Checking for alerts…</p>
           <div v-else class="flex items-center gap-3 rounded-2xl border border-ok/25 bg-ok-soft p-4">
             <CircleCheck class="size-5 shrink-0 text-ok" aria-hidden="true" />
             <p class="text-sm text-fg">All clear. Nothing needs your attention.</p>
