@@ -161,6 +161,10 @@ class DataSource(ABC):
     async def node(self) -> NodeStatus | None:
         return None
 
+    async def block_info(self, height: int) -> BlockInfo | None:
+        """One block with its payout addresses, for heights older than the recent list. None = not available."""
+        return None
+
     async def pool(self, addresses: list[str]) -> list[PoolStatus]:
         return []
 
