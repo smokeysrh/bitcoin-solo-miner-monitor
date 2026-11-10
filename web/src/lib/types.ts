@@ -146,6 +146,8 @@ export interface FleetSummary {
   performance_pct: number | null
   power_w: number | null
   power_wall_w: number | null
+  /** miners that report no power; power_w covers only the others */
+  devices_without_power: number
   efficiency_j_th: number | null
   temp_avg_c: number | null
   temp_max_c: number | null
@@ -308,15 +310,19 @@ export interface OddsHorizon {
 export interface Economics {
   price_per_kwh: number
   btc_price: number | null
-  cost_per_day: number
-  cost_per_month: number
-  cost_per_year: number
+  /** null when power is unknown (not zero) */
+  cost_per_day: number | null
+  cost_per_month: number | null
+  cost_per_year: number | null
   block_reward_btc: number
   expected_value_per_day: number | null
   expected_value_per_year: number | null
   ev_to_cost_ratio: number | null
   break_even_btc_price: number | null
   power_w: number | null
+  power_complete: boolean
+  /** plain-language reason the cost is unknown or partial */
+  cost_note: string | null
   currency: string
 }
 
