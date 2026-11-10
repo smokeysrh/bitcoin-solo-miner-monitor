@@ -76,9 +76,10 @@ async function apply(): Promise<void> {
   if (!ok) return
   busy.value = true
   try {
-    // The shared helper treats ok:false as a failure and a failed read-back as "accepted, refresh pending".
-    const res = await actions.run(props.device, 'set_tuning', params, 'Tuning changed')
-    if (res?.ok) await load()
+    // A failed read-back is "accepted, refresh pending", not a failed change. Wait for the poll: the tuning endpoint
+    // reports the last polled values, so reloading earlier would show the old ones.
+    const res = await actions.run(props.device, 'set_tuning', params, 'Tuning changed', true)
+    if (res.ok) await load()
   } finally {
     busy.value = false
   }

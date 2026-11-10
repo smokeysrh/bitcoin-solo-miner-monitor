@@ -114,7 +114,7 @@ async function apply(): Promise<void> {
   try {
     // The shared helper toasts the outcome: ok:false is a failure, and a failed read-back is not.
     const res = await actions.run(props.device, 'set_pool', { url, port: form.port, user: form.user.trim(), password: form.password || 'x', role: role.value, tls: form.tls }, 'Pool changed')
-    if (!res?.ok) error.value = res?.message ?? res?.error ?? 'The pool was not changed.'
+    if (!res.ok) error.value = res.message ?? res.error ?? 'The pool was not changed.'
   } finally {
     busy.value = false
   }
