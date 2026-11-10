@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -136,6 +137,28 @@ def unresolved_state(data: Path, record: dict[str, Any]) -> bool:
     except psutil.AccessDenied as e:
         raise CliError("Cannot verify the background process identity; state was retained.") from e
     return True
+
+
+SERVER_COMMANDS = frozenset({"serve", "demo"})
+
+
+def installed_server_running() -> bool:
+    """True when another process of this frozen build is running a server, however it was started.
+
+    Foreground ``serve`` and service/scheduled-task instances never write ``bsmm.pid``, yet hold the installed files.
+    Only meaningful for the installed exe; source runs report False. Query only; nothing is signalled.
+    """
+    if not getattr(sys, "frozen", False):
+        return False
+    me, exe = os.getpid(), os.path.normcase(sys.executable)
+    for proc in psutil.process_iter(["pid", "exe", "cmdline"]):
+        info = proc.info
+        if info["pid"] == me or not info["exe"] or os.path.normcase(info["exe"]) != exe:
+            continue
+        argv = info["cmdline"] or []
+        if len(argv) > 1 and argv[1] in SERVER_COMMANDS:
+            return True
+    return False
 
 
 def clear(data: Path) -> None:

@@ -407,18 +407,60 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
         sentinel.wait(timeout=10)
 
 
+def previous_release_upgrade(previous: Path, candidate: Path, root: Path, version: str) -> None:
+    """Install an earlier released setup, run it, then let the candidate installer replace it.
+
+    The earlier release's own stop command is what the candidate installer must cope with, so it must be the
+    real released exe. Uses an empty owned data directory; nothing is read from or written to real user data.
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("Native Windows installer checks cannot run on Linux")
+    data = root / "data"
+    env = isolated_env(root, data)
+    env["BSMM_PORT"] = str(port())
+    base = f"http://127.0.0.1:{env['BSMM_PORT']}"
+    target = root / "installed app"
+    exe = str(target / "bsmm.exe")
+    flags = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", f"/DIR={target}"]
+    assert not target.exists()
+    try:
+        run([str(previous), *flags], env)
+        assert Path(exe).is_file()
+        cli([exe], env, "start")  # the previous release is running when the candidate arrives
+        run([str(candidate), *flags], env)  # a refused stop makes the installer exit non-zero
+        assert not cli([exe], env, "start").get("already")  # the previous instance really was stopped
+        check_assets(base, version)
+        assert cli([exe], env, "stop")["stopped"]
+        run([str(target / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], env)
+        deadline = time.monotonic() + 20
+        while Path(exe).exists() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert not Path(exe).exists()
+        print(json.dumps({"previous_release_upgrade": True}), flush=True)
+    finally:
+        if Path(exe).exists():
+            run([exe, "stop"], env, success=False)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path)
     parser.add_argument("--installer", type=Path)
+    parser.add_argument("--previous-installer", type=Path,
+                        help="Released setup of an earlier version, installed and started before the candidate replaces it")
     parser.add_argument("--legacy-source", type=Path, required=True,
                         help="Separate clean checkout of pinned v1.1.1 source (not an old Windows installer)")
     parser.add_argument("--expected-version", required=True)
     args = parser.parse_args(argv)
+    if args.previous_installer and not args.installer:
+        parser.error("--previous-installer requires --installer")
     command = [str(args.exe.resolve())] if args.exe else [sys.executable, "-m", "bsmm"]
     with owned_temp_directory() as folder:
         result = smoke(command, folder, args.expected_version, args.installer.resolve() if args.installer else None,
                        args.legacy_source.resolve())
+        if args.previous_installer:
+            previous_release_upgrade(args.previous_installer.resolve(), args.installer.resolve(),
+                                     folder / "previous-upgrade", args.expected_version)
     print(json.dumps({**result, "temporary_directory_removed": True}), flush=True)
 
 
