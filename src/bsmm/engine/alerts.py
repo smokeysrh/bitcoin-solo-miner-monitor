@@ -462,12 +462,16 @@ class AlertEngine:
                           settings=self.settings.current, baselines=self._baselines, fleet_baseline=self._fleet_baseline)
         rules = [r for r in await self.store.list_rules() if r.enabled and r.kind in EVALUATORS]
         active: dict[str, tuple[AlertRule, Condition]] = {}
+        failed_rule_ids: set[str] = set()  # a rule we could not evaluate has observed nothing, least of all absence
         for rule in rules:
             try:
-                for key, cond in EVALUATORS[rule.kind](rule, ctx).items():
-                    active[key] = (rule, cond)
+                found = EVALUATORS[rule.kind](rule, ctx)
             except Exception:
-                log.exception("rule %s failed", rule.name)
+                failed_rule_ids.add(rule.id)
+                log.exception("rule %s failed; its alerts keep their state until it evaluates again", rule.name)
+                continue
+            for key, cond in found.items():
+                active[key] = (rule, cond)
         rules_by_id = {r.id: r for r in rules}
         for key, (rule, cond) in active.items():
             tr = self._tracks.get(key)
@@ -491,6 +495,9 @@ class AlertEngine:
             if owner is None:  # rule disabled or deleted
                 self._tracks.pop(key, None)
                 await self.store.clear_alert_state(key)
+                continue
+            if tr.rule_id in failed_rule_ids:  # blind this tick: keep the state, and restart any clearing timer
+                tr.clear_since = None
                 continue
             if not tr.firing:
                 self._tracks.pop(key, None)

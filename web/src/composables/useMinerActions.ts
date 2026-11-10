@@ -29,7 +29,12 @@ export function useMinerActions() {
     }
   }
 
-  async function run(d: DeviceView, action: string, params: Record<string, unknown>, success: string): Promise<ActionResult | null> {
+  /**
+   * Run one miner action and toast the outcome. A thrown request resolves to `{ ok: false, message }`.
+   * With `settle`, resolves only after the read-back poll finished (a failed poll is not a failed action),
+   * for callers that re-read state which the poll refreshes.
+   */
+  async function run(d: DeviceView, action: string, params: Record<string, unknown>, success: string, settle = false): Promise<ActionResult> {
     try {
       const res = await api.action(d.id, action, params)
       if (res.ok === false) {
@@ -37,11 +42,13 @@ export function useMinerActions() {
         return res
       }
       toasts.success(success, res.message)
-      void refresh(d)
+      if (settle) await refresh(d)
+      else void refresh(d)
       return res
     } catch (e) {
-      toasts.error(`${d.name}: could not do that`, describeError(e))
-      return null
+      const message = describeError(e)
+      toasts.error(`${d.name}: could not do that`, message)
+      return { ok: false, message }
     }
   }
 
