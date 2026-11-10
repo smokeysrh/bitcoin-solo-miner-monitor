@@ -136,3 +136,49 @@ def test_every_publishing_job_needs_ci_and_windows():
         assert "package" in needed, f"{name} does not wait for the package build"
         assert "windows" in needed, f"{name} does not wait for the Windows smoke"
         assert set(ci_jobs) & needed, f"{name} does not wait for the full CI suite"
+
+
+USES_LINE = re.compile(r"^\s*(?:-\s+)?uses:\s*(?P<ref>\S+)")
+PINNED_REF = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}$")
+LOCAL_WORKFLOW_PREFIX = "./.github/workflows/"
+LOCAL_PREFIX = "./"
+
+
+def _uses_refs(name: str) -> list[str]:
+    """Every ``uses:`` value (job-level and step-level) in one workflow file."""
+    refs = []
+    for line in _lines(name):
+        match = USES_LINE.match(line)
+        if match:
+            refs.append(_scalar(match["ref"]))
+    return refs
+
+
+def _workflows_reachable_from(entry: str) -> list[str]:
+    """``entry`` plus every local reusable workflow it calls, transitively."""
+    seen: list[str] = []
+    todo = [entry]
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.append(name)
+        todo += [
+            ref[len(LOCAL_WORKFLOW_PREFIX):]
+            for ref in _uses_refs(name)
+            if ref.startswith(LOCAL_WORKFLOW_PREFIX)
+        ]
+    return seen
+
+
+def test_release_run_reaches_the_called_workflows():
+    assert set(_workflows_reachable_from("release.yml")) >= {"release.yml", "ci.yml", "windows.yml"}
+
+
+def test_every_action_reachable_from_the_release_run_is_pinned_to_a_commit_sha():
+    unpinned = []
+    for workflow in _workflows_reachable_from("release.yml"):
+        for ref in _uses_refs(workflow):
+            if not ref.startswith(LOCAL_PREFIX) and not PINNED_REF.match(ref):
+                unpinned.append(f"{workflow}: {ref}")
+    assert not unpinned, "actions in the release run not pinned to a 40-hex commit SHA:\n" + "\n".join(unpinned)
