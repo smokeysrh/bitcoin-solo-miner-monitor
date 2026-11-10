@@ -161,18 +161,22 @@ async def test_source(body: SourceBody, ctx: AppContext = Depends(get_ctx), _: P
 
 
 @router.post("/sources", tags=["sources"], operation_id="addSource", summary="Add a node, pool or data source (admin)",
-             description="The connection is tested first and the source is saved only if it works, unless `?force=true`.")
+             description="The connection is tested first and the source is saved only if it works, unless `?force=true`. "
+             "With `enabled: false` the source is saved switched off without any network contact (`test` is null); "
+             "use `POST /sources/test` to try it, then enable it with `PATCH /sources/{id}`.")
 async def add_source(body: SourceBody, force: bool = False, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     if body.kind not in SOURCE_CLASSES or body.kind == "demo":
         raise bad_request(f"Unknown source type {body.kind!r}.", "Valid: " + ", ".join(k for k in SOURCE_CLASSES if k != "demo"))
-    result = await ctx.network.test_source(body.kind, body.url, body.secret, body.options)
-    if not result.ok and not force:
-        raise ApiError(422, "connection_failed", result.message, " ".join(result.hints) or None, result.model_dump())
+    result: ConnectionTest | None = None
+    if body.enabled:
+        result = await ctx.network.test_source(body.kind, body.url, body.secret, body.options)
+        if not result.ok and not force:
+            raise ApiError(422, "connection_failed", result.message, " ".join(result.hints) or None, result.model_dump())
     try:
-        src = await ctx.network.add_source(body.kind, body.name or "", body.url, body.secret, body.options)
+        src = await ctx.network.add_source(body.kind, body.name or "", body.url, body.secret, body.options, enabled=body.enabled)
     except ValueError as e:
         raise bad_request(str(e)) from e
-    return {"source": _public(src), "test": result.model_dump()}
+    return {"source": _public(src), "test": result.model_dump() if result else None}
 
 
 @router.patch("/sources/{source_id}", tags=["sources"], operation_id="updateSource", summary="Edit a source (admin)")
