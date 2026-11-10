@@ -47,7 +47,11 @@ async def recent_blocks(ctx: AppContext = Depends(get_ctx), _: Principal = Depen
 @router.get("/blocks/found", tags=["bitcoin"], operation_id="getBlocksFound", summary="Blocks that paid one of your addresses (hopefully a long list)")
 async def blocks_found(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
     blocks = await ctx.store.list_blocks_found()
-    return {"count": len(blocks), "total_reward_sats": sum(b.get("reward_sats") or 0 for b in blocks), "blocks": blocks}
+    return {
+        "count": len(blocks), "total_reward_sats": sum(b.get("reward_sats") or 0 for b in blocks), "blocks": blocks,
+        # Found blocks later replaced on the chain: kept as history, not counted.
+        "orphaned": await ctx.store.list_blocks_found(orphaned=True),
+    }
 
 
 @router.get(
