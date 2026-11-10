@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import type { Component } from 'vue'
+import { h, type Component } from 'vue'
+import Button from '@/components/ui/Button.vue'
 import MobileNav from '@/components/layout/MobileNav.vue'
 import TopBar from '@/components/layout/TopBar.vue'
 
@@ -74,6 +75,13 @@ describe('issue 76: wall display button in the desktop top bar', () => {
     expect(control!.textContent).toContain('Wall display')
   })
 
+  it('is a real link to /kiosk (an href makes it a link role and keyboard focusable)', async () => {
+    const { wrapper } = await mountWithRouter(TopBar)
+    const [control] = controlsNamed(wrapper.element, 'Wall display')
+    expect(control!.tagName).toBe('A')
+    expect(control!.getAttribute('href')).toBe('/kiosk')
+  })
+
   it('opens /kiosk when activated', async () => {
     const { router, wrapper } = await mountWithRouter(TopBar)
     const [control] = controlsNamed(wrapper.element, 'Wall display')
@@ -101,5 +109,29 @@ describe('issue 76: wall display in the phone bottom navigation', () => {
     control!.click()
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/kiosk')
+  })
+})
+
+describe('issue 76: Button renders a real link when given a target', () => {
+  it('<Button to> is an <a> with the router href', async () => {
+    const { wrapper } = await mountWithRouter({ render: () => h(Button, { to: '/x' }, () => 'Go') })
+    const link = wrapper.get('a')
+    expect(link.attributes('href')).toBe('/x')
+  })
+
+  it('<Button href> is an <a> with that href and no button type', () => {
+    const wrapper = mount(Button, { props: { href: '/llms.txt' }, slots: { default: 'Read' } })
+    wrappers.push(wrapper)
+    expect(wrapper.element.tagName).toBe('A')
+    expect(wrapper.element.getAttribute('href')).toBe('/llms.txt')
+    expect(wrapper.element.hasAttribute('type')).toBe(false)
+  })
+
+  it('a plain <Button> stays a button of type "button" without link attributes', () => {
+    const wrapper = mount(Button, { slots: { default: 'Save' } })
+    wrappers.push(wrapper)
+    expect(wrapper.element.tagName).toBe('BUTTON')
+    expect(wrapper.element.getAttribute('type')).toBe('button')
+    expect(wrapper.element.hasAttribute('href')).toBe(false)
   })
 })

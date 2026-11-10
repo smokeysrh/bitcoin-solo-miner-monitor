@@ -51,13 +51,15 @@ const props = withDefaults(
 
 const classes = computed(() => cn(variants({ variant: props.variant, size: props.size }), props.class))
 const tag = computed(() => (props.to ? RouterLink : props.href ? 'a' : 'button'))
+// Bind only the target that applies. A present-but-undefined `href` fallthrough attribute overrides the href that
+// RouterLink computes, which left `<Button to>` rendering an <a> with no href (not a link, not keyboard focusable).
+const target = computed(() => (props.to ? { to: props.to } : props.href ? { href: props.href } : {}))
 </script>
 
 <template>
   <component
     :is="tag"
-    :to="to"
-    :href="href"
+    v-bind="target"
     :type="!to && !href ? type : undefined"
     :disabled="!to && !href ? disabled || loading : undefined"
     :aria-busy="loading || undefined"
