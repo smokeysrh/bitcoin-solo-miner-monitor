@@ -287,6 +287,10 @@ class Fleet:
 
     # -- device management -------------------------------------------------------------------------------
 
+    def adopt(self, dev: Device) -> DeviceRuntime:
+        """Start monitoring a device that is already saved (a committed config import)."""
+        return self._spawn(dev)
+
     def _spawn(self, dev: Device) -> DeviceRuntime:
         rt = DeviceRuntime(device=dev)
         if not dev.enabled:
