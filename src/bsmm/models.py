@@ -337,6 +337,8 @@ class FleetSummary(_Model):
     performance_pct: float | None = None
     power_w: float | None = None
     power_wall_w: float | None = None  # power_w plus the PSU overhead from settings
+    #: counted miners that report no power, so power_w covers only the others
+    devices_without_power: int = 0
     efficiency_j_th: float | None = None
     temp_avg_c: float | None = None
     temp_max_c: float | None = None

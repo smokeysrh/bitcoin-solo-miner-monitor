@@ -50,7 +50,7 @@ def test_windows_build_paths_use_runtime_environment_before_tools():
     text = (ROOT / ".github/workflows/windows.yml").read_text()
     job_environment, steps = text.split("    steps:\n", 1)
     assert "runner.temp" not in job_environment
-    setup = steps.split("      - uses: actions/checkout@v4", 1)[0]
+    setup = steps.split("      - uses: actions/checkout@", 1)[0]
     paths = {
         "UV_PROJECT_ENVIRONMENT": "bsmm-build-venv",
         "UV_CACHE_DIR": "bsmm-cache/uv",
