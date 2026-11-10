@@ -14,7 +14,8 @@ from bsmm.context import AppContext
 from bsmm.engine.network import PUBLIC_SOURCE_ID, SOURCE_CLASSES
 from bsmm.engine.odds import build_odds
 from bsmm.models import Source
-from bsmm.sources.base import ConnectionTest
+from bsmm.sources.base import ConnectionTest, SourceError
+from bsmm.sources.bitcoin_core import check_cookie_option, node_host
 
 router = APIRouter()
 
@@ -167,7 +168,10 @@ async def add_source(body: SourceBody, force: bool = False, ctx: AppContext = De
         result = await ctx.network.test_source(body.kind, body.url, body.secret, body.options)
         if not result.ok and not force:
             raise ApiError(422, "connection_failed", result.message, " ".join(result.hints) or None, result.model_dump())
-    src = await ctx.network.add_source(body.kind, body.name or "", body.url, body.secret, body.options, enabled=body.enabled)
+    try:
+        src = await ctx.network.add_source(body.kind, body.name or "", body.url, body.secret, body.options, enabled=body.enabled)
+    except ValueError as e:
+        raise bad_request(str(e)) from e
     return {"source": _public(src), "test": result.model_dump() if result else None}
 
 
@@ -177,9 +181,20 @@ async def update_source(source_id: str, body: SourcePatch, ctx: AppContext = Dep
     if src is None:
         raise not_found("That source")
     data = body.model_dump(exclude_unset=True)
+    saved_cookie = src.options.get("cookie_path")
+    saved_host = node_host(src.url)
     for k in ("name", "url", "options", "enabled"):
         if k in data and data[k] is not None:
             setattr(src, k, data[k])
+    cookie = src.options.get("cookie_path")
+    if src.kind == "bitcoin_core" and cookie:
+        if cookie != saved_cookie:
+            try:
+                await check_cookie_option(src.options)
+            except SourceError as e:
+                raise bad_request(str(e)) from e
+        elif node_host(src.url) != saved_host:  # a saved cookie path stays with the node it was set up for
+            src.options = {k: v for k, v in src.options.items() if k != "cookie_path"}
     await ctx.store.save_source(src, secret=data.get("secret"))
     await ctx.network.reload_sources()
     ctx.network.refresh_soon()
