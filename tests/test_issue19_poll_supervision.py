@@ -113,6 +113,51 @@ async def test_persistent_storage_failure_stays_visible_and_is_not_hardware_offl
     assert rt.failures == 0 and rt.offline_since is None, "a storage error is not the miner going offline"
 
 
+def device_views(subscription):
+    """Drain a bus subscription; return the ``view`` payload of every ``device`` message, in order."""
+    views = []
+    while not subscription.queue.empty():
+        msg = subscription.queue.get_nowait()
+        if msg is not None and msg.topic == "device":
+            views.append(msg.data["view"])
+    return views
+
+
+async def recovery_events(fleet):
+    return await fleet.events.store.list_events(types=["device_recovered"], limit=200)
+
+
+async def test_persistent_failure_is_published_and_never_announced_as_recovery(prepared, monkeypatch):
+    fleet, rt, polls = prepared
+    sub = fleet.bus.subscribe({"device"})
+    inject_storage_failure(monkeypatch, fleet, "_detect_events")
+    task = start_loop(fleet, rt)
+
+    settled = await until(lambda: task.done() or (len(polls) >= 5 and not rt.lock.locked()), rt)
+    assert settled and not task.done(), "the polling task ended while storage was failing"
+
+    degraded = [v for v in device_views(sub) if v["status"] == DeviceStatus.DEGRADED]
+    assert degraded, "tiles and detail follow `device` events: the degraded status was never published"
+    assert STORAGE_ERROR in degraded[-1]["last_error"]
+    recovered = await recovery_events(fleet)
+    assert not recovered, f"announced recovery {len(recovered)}x while storage was still failing"
+
+
+async def test_one_clean_iteration_after_persistent_failure_announces_exactly_one_recovery(prepared, monkeypatch):
+    fleet, rt, polls = prepared
+    sub = fleet.bus.subscribe({"device"})
+    failing_iterations = 3
+    inject_storage_failure(monkeypatch, fleet, "_detect_events", times=failing_iterations)
+    task = start_loop(fleet, rt)
+
+    settled = await until(lambda: task.done() or (len(polls) >= failing_iterations + 3 and not rt.lock.locked()), rt)
+    assert settled and not task.done(), "the polling task ended"
+
+    assert rt.status == DeviceStatus.ONLINE and rt.last_error is None
+    assert len(await recovery_events(fleet)) == 1, "recovery must be announced once, by the iteration that completed"
+    assert device_views(sub)[-1]["status"] == DeviceStatus.ONLINE
+
+
 async def test_removal_stops_a_failing_poll_task_for_good(prepared, monkeypatch):
     fleet, rt, polls = prepared
     inject_storage_failure(monkeypatch, fleet, "_detect_events")
