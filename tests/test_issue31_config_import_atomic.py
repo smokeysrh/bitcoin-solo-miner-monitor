@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import copy
 from typing import Any
 
 import httpx
 import pytest
 
 from bsmm.api.app import create_app
+from bsmm.settings import SettingsService
 
 
 @pytest.fixture
@@ -102,3 +105,46 @@ async def test_valid_import_applies_everything_once(imp):
     assert not (await ctx.store.get_source("src_first")).enabled
     again = await c.post("/api/v1/system/import", json=payload)
     assert again.json()["added"] == {"devices": 0, "rules": 0, "channels": 0, "sources": 0}
+
+
+@pytest.mark.parametrize("refresh_fails", [False, True], ids=["completes", "refresh_fails_after_commit"])
+async def test_import_does_not_revert_a_concurrent_settings_update(imp, monkeypatch, refresh_fails):
+    """An ordinary settings update is held mid-write while an import of a different field starts.
+
+    Every settings document written to disk must keep the update's field, and a fresh load must show both.
+    """
+    c, ctx = imp
+    real_kv_set = ctx.store.kv_set
+    written: list[dict[str, Any]] = []
+    held, release = asyncio.Event(), asyncio.Event()
+
+    async def spy(key: str, value: Any) -> None:
+        await real_kv_set(key, value)
+        if key != "settings":
+            return
+        written.append(copy.deepcopy(value))
+        if len(written) == 1:  # the ordinary update has written, but has not finished
+            held.set()
+            await release.wait()
+
+    def fail_adopt(_dev: Any) -> None:
+        raise RuntimeError("injected refresh failure")
+
+    monkeypatch.setattr(ctx.store, "kv_set", spy)
+    if refresh_fails:
+        monkeypatch.setattr(ctx.fleet, "adopt", fail_adopt)
+    ordinary = asyncio.create_task(ctx.settings.update({"ui": {"theme": "light"}}))
+    try:
+        await asyncio.wait_for(held.wait(), 5)
+        importing = asyncio.create_task(c.post("/api/v1/system/import", json=_file(
+            settings={"general": {"instance_name": "Imported while busy"}}, devices=[GOOD_DEVICE])))
+        await asyncio.sleep(0.2)  # let the import reach its own settings write, or wait for the settings lock
+    finally:
+        release.set()
+    _, response = await asyncio.wait_for(asyncio.gather(ordinary, importing), 10)
+
+    assert response.status_code == (500 if refresh_fails else 200), response.text
+    assert [doc["ui"]["theme"] for doc in written] == ["light"] * len(written), written
+    loaded = await SettingsService(ctx.store).load()
+    assert loaded.ui.theme == "light"
+    assert loaded.general.instance_name == "Imported while busy"
