@@ -51,8 +51,12 @@ jobs:
   windows:
     uses: ./.github/workflows/windows.yml
 
+  # The full ordinary suite on the tagged commit; nothing below publishes unless it passes.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   github-release:
-    needs: [package, windows]
+    needs: [package, windows, ci]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -72,7 +76,7 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') || contains(github.ref_name, 'rc') }}
 
   pypi:
-    needs: package
+    needs: [package, windows, ci]
     runs-on: ubuntu-latest
     # Turn this on by adding the repository variable PUBLISH_PYPI=true after registering a trusted publisher on pypi.org
     if: ${{ vars.PUBLISH_PYPI == 'true' }}
@@ -87,7 +91,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
 
   docker:
-    needs: package
+    needs: [package, windows, ci]
     runs-on: ubuntu-latest
     permissions:
       contents: read
