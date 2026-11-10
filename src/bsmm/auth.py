@@ -8,16 +8,20 @@ wizard offers to turn the password on and says why.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import secrets
 import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from bsmm.storage.store import Store
 
 SCOPES = ("read", "control", "admin")
+MAX_CONCURRENT_HASHES = 2  # each scrypt hash needs ~16 MiB; extra requests wait their turn
 SESSION_TTL_S = 14 * 86400
 COOKIE_NAME = "bsmm_session"
 PASSWORD_KEY = "auth.password"  # noqa: S105 - the name of a settings row, not a password
@@ -85,6 +89,28 @@ class AuthService:
     def __init__(self, store: Store) -> None:
         self.store = store
         self.throttle = LoginThrottle()
+        self._hash_slots = asyncio.Semaphore(MAX_CONCURRENT_HASHES)
+
+    async def _hash_off_loop(self, func: Callable[..., Any], *args: Any) -> Any:
+        """Run a CPU-heavy hash in a worker thread, at most ``MAX_CONCURRENT_HASHES`` at a time.
+
+        A slot stays taken until its thread really finishes, even if the caller is cancelled, so
+        cancelled requests cannot pile up running hashes. Waiters cancelled before a slot opens never hash.
+        """
+        await self._hash_slots.acquire()
+        try:
+            job = asyncio.ensure_future(asyncio.to_thread(func, *args))
+        except BaseException:
+            self._hash_slots.release()
+            raise
+
+        def _finished(done: asyncio.Future[Any]) -> None:
+            self._hash_slots.release()
+            if not done.cancelled():
+                done.exception()  # mark retrieved: a cancelled caller no longer awaits the outcome
+
+        job.add_done_callback(_finished)
+        return await asyncio.shield(job)
 
     async def has_password(self) -> bool:
         return bool(await self.store.kv_get(PASSWORD_KEY))
@@ -92,11 +118,12 @@ class AuthService:
     async def set_password(self, password: str) -> None:
         if len(password) < 8:
             raise ValueError("Use at least 8 characters.")
-        await self.store.kv_set(PASSWORD_KEY, hash_password(password))
+        await self.store.kv_set(PASSWORD_KEY, await self._hash_off_loop(hash_password, password))
         await self.store.delete_all_sessions()  # changing the password logs everyone out
 
     async def check_password(self, password: str) -> bool:
-        return verify_password_hash(password, await self.store.kv_get(PASSWORD_KEY))
+        stored = await self.store.kv_get(PASSWORD_KEY)
+        return bool(await self._hash_off_loop(verify_password_hash, password, stored))
 
     async def login(self, password: str, ip: str, user_agent: str | None) -> str | None:
         wait = self.throttle.locked_for(ip)
