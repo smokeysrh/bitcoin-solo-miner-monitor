@@ -105,9 +105,12 @@ export const useSettings = defineStore('settings', () => {
    * answer can never replace a newer one. A failure removes only that save's change; other saves stay.
    * Appearance settings fall back to "this device only" when the session is read-only.
    */
-  async function patch(change: SettingsPatch): Promise<void> {
+  async function patch(submitted: SettingsPatch): Promise<void> {
     if (!data.value) return
     const started = epoch
+    // A queued save is sent later, so keep what was submitted now. JSON copy because callers pass reactive objects
+    // (structuredClone rejects Vue proxies) and the request body is JSON anyway.
+    const change = JSON.parse(JSON.stringify(submitted)) as SettingsPatch
     const appearanceOnly = Object.keys(change).every((key) => key === 'ui') &&
       Object.keys(change.ui ?? {}).every((key) => LOCAL_FIELDS.some((field) => field === key))
     if (useSession().readOnly && appearanceOnly) {
