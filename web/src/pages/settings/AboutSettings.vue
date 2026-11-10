@@ -5,8 +5,10 @@ import SettingsCard from '@/components/settings/SettingsCard.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import CopyButton from '@/components/ui/CopyButton.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import KeyValue from '@/components/ui/KeyValue.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import { useFmt } from '@/composables/useFmt'
 import { api, describeError } from '@/lib/api'
 import type { Diagnostics, SystemInfo, UpdateStatus } from '@/lib/types'
@@ -21,12 +23,16 @@ const update = ref<UpdateStatus | null>(null)
 const diag = ref<Diagnostics | null>(null)
 const checking = ref(false)
 const running = ref(false)
+const diagError = ref<unknown>(null)
+const infoError = ref<unknown>(null)
 
 async function runDiagnostics(): Promise<void> {
   running.value = true
   try {
     diag.value = await api.diagnostics()
+    diagError.value = null
   } catch (e) {
+    diagError.value = e
     toasts.error('Could not run the checks', describeError(e))
   } finally {
     running.value = false
@@ -42,13 +48,17 @@ async function checkUpdate(): Promise<void> {
     checking.value = false
   }
 }
-onMounted(async () => {
+// The two requests recover independently: a failed one never erases what the other returned.
+async function loadInfo(): Promise<void> {
+  const [i, u] = await Promise.allSettled([api.systemInfo(), api.updateStatus()])
+  if (i.status === 'fulfilled') info.value = i.value
+  if (u.status === 'fulfilled') update.value = u.value
+  const failed = [i, u].find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  infoError.value = failed ? failed.reason : null
+}
+onMounted(() => {
   void runDiagnostics()
-  try {
-    ;[info.value, update.value] = await Promise.all([api.systemInfo(), api.updateStatus()])
-  } catch {
-    /* shown as blanks */
-  }
+  void loadInfo()
 })
 
 const icon = { pass: CircleCheck, warn: TriangleAlert, fail: CircleX } as const
@@ -67,6 +77,7 @@ const tone = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad' } as const
       </div>
       <Button variant="secondary" size="sm" :loading="checking" :disabled="update?.disabled" @click="checkUpdate"><template #icon><RefreshCw class="size-4" /></template>Check for updates</Button>
     </div>
+    <ErrorState v-if="infoError" compact title="Could not load system details" :error="infoError" @retry="loadInfo" />
     <div v-if="info" class="mt-5 border-t border-line pt-5">
       <KeyValue :rows="[
         { label: 'Running for', value: fmt.formatUptime(info.uptime_s) },
@@ -91,16 +102,20 @@ const tone = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad' } as const
         <Button variant="secondary" size="sm" :loading="running" @click="runDiagnostics"><template #icon><RefreshCw class="size-4" /></template>Run again</Button>
       </div>
     </div>
-    <div v-if="!diag" class="space-y-2"><Skeleton v-for="i in 4" :key="i" class="h-12 rounded-xl" /></div>
-    <ul v-else class="divide-y divide-line rounded-xl border border-line" data-testid="checks">
-      <li v-for="c in diag.checks" :key="c.id" class="flex items-start gap-3 px-4 py-3">
-        <component :is="icon[c.status]" :class="['mt-0.5 size-4.5 shrink-0', tone[c.status]]" aria-hidden="true" />
-        <div class="min-w-0">
-          <p class="text-sm text-fg">{{ c.message }}</p>
-          <p v-if="c.fix && c.status !== 'pass'" class="mt-1 text-xs leading-relaxed text-muted">{{ c.fix }}</p>
-        </div>
-      </li>
-    </ul>
+    <ErrorState v-if="!diag && diagError" compact title="Could not run the health check" :error="diagError" @retry="runDiagnostics" />
+    <div v-else-if="!diag" class="space-y-2"><Skeleton v-for="i in 4" :key="i" class="h-12 rounded-xl" /></div>
+    <template v-else>
+      <StaleNotice v-if="diagError" :error="diagError" @retry="runDiagnostics" />
+      <ul class="divide-y divide-line rounded-xl border border-line" data-testid="checks">
+        <li v-for="c in diag.checks" :key="c.id" class="flex items-start gap-3 px-4 py-3">
+          <component :is="icon[c.status]" :class="['mt-0.5 size-4.5 shrink-0', tone[c.status]]" aria-hidden="true" />
+          <div class="min-w-0">
+            <p class="text-sm text-fg">{{ c.message }}</p>
+            <p v-if="c.fix && c.status !== 'pass'" class="mt-1 text-xs leading-relaxed text-muted">{{ c.fix }}</p>
+          </div>
+        </li>
+      </ul>
+    </template>
     <p v-if="diag?.lan_networks.length" class="mt-4 text-xs text-subtle">Networks this computer is on: <span class="font-mono">{{ diag.lan_networks.join(', ') }}</span> · listening on <span class="font-mono">{{ diag.listening }}</span></p>
   </SettingsCard>
 </template>
