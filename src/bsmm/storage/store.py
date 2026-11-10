@@ -597,9 +597,31 @@ class Store:
         )
         return n > 0
 
-    async def list_blocks_found(self) -> list[dict[str, Any]]:
+    async def list_blocks_found(self, *, orphaned: bool = False) -> list[dict[str, Any]]:
+        """Blocks on the main chain (default) or, with ``orphaned=True``, blocks later replaced at their height."""
         rows = await self.db.fetchall("SELECT * FROM blocks_found ORDER BY height DESC")
-        return [{**dict(r), "data": _l(r["data"], {})} for r in rows]
+        blocks = [{**dict(r), "data": _l(r["data"], {})} for r in rows]
+        return [b for b in blocks if bool(b["data"].get("orphaned_ts")) == orphaned]
+
+    async def set_block_orphaned(self, hash_: str, ts: float | None) -> bool:
+        """Mark a found block as replaced (``ts``) or on the main chain again (None). The record is never deleted.
+
+        True if the status changed. The flag lives in the row's ``data`` JSON, so no schema change is needed.
+        """
+        async with self.db.tx() as conn:
+            cur = await conn.execute("SELECT data FROM blocks_found WHERE hash = ?", (hash_,))
+            row = await cur.fetchone()
+            if row is None:
+                return False
+            data = _l(row["data"], {})
+            if bool(data.get("orphaned_ts")) == (ts is not None):
+                return False
+            if ts is None:
+                data.pop("orphaned_ts", None)
+            else:
+                data["orphaned_ts"] = ts
+            await conn.execute("UPDATE blocks_found SET data = ? WHERE hash = ?", (_j(data), hash_))
+            return True
 
     async def add_best_share(self, device_id: str, difficulty: float, ts: float | None = None) -> None:
         await self.db.execute("INSERT INTO best_shares (device_id, ts, difficulty) VALUES (?,?,?)", (device_id, ts or time.time(), difficulty))

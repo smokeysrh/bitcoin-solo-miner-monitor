@@ -55,6 +55,22 @@ class MempoolSpaceSource(DataSource):
             coinbase_addresses=[str(a) for a in addresses],
         )
 
+    async def block_info(self, height: int) -> BlockInfo | None:
+        """A block by height (two requests), for a gap older than the recent list. None if the lookup fails."""
+        try:
+            bhash = await self._text(f"/api/block-height/{height}")
+            data = await self._get(f"/api/v1/block/{bhash}")
+            if not bhash or not isinstance(data, dict) or data.get("id") != bhash:
+                return None
+            block = self.parse_block(data)
+        except (SourceError, ValueError, TypeError):
+            return None
+        if block.height != height:
+            return None
+        # A looked-up block with an empty address list is a verified result, not a missing one.
+        block.coinbase_complete = isinstance((data.get("extras") or {}).get("coinbaseAddresses"), list)
+        return block
+
     async def _network_hashrate(self) -> float | None:
         """3-day network hashrate; the payload is large so it is cached for 30 minutes."""
         now = time.monotonic()
