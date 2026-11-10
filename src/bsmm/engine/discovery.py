@@ -24,7 +24,7 @@ from bsmm.drivers.registry import probe_host
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
-from bsmm.models import ProbeResult, Severity, Source
+from bsmm.models import Device, ProbeResult, Severity, Source
 from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
 from bsmm.sources.base import SourceError
 from bsmm.sources.public_pool import PublicPoolSource
@@ -362,10 +362,14 @@ class DiscoveryService:
                     for v in lost:
                         if res.info.identity_key == _identity_of(v) and v.host != h:
                             identity = res.info.identity_key
+
+                            def same_identity(dev: Device, identity: str = identity) -> bool:
+                                return _identity_of(dev) == identity
+
                             try:
                                 moved_to = await self.fleet.relocate_endpoint(
                                     v.id, h, res.info.port, from_endpoint=(v.host, v.port),
-                                    same_miner=lambda dev, identity=identity: _identity_of(dev) == identity)
+                                    same_miner=same_identity)
                             except sqlite3.Error:
                                 log.warning("could not save the new address of %s; leaving it as it was", v.name, exc_info=True)
                                 continue
