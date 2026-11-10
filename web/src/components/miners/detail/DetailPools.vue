@@ -4,10 +4,8 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { confirmDialog } from '@/composables/useConfirm'
 import { useMinerActions } from '@/composables/useMinerActions'
-import { api, describeError } from '@/lib/api'
+import { api } from '@/lib/api'
 import type { DeviceView, PoolInfo, Source } from '@/lib/types'
-import { useLive } from '@/stores/live'
-import { useToasts } from '@/stores/toasts'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Field from '@/components/ui/Field.vue'
@@ -21,8 +19,6 @@ import MetricCard from '@/components/ui/MetricCard.vue'
 
 const props = defineProps<{ device: DeviceView }>()
 const fmt = useFmt()
-const live = useLive()
-const toasts = useToasts()
 const actions = useMinerActions()
 
 const pools = computed<PoolInfo[]>(() => props.device.telemetry?.pools ?? [])
@@ -116,11 +112,9 @@ async function apply(): Promise<void> {
 
   busy.value = true
   try {
-    const res = await api.action(props.device.id, 'set_pool', { url, port: form.port, user: form.user.trim(), password: form.password || 'x', role: role.value, tls: form.tls })
-    toasts.success('Pool changed', res.message ?? `${props.device.name} is reconnecting.`)
-    live.upsertDevice(await api.pollDevice(props.device.id))
-  } catch (e) {
-    error.value = describeError(e)
+    // The shared helper toasts the outcome: ok:false is a failure, and a failed read-back is not.
+    const res = await actions.run(props.device, 'set_pool', { url, port: form.port, user: form.user.trim(), password: form.password || 'x', role: role.value, tls: form.tls }, 'Pool changed')
+    if (!res.ok) error.value = res.message ?? res.error ?? 'The pool was not changed.'
   } finally {
     busy.value = false
   }

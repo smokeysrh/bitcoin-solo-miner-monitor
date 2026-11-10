@@ -8,7 +8,7 @@ import { AxisPointerComponent, DataZoomComponent, GridComponent, LegendComponent
 import { color as ecolor, graphic, use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import VChart from 'vue-echarts'
 import { useFmt } from '@/composables/useFmt'
 import { useThemeTick } from '@/composables/useThemeTick'
@@ -57,6 +57,51 @@ function resolve(c: string): string {
   return m ? cssVar(m[1]!, '#f7931a') : c
 }
 const esc = (s: string): string => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!)
+
+/** Non-visual equivalent of the canvas: a text summary and a bounded table of the exact rendered data. */
+const NO_DATA = 'no data'
+const MAX_TABLE_ROWS = 200
+const label = computed(() => props.ariaLabel ?? 'Chart')
+const descriptionId = useId()
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+const description = computed(() => {
+  const parts = props.series.map((s) => {
+    let latest: number | null = null
+    let lowest = Infinity
+    let highest = -Infinity
+    let missing = 0
+    for (let i = 0; i < props.t.length; i++) {
+      const v = s.data[i]
+      if (typeof v !== 'number') {
+        missing++
+        continue
+      }
+      latest = v
+      lowest = Math.min(lowest, v)
+      highest = Math.max(highest, v)
+    }
+    if (latest === null) return `${s.name}: ${NO_DATA}.`
+    const gaps = missing ? `, ${missing} missing` : ''
+    return `${s.name}: latest ${formatMetric(s.kind, latest, fmt)}, lowest ${formatMetric(s.kind, lowest, fmt)}, highest ${formatMetric(s.kind, highest, fmt)}${gaps}.`
+  })
+  return [`${label.value}.`, ...parts].join(' ')
+})
+
+const shownFrom = computed(() => Math.max(0, props.t.length - MAX_TABLE_ROWS))
+const rows = computed(() =>
+  props.t.slice(shownFrom.value).map((ts, j) => {
+    const index = shownFrom.value + j
+    return {
+      index,
+      when: new Date(ts * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' }),
+      cells: props.series.map((s) => {
+        const v = s.data[index]
+        return typeof v === 'number' ? formatMetric(s.kind, v, fmt) : null
+      }),
+    }
+  }),
+)
 
 const option = computed<EChartsOption>(() => {
   void tick.value // recompute colours when the theme changes
@@ -173,7 +218,36 @@ const option = computed<EChartsOption>(() => {
 </script>
 
 <template>
-  <div :style="{ height: `${height}px` }" role="img" :aria-label="ariaLabel ?? 'Chart'">
-    <VChart class="chart-host" :option="option" autoresize :init-options="{ renderer: 'canvas' }" />
+  <div>
+    <div :style="{ height: `${height}px` }" role="img" :aria-label="label" :aria-describedby="descriptionId">
+      <VChart class="chart-host" :option="option" autoresize :init-options="{ renderer: 'canvas' }" />
+    </div>
+    <p :id="descriptionId" class="sr-only">{{ description }}</p>
+    <details v-if="!minimal" class="mt-2 text-sm">
+      <summary class="w-fit cursor-pointer rounded-sm text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent">
+        View data ({{ fmt.formatNumber(t.length) }} points)
+      </summary>
+      <p v-if="shownFrom > 0" class="mt-2 text-xs text-subtle">Showing the latest {{ fmt.formatNumber(rows.length) }} of {{ fmt.formatNumber(t.length) }} points.</p>
+      <div class="mt-2 max-h-64 overflow-auto rounded-md border border-line outline-none focus-visible:ring-2 focus-visible:ring-accent" role="region" tabindex="0" :aria-label="`${label}: data table`">
+        <table class="w-full border-collapse text-left">
+          <caption class="px-2 py-1 text-left text-xs text-subtle">{{ label }}. Times are in {{ timeZone }}.</caption>
+          <thead class="sticky top-0 bg-surface-2 text-xs text-muted">
+            <tr>
+              <th scope="col" class="px-2 py-1 font-medium">Time</th>
+              <th v-for="s in series" :key="s.key" scope="col" class="px-2 py-1 font-medium">{{ s.name }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="row.index" class="border-t border-line">
+              <th scope="row" class="tnum whitespace-nowrap px-2 py-1 font-normal text-muted">{{ row.when }}</th>
+              <td v-for="(cell, i) in row.cells" :key="i" class="tnum px-2 py-1 text-fg">
+                <span v-if="cell === null" class="text-subtle">{{ NO_DATA }}</span>
+                <template v-else>{{ cell }}</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 </template>
