@@ -46,10 +46,27 @@ export const useLive = defineStore('live', () => {
   let soon: ReturnType<typeof setTimeout> | null = null
   let loadSeq = 0
   let epoch = 0
+  /**
+   * Stream updates seen since the in-flight full load started. The snapshot may predate them, so they are
+   * replayed on top of it once it is accepted. `null` when no load is in flight.
+   */
+  let sinceLoad: Array<() => void> | null = null
   const toasts = useToasts()
+
+  /** Apply a stream update now and, if a full load is in flight, remember it to replay after that load. */
+  function track(apply: () => void): void {
+    apply()
+    sinceLoad?.push(apply)
+  }
+
+  function applyEvent(e: AppEvent): void {
+    events.value = [e, ...events.value.filter((x) => x.id !== e.id)].slice(0, EVENT_CAP)
+  }
 
   async function loadAll(): Promise<void> {
     const seq = ++loadSeq
+    const buffered: Array<() => void> = []
+    sinceLoad = buffered
     try {
       const [ov, devs, pool, blocks] = await Promise.all([
         api.overview(),
@@ -72,8 +89,11 @@ export const useLive = defineStore('live', () => {
       loaded.value = true
       loadError.value = null
       lastUpdate.value = Date.now()
+      sinceLoad = null
+      for (const replay of buffered) replay()
     } catch (e) {
       if (seq !== loadSeq) return
+      sinceLoad = null
       loadError.value = describeError(e)
     }
   }
@@ -125,28 +145,39 @@ export const useLive = defineStore('live', () => {
     stream = new LiveStream(
       {
         device: ({ id, view }) => {
-          devicesById.value = { ...devicesById.value, [id]: view }
+          track(() => {
+            devicesById.value = { ...devicesById.value, [id]: view }
+          })
         },
         device_removed: ({ id }) => {
-          const next = { ...devicesById.value }
-          delete next[id]
-          devicesById.value = next
+          track(() => {
+            const next = { ...devicesById.value }
+            delete next[id]
+            devicesById.value = next
+          })
         },
         fleet: (s) => {
-          summary.value = s
-          lastUpdate.value = Date.now()
+          track(() => {
+            if (summary.value && s.updated_at < summary.value.updated_at) return // a newer snapshot already holds it
+            summary.value = s
+            lastUpdate.value = Date.now()
+          })
         },
         event: (e) => {
-          events.value = [e, ...events.value.filter((x) => x.id !== e.id)].slice(0, EVENT_CAP)
+          track(() => applyEvent(e))
           announce(e)
         },
         network: (n) => {
           const prevHeight = network.value?.height ?? null
-          network.value = { ...n, recent_blocks: network.value?.recent_blocks ?? recentBlocks.value }
+          track(() => {
+            network.value = { ...n, recent_blocks: network.value?.recent_blocks ?? recentBlocks.value }
+          })
           if (prevHeight !== null && n.height !== null && n.height > prevHeight) void refreshBlocks()
         },
         alerts: ({ active }) => {
-          alerts.value = active
+          track(() => {
+            alerts.value = active
+          })
         },
         block_found: (b) => {
           const ui = useUi()
@@ -171,6 +202,7 @@ export const useLive = defineStore('live', () => {
   function stop(): void {
     epoch++
     loadSeq++
+    sinceLoad = null
     stream?.stop()
     stream = null
     if (timer) clearInterval(timer)
