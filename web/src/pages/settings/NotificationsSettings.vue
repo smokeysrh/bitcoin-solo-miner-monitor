@@ -6,10 +6,12 @@ import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ErrorState from '@/components/ui/ErrorState.vue'
 import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import Switch from '@/components/ui/Switch.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { confirmDialog } from '@/composables/useConfirm'
@@ -27,14 +29,21 @@ const admin = computed(() => session.canAdmin)
 const types = ref<ChannelType[]>([])
 const channels = ref<Channel[]>([])
 const loading = ref(true)
+const loaded = ref(false)
+const loadError = ref<unknown>(null)
 const testingId = ref<string | null>(null)
 
+// The two requests recover independently: a failed one never erases what the other returned or the last good list.
 async function load(): Promise<void> {
-  try {
-    ;[types.value, channels.value] = await Promise.all([api.channelTypes(), api.channels()])
-  } finally {
-    loading.value = false
+  const [t, c] = await Promise.allSettled([api.channelTypes(), api.channels()])
+  if (t.status === 'fulfilled') types.value = t.value
+  if (c.status === 'fulfilled') {
+    channels.value = c.value
+    loaded.value = true
   }
+  const failed = [t, c].find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  loadError.value = failed ? failed.reason : null
+  loading.value = false
 }
 onMounted(() => void load())
 
@@ -196,9 +205,11 @@ async function setQuietTime(which: 'start' | 'end', v: string | number | null): 
 
 <template>
   <SettingsCard title="Where alerts go" description="The dashboard always shows problems. A channel sends them to your phone or inbox so you hear about a hot miner or a found block while you are away.">
-    <div class="mb-4 flex justify-end"><Button v-if="admin" variant="primary" size="sm" data-testid="add-channel" @click="openAdd"><template #icon><Plus class="size-4" /></template>Add a channel</Button></div>
+    <div class="mb-4 flex justify-end"><Button v-if="admin" variant="primary" size="sm" data-testid="add-channel" :disabled="!!loadError" @click="openAdd"><template #icon><Plus class="size-4" /></template>Add a channel</Button></div>
     <div v-if="loading" class="space-y-2"><Skeleton v-for="i in 2" :key="i" class="h-16 rounded-xl" /></div>
-    <ul v-else-if="channels.length" class="space-y-3" data-testid="channel-list">
+    <ErrorState v-else-if="!loaded" compact title="Could not load your channels" :error="loadError" @retry="load" />
+    <StaleNotice v-else-if="loadError" :error="loadError" @retry="load" />
+    <ul v-if="loaded && channels.length" class="space-y-3" data-testid="channel-list">
       <li v-for="c in channels" :key="c.id" class="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/50 p-4">
         <BellRing class="size-5 shrink-0 text-muted" aria-hidden="true" />
         <div class="min-w-0 flex-1 basis-48">
@@ -213,7 +224,7 @@ async function setQuietTime(which: 'start' | 'end', v: string | number | null): 
         </template>
       </li>
     </ul>
-    <EmptyState v-else compact :icon="BellRing" title="No channels yet" description="ntfy is the quickest: install the app, pick a topic name and you are done in a minute. Telegram, Discord, Slack, email and more also work.">
+    <EmptyState v-else-if="loaded" compact :icon="BellRing" title="No channels yet" description="ntfy is the quickest: install the app, pick a topic name and you are done in a minute. Telegram, Discord, Slack, email and more also work.">
       <Button v-if="admin" variant="soft" @click="openAdd">Add your first channel</Button>
     </EmptyState>
   </SettingsCard>
