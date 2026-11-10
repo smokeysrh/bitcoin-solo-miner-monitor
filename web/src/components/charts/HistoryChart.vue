@@ -22,6 +22,8 @@ const props = withDefaults(
     refreshMs?: number
     zeroBased?: boolean
     minimal?: boolean
+    /** wall display variant of the chart; see TimeSeriesChart */
+    kiosk?: boolean
     ariaLabel?: string
   }>(),
   { height: 260, refreshMs: 30_000 },
@@ -141,7 +143,7 @@ const hasData = computed(() => series.value.some((s) => s.data.some((v) => typeo
 </script>
 
 <template>
-  <div :style="{ minHeight: `${height}px` }">
+  <div :class="kiosk ? 'flex flex-col' : undefined" :style="{ minHeight: `${height}px` }">
     <p v-if="error && successfulQuery === queryKey && lastSuccess" class="mb-2 text-sm text-warn" role="status">
       Chart is stale. Last updated: {{ new Date(lastSuccess).toLocaleString() }}.
     </p>
@@ -162,6 +164,7 @@ const hasData = computed(() => series.value.some((s) => s.data.some((v) => typeo
       :legend="legend ?? (series.length > 1 && !minimal)"
       :zero-based="zeroBased"
       :minimal="minimal"
+      :kiosk="kiosk"
       :zoom="!minimal"
       :aria-label="ariaLabel"
     />
