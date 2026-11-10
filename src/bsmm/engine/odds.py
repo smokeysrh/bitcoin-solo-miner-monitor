@@ -44,8 +44,16 @@ def build_odds(
     # money
     power = power_w if power_w is not None else (summary.power_wall_w if summary.power_wall_w is not None else summary.power_w)
     reward = net.block_reward_btc if net.block_reward_btc is not None else (3.125 if net.height is None else mining.subsidy_sats(net.height) / 1e8)
-    eco = mining.economics(power or 0.0, hr, diff, settings.energy.price_per_kwh, net.btc_price, reward)
-    out["economics"] = eco.as_dict() | {"power_w": power, "currency": settings.units.currency}
+    # Unknown power stays unknown (no cost figures); an explicit 0 W is a real answer and is costed as such.
+    eco = mining.economics(power, hr, diff, settings.energy.price_per_kwh, net.btc_price, reward)
+    missing = 0 if power_w is not None else summary.devices_without_power
+    cost_note = _power_note(power, missing)
+    out["economics"] = eco.as_dict() | {
+        "power_w": power,
+        "power_complete": cost_note is None,
+        "cost_note": cost_note,
+        "currency": settings.units.currency,
+    }
 
     # progress / luck
     out["work"] = {
@@ -64,11 +72,23 @@ def build_odds(
     year = next(h for h in report.horizons if h.name == "year")
     day = next(h for h in report.horizons if h.name == "day")
     out["plain_english"] = _sentences(hr, report, year.probability, day.probability, eco, out["best_share"], settings)
+    if cost_note:
+        out["plain_english"].append(cost_note)
     out["plain_english"].append(
         "Next 10 minutes is a fixed 600-second window for finding at least one block, not your chance of winning the very next network block. "
         "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due."
     )
     return out
+
+
+def _power_note(power: float | None, missing_devices: int) -> str | None:
+    """Why the electricity figures are unknown or partial; None when the power figure is complete."""
+    if power is None:
+        return "Electricity cost is unknown because no miner reports its power draw. Enter a power figure to see it."
+    if missing_devices > 0:
+        miners = "1 miner does" if missing_devices == 1 else f"{missing_devices} miners do"
+        return f"Electricity cost covers only the miners that report power; {miners} not, so the real cost is higher."
+    return None
 
 
 def _sentences(hr: float, rep: mining.OddsReport, p_year: float, p_day: float, eco: mining.Economics,
@@ -83,7 +103,7 @@ def _sentences(hr: float, rep: mining.OddsReport, p_year: float, p_day: float, e
     ]
     if best.get("progress_to_block"):
         lines.append(f"Your best share so far ({format_si(best['difficulty'])}) reached {format_percent(best['progress_to_block'], 4)} of the way to a block.")
-    if eco.expected_value_per_year is not None and eco.cost_per_year > 0:
+    if eco.expected_value_per_year is not None and eco.cost_per_year is not None and eco.cost_per_year > 0:
         cur = settings.units.currency
         lines.append(
             f"Electricity costs about {eco.cost_per_year:,.0f} {cur} a year; the expected value of the block lottery is about "

@@ -252,9 +252,10 @@ def energy_cost(power_w: float, price_per_kwh: float, hours: float) -> float:
 class Economics:
     price_per_kwh: float
     btc_price: float | None
-    cost_per_day: float
-    cost_per_month: float
-    cost_per_year: float
+    #: electricity cost; None when the power draw is unknown (never confused with a measured zero)
+    cost_per_day: float | None
+    cost_per_month: float | None
+    cost_per_year: float | None
     block_reward_btc: float
     expected_value_per_day: float | None
     expected_value_per_year: float | None
@@ -268,14 +269,14 @@ class Economics:
 
 
 def economics(
-    power_w: float,
+    power_w: float | None,
     hashrate: float,
     difficulty: float,
     price_per_kwh: float,
     btc_price: float | None,
     block_reward_btc: float,
 ) -> Economics:
-    cost_day = energy_cost(power_w, price_per_kwh, 24)
+    cost_day = None if power_w is None else energy_cost(power_w, price_per_kwh, 24)
     rate_day = block_rate(hashrate, difficulty) * SECONDS_PER_DAY
     ev_day: float | None = None
     ev_year: float | None = None
@@ -284,15 +285,15 @@ def economics(
     if btc_price is not None and btc_price > 0:
         ev_day = rate_day * block_reward_btc * btc_price
         ev_year = ev_day * (SECONDS_PER_YEAR / SECONDS_PER_DAY)
-        ratio = (ev_day / cost_day) if cost_day > 0 else None
-    if rate_day > 0 and block_reward_btc > 0 and cost_day > 0:
+        ratio = (ev_day / cost_day) if cost_day is not None and cost_day > 0 else None
+    if rate_day > 0 and block_reward_btc > 0 and cost_day is not None and cost_day > 0:
         break_even = cost_day / (rate_day * block_reward_btc)
     return Economics(
         price_per_kwh=price_per_kwh,
         btc_price=btc_price,
         cost_per_day=cost_day,
-        cost_per_month=cost_day * 30.4375,
-        cost_per_year=cost_day * 365.25,
+        cost_per_month=None if cost_day is None else cost_day * 30.4375,
+        cost_per_year=None if cost_day is None else cost_day * 365.25,
         block_reward_btc=block_reward_btc,
         expected_value_per_day=ev_day,
         expected_value_per_year=ev_year,
