@@ -25,7 +25,8 @@ const ui = useUi()
 const now = useNowSec()
 
 const saved = computed(() => resolveLayout(settings.data?.ui.dashboard, settings.simple))
-const { root, draft, announcement, begin, hide, append, move } = useLayoutEditor<DashboardWidgetPlacement>((id) => WIDGET_BY_ID[id]?.title ?? id)
+const root = ref<HTMLElement | null>(null)
+const { draft, announcement, begin, hide, append, move } = useLayoutEditor<DashboardWidgetPlacement>((id) => WIDGET_BY_ID[id]?.title ?? id, root)
 const editing = ref(false)
 const saving = ref(false)
 

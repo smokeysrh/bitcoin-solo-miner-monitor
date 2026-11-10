@@ -33,7 +33,8 @@ const session = useSession()
 const toasts = useToasts()
 
 const card = (id: string): PageCard | undefined => props.cards.find((c) => c.id === id)
-const { root, draft, announcement, begin, hide, append, move } = useLayoutEditor<Placement>((id) => card(id)?.title ?? id)
+const root = ref<HTMLElement | null>(null)
+const { draft, announcement, begin, hide, append, move } = useLayoutEditor<Placement>((id) => card(id)?.title ?? id, root)
 const editing = ref(false)
 const saving = ref(false)
 

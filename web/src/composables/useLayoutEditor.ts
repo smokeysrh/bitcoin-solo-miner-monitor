@@ -5,10 +5,11 @@ export type MoveDirection = 'earlier' | 'later'
 /**
  * The draft behind every "Customize" screen (Dashboard, Bitcoin, Odds & costs): the cards being arranged, the keyboard
  * and single-pointer alternative to dragging, and the spoken position after a move.
- * Put `ref="root"` on an element around the editor and `data-move="<id>:<earlier|later>"` on its Move buttons.
+ * `root` is the component's own template ref (`const root = ref<HTMLElement | null>(null)` with `ref="root"` on an
+ * element around the editor; declared in the component because vue-tsc does not count a string `ref` as a use of a
+ * destructured composable return). Mark each Move button with `data-move="<id>:<earlier|later>"`.
  */
-export function useLayoutEditor<T extends { id: string }>(titleOf: (id: string) => string) {
-  const root = ref<HTMLElement | null>(null)
+export function useLayoutEditor<T extends { id: string }>(titleOf: (id: string) => string, root: Ref<HTMLElement | null>) {
   const draft = ref([]) as Ref<T[]>
   // Spoken by screen readers after a keyboard move; cleared whenever editing starts.
   const announcement = ref('')
@@ -47,5 +48,5 @@ export function useLayoutEditor<T extends { id: string }>(titleOf: (id: string) 
     buttons.find((b) => b.dataset.move === `${id}:${target}`)?.focus()
   }
 
-  return { root, draft, announcement, begin, hide, append, move }
+  return { draft, announcement, begin, hide, append, move }
 }
