@@ -34,7 +34,8 @@ Persistent data is separate from the program: normally
 uninstall preserve both, including passwords and encrypted credentials. There is
 no data-purge uninstall option. A failed safe stop (`bsmm stop --strict`, which also
 refuses state it cannot positively resolve, or another running server from the same install) aborts
-installation/removal. Upgrading from a release without `--strict` falls back to that release's own `stop`.
+installation/removal. Upgrading from a release without `--strict` falls back to that release's own `stop`;
+hosted CI proves this by installing and starting the published v1.1.2 setup, then running the candidate installer over it.
 The old v0.9 installation is not auto-deleted or auto-migrated; use the explicit
 `migrate-legacy` command if needed, after keeping its original data.
 
