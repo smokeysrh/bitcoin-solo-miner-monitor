@@ -9,5 +9,5 @@ const model = defineModel<string>({ required: true })
 </script>
 
 <template>
-  <Segmented v-model="model" :label="label" size="sm" :options="ranges.map((r) => ({ value: r, label: r }))" />
+  <Segmented v-model="model" :label="label" size="sm" class="max-w-full overflow-x-auto" :options="ranges.map((r) => ({ value: r, label: r }))" />
 </template>
