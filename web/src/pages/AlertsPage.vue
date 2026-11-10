@@ -11,6 +11,7 @@ import EventIcon from '@/components/ui/EventIcon.vue'
 import MetricCard from '@/components/ui/MetricCard.vue'
 import Select from '@/components/ui/Select.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import StaleNotice from '@/components/ui/StaleNotice.vue'
 import Switch from '@/components/ui/Switch.vue'
 import Tabs from '@/components/ui/Tabs.vue'
 import { confirmDialog } from '@/composables/useConfirm'
@@ -45,31 +46,65 @@ const severity = ref<'all' | 'warning' | 'success'>('all')
 const deviceFilter = ref('')
 const more = ref(false)
 
-async function loadEvents(append = false): Promise<void> {
-  if (!append) loadingEvents.value = true
-  more.value = append
+// reset = new list for the current filters; refresh = newest page, keeping older pages already loaded; older = next page
+type EventsLoad = 'reset' | 'refresh' | 'older'
+let listGeneration = 0 // bumped by every reset: responses for an earlier list are dropped
+let headRequest = 0 // newest reset/refresh request: an older head response is dropped
+
+async function loadEvents(kind: EventsLoad = 'reset'): Promise<void> {
+  const generation = kind === 'reset' ? ++listGeneration : listGeneration
+  const head = kind === 'older' ? headRequest : ++headRequest
+  const filter = severity.value
+  const cursor = next.value
+  if (kind === 'reset') {
+    events.value = []
+    next.value = null
+    loadingEvents.value = true
+    more.value = false
+  } else if (kind === 'older') {
+    more.value = true
+  }
+  const superseded = (): boolean => generation !== listGeneration || (kind !== 'older' && head !== headRequest)
   try {
     const r = await api.events({
       limit: 40,
-      before_id: append ? next.value : undefined,
-      min_severity: severity.value === 'warning' ? 'warning' : undefined,
+      before_id: kind === 'older' ? cursor : undefined,
+      min_severity: filter === 'warning' ? 'warning' : undefined,
       device_id: deviceFilter.value || undefined,
     })
+    if (superseded()) return
     let list = r.events
-    if (severity.value === 'success') list = list.filter((e) => e.severity === 'success')
-    events.value = append ? [...events.value, ...list] : list
-    next.value = r.next_before_id
+    if (filter === 'success') list = list.filter((e) => e.severity === 'success')
+    if (kind === 'older') {
+      const loaded = new Set(events.value.map((e) => e.id))
+      events.value = [...events.value, ...list.filter((e) => e.id === null || !loaded.has(e.id))]
+      next.value = r.next_before_id
+    } else {
+      const boundary = r.next_before_id
+      const newestLoaded = events.value[0]?.id ?? null
+      // keep older pages only when the new head page reaches back to the list already shown (no gap)
+      const kept =
+        kind === 'refresh' && boundary !== null && newestLoaded !== null && boundary <= newestLoaded
+          ? events.value.filter((e) => e.id !== null && e.id < boundary)
+          : []
+      events.value = [...list, ...kept]
+      if (!kept.length) next.value = boundary
+    }
     eventsError.value = null
   } catch (e) {
+    if (superseded()) return
     eventsError.value = e
   } finally {
-    loadingEvents.value = false
-    more.value = false
+    if (kind === 'older') {
+      if (generation === listGeneration) more.value = false
+    } else if (head === headRequest) {
+      loadingEvents.value = false
+    }
   }
 }
 onMounted(() => void loadEvents())
 watch([severity, deviceFilter], () => void loadEvents())
-watch(() => live.events[0]?.id, () => void loadEvents())
+watch(() => live.events[0]?.id, () => void loadEvents('refresh'))
 
 async function ack(e: AppEvent): Promise<void> {
   if (e.id == null) return
@@ -155,6 +190,7 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
     <Tabs v-model="tab" label="Alerts sections" :tabs="[{ value: 'activity', label: 'Activity', icon: History, badge: live.alerts.length || null }, { value: 'rules', label: 'Rules', icon: BellRing }]">
       <template #activity>
         <div class="space-y-5">
+          <StaleNotice v-if="live.loaded && live.loadError" :error="live.loadError" @retry="live.reload()" />
           <section v-if="live.alerts.length" aria-label="Active alerts" class="space-y-2.5" data-testid="active-alerts">
             <h3 class="eyebrow">Happening now</h3>
             <div v-for="a in live.alerts" :key="a.key" class="flex items-start gap-3 rounded-2xl border p-4" :class="a.severity === 'critical' ? 'border-bad/30 bg-bad-soft' : 'border-warn/30 bg-warn-soft'">
@@ -167,6 +203,8 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
               <span class="shrink-0 text-xs text-muted">since {{ fmt.formatAgo(a.since, now) }}</span>
             </div>
           </section>
+          <ErrorState v-else-if="!live.loaded && live.loadError" compact title="Could not load your alerts" :error="live.loadError" @retry="live.reload()" />
+          <p v-else-if="!live.loaded" class="rounded-2xl border border-line bg-surface-2/60 p-4 text-sm text-muted" role="status">Checking for alerts…</p>
           <div v-else class="flex items-center gap-3 rounded-2xl border border-ok/25 bg-ok-soft p-4">
             <CircleCheck class="size-5 shrink-0 text-ok" aria-hidden="true" />
             <p class="text-sm text-fg">All clear. Nothing needs your attention.</p>
@@ -197,7 +235,7 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
                 <Button v-if="e.ack_ts === null && e.severity !== 'info' && session.canControl" size="iconSm" variant="ghost" aria-label="Mark seen" @click="ack(e)"><Check class="size-4" /></Button>
               </li>
             </ul>
-            <div v-if="next" class="mt-4 text-center"><Button variant="secondary" size="sm" :loading="more" @click="loadEvents(true)">Load older</Button></div>
+            <div v-if="next" class="mt-4 text-center"><Button variant="secondary" size="sm" :loading="more" @click="loadEvents('older')">Load older</Button></div>
           </MetricCard>
         </div>
       </template>

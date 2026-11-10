@@ -6,8 +6,6 @@ import { confirmDialog } from '@/composables/useConfirm'
 import { useMinerActions } from '@/composables/useMinerActions'
 import { api, describeError } from '@/lib/api'
 import type { DeviceView, TuningInfo } from '@/lib/types'
-import { useLive } from '@/stores/live'
-import { useToasts } from '@/stores/toasts'
 import Button from '@/components/ui/Button.vue'
 import Field from '@/components/ui/Field.vue'
 import Select from '@/components/ui/Select.vue'
@@ -18,8 +16,6 @@ import MetricCard from '@/components/ui/MetricCard.vue'
 
 const props = defineProps<{ device: DeviceView }>()
 const fmt = useFmt()
-const live = useLive()
-const toasts = useToasts()
 const actions = useMinerActions()
 
 const info = ref<TuningInfo | null>(null)
@@ -80,12 +76,10 @@ async function apply(): Promise<void> {
   if (!ok) return
   busy.value = true
   try {
-    const res = await api.action(props.device.id, 'set_tuning', params)
-    toasts.success('Tuning changed', res.message ?? 'Give it a minute to settle.')
-    live.upsertDevice(await api.pollDevice(props.device.id))
-    await load()
-  } catch (e) {
-    toasts.error('Could not change tuning', describeError(e))
+    // A failed read-back is "accepted, refresh pending", not a failed change. Wait for the poll: the tuning endpoint
+    // reports the last polled values, so reloading earlier would show the old ones.
+    const res = await actions.run(props.device, 'set_tuning', params, 'Tuning changed', true)
+    if (res.ok) await load()
   } finally {
     busy.value = false
   }
@@ -95,11 +89,7 @@ async function applyFan(): Promise<void> {
   fanBusy.value = true
   try {
     const params = fan.auto ? { auto: true, temp_target_c: fan.target } : { auto: false, speed_pct: fan.speed }
-    const res = await api.action(props.device.id, 'set_fan', params)
-    toasts.success('Fan updated', res.message)
-    live.upsertDevice(await api.pollDevice(props.device.id))
-  } catch (e) {
-    toasts.error('Could not change the fan', describeError(e))
+    await actions.run(props.device, 'set_fan', params, 'Fan updated')
   } finally {
     fanBusy.value = false
   }
