@@ -187,16 +187,30 @@ class SettingsService:
     def on_change(self, listener: Listener) -> None:
         self._listeners.append(listener)
 
-    async def update(self, patch: dict[str, Any]) -> Settings:
-        """Merge ``patch`` into the settings. Raises ``pydantic.ValidationError`` if invalid."""
+    async def save(self, patch: dict[str, Any], within: Callable[[], Awaitable[None]] | None = None) -> tuple[Settings, Settings]:
+        """Merge ``patch`` into the settings and persist it; returns ``(new, old)``. Raises ``pydantic.ValidationError``.
+
+        The snapshot, the write and the cache update share one lock hold, so a concurrent update is never overwritten.
+        ``within`` runs inside the same database transaction (all-or-nothing). Call ``notify`` once this returns.
+        """
         async with self._lock:
             old = self._current
-            merged = deep_merge(old.model_dump(), patch)
-            new = Settings.model_validate(merged)
-            await self.store.kv_set(KEY, new.model_dump())
+            new = Settings.model_validate(deep_merge(old.model_dump(), patch))
+            async with self.store.db.tx():
+                await self.store.kv_set(KEY, new.model_dump())
+                if within is not None:
+                    await within()
             self._current = new
+        return new, old
+
+    async def notify(self, new: Settings, old: Settings) -> None:
         for listener in self._listeners:
             res = listener(new, old)
             if asyncio.iscoroutine(res):
                 await res
+
+    async def update(self, patch: dict[str, Any]) -> Settings:
+        """Merge ``patch`` into the settings. Raises ``pydantic.ValidationError`` if invalid."""
+        new, old = await self.save(patch)
+        await self.notify(new, old)
         return new

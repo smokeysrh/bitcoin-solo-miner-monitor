@@ -29,7 +29,7 @@ from bsmm.engine.insights import build_insights, dismiss
 from bsmm.engine.network import SOURCE_CLASSES
 from bsmm.models import AlertRule, Channel, Device, Source
 from bsmm.net import local_ipv4_networks
-from bsmm.settings import KEY, Settings, deep_merge
+from bsmm.settings import Settings, deep_merge
 from bsmm.updates import check_for_update
 
 router = APIRouter()
@@ -206,7 +206,8 @@ async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _:
         ch.config, _secrets = _split_fields(ch.kind, ch.config, {})
         ch.has_secret = False
     settings_patch = {k: v for k, v in (body.settings or {}).items() if k != "auth"}
-    new_settings = Settings.model_validate(deep_merge(ctx.settings.current.model_dump(), settings_patch)) if settings_patch else None
+    if settings_patch:
+        Settings.model_validate(deep_merge(ctx.settings.current.model_dump(), settings_patch))  # early check; repeated under the settings lock
     devices = [Device.model_validate(raw) for raw in body.devices]
     rules = [AlertRule.model_validate(raw) for raw in body.rules]
     for rule in rules:
@@ -222,32 +223,39 @@ async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _:
 
     added = {"devices": 0, "rules": 0, "channels": 0, "sources": 0}
     new_devices: list[Device] = []
+
+    async def persist_rest() -> None:
+        for dev in devices:
+            if await ctx.store.find_device(device_info(dev)):
+                continue
+            await ctx.store.save_device(dev, create=True)
+            new_devices.append(dev)
+        existing_rules = {r.id for r in await ctx.store.list_rules()}
+        for rule in rules:
+            if rule.id not in existing_rules:
+                await ctx.store.save_rule(rule)
+                added["rules"] += 1
+        existing_ch = {c.id for c in await ctx.store.list_channels()}
+        for ch in channels:
+            if ch.id not in existing_ch:
+                ch.enabled = False  # it has no secret yet, so it cannot work until the user re-enters it
+                await ctx.store.save_channel(ch, secret={})
+                added["channels"] += 1
+        existing_src = {s.id for s in await ctx.store.list_sources()}
+        for src in sources:
+            if src.id not in existing_src:
+                src.enabled = False
+                await ctx.store.save_source(src, secret={})
+                added["sources"] += 1
+
+    changed: tuple[Settings, Settings] | None = None
     try:
-        async with ctx.store.db.tx():  # one commit: a failure anywhere below rolls back every write
-            if new_settings is not None:
-                await ctx.store.kv_set(KEY, new_settings.model_dump())
-            for dev in devices:
-                if await ctx.store.find_device(device_info(dev)):
-                    continue
-                await ctx.store.save_device(dev, create=True)
-                new_devices.append(dev)
-            existing_rules = {r.id for r in await ctx.store.list_rules()}
-            for rule in rules:
-                if rule.id not in existing_rules:
-                    await ctx.store.save_rule(rule)
-                    added["rules"] += 1
-            existing_ch = {c.id for c in await ctx.store.list_channels()}
-            for ch in channels:
-                if ch.id not in existing_ch:
-                    ch.enabled = False  # it has no secret yet, so it cannot work until the user re-enters it
-                    await ctx.store.save_channel(ch, secret={})
-                    added["channels"] += 1
-            existing_src = {s.id for s in await ctx.store.list_sources()}
-            for src in sources:
-                if src.id not in existing_src:
-                    src.enabled = False
-                    await ctx.store.save_source(src, secret={})
-                    added["sources"] += 1
+        if settings_patch:
+            # Merged and written under the settings lock, so a concurrent settings update is never reverted.
+            changed = await ctx.settings.save(settings_patch, within=persist_rest)
+        else:
+            async with ctx.store.db.tx():  # one commit: a failure anywhere below rolls back every write
+                await persist_rest()
     except sqlite3.IntegrityError as e:
         raise bad_request("Two miners in this file share an id or an address.", "Nothing was imported. Fix the file and try again.") from e
     added["devices"] = len(new_devices)
@@ -255,8 +263,8 @@ async def import_config(body: ImportBody, ctx: AppContext = Depends(get_ctx), _:
     try:
         for dev in new_devices:
             ctx.fleet.adopt(dev)
-        if new_settings is not None:
-            await ctx.settings.update(settings_patch)  # same values as saved above; refreshes the cache and listeners
+        if changed is not None:
+            await ctx.settings.notify(*changed)
         await ctx.network.reload_sources()
     except Exception as e:
         log.exception("Config import was saved but the running monitor could not refresh")
