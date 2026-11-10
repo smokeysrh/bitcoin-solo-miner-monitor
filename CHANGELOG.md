@@ -5,6 +5,51 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - Unreleased
+
+This patch release collects 30 bug fixes made since v1.1.2. The release date is set when the tag is approved.
+
+### Fixed
+- **Alerts and blocks:**
+  - A rule that fails to evaluate no longer clears its alert state (#18, PR #47).
+  - A found block and its event are now saved in one transaction (#20, PR #48).
+  - Old blocks are looked up through mempool.space, and found blocks replaced by a chain reorganization are marked as replaced (#38, PR #73).
+- **Monitoring and metrics:**
+  - A miner keeps being polled after a brief failure that follows a successful read (#19, PR #54).
+  - Unknown, disabled and stale miners are reported as not up in metrics (#32, PR #62).
+  - Electricity cost shows as unknown when a miner's power is missing (#33, PR #58).
+  - Disabled source creation is honored, and healed miners are relocated under the fleet lock (#36, PR #70).
+  - Unsaved samples are capped while storage is failing, and the storage problem is reported (#37, PR #65).
+- **Data safety and storage:**
+  - A database written by a newer version is refused instead of opened (#30, PR #46).
+  - Config import now applies fully or not at all (#31, PR #55).
+- **Settings, forms and dashboard:**
+  - Discovery status recovers after a polling failure (#12, PR #16).
+  - The service worker registers even when startup finishes after the page has loaded (#15, PR #17).
+  - Pool, tuning and fan forms check the result of the action before reporting success (#21, PR #49).
+  - Settings saves run in order, so an older answer cannot overwrite a newer one (#22, PR #50).
+  - A late full refresh no longer overwrites newer live updates (#23, PR #53).
+  - Bulk Apply is tied to the exact preview that succeeded (#24, PR #52).
+  - Superseded Analytics, what-if and Activity responses are ignored (#25, PR #72).
+  - Failed loads show an error instead of an empty or all-clear state (#26, PR #71).
+  - The service worker only cleans up its own caches and finishes its writes within the event (#39, PR #63).
+- **Accessibility:**
+  - Collapsed navigation links have names, palette arrow keys follow the order shown, and the range picker stays within its container (#42, PR #69).
+  - Time-series charts include a text summary and a data table (#43, PR #66).
+  - Dashboard customization has keyboard move controls and inert previews (#44, PR #68).
+- **Security hardening:**
+  - Passwords are hashed in a bounded worker thread (#35, PR #59).
+  - The Bitcoin Core cookie file is tied to its own source's settings and validated (#45, PR #56).
+  - CSV export headers stay literal when opened in spreadsheets (#34, PR #61).
+  - The Vite development server keeps its Host check on when listening on the LAN (#41, PR #64).
+- **Installer and Windows:**
+  - The installer refuses an unresolved stop state, and autostart configuration is pinned (#40, PR #67). The hosted Windows check now also upgrades from the published v1.1.2 installer.
+- **Release pipeline and CI:**
+  - Publishing waits for the full test suite and the Windows smoke test (#27, PR #57).
+  - The prerelease channel comes from one parsed tag (#28, PR #51).
+  - Publishing workflow actions are pinned to commit SHAs (#29, PR #60).
+  - These new gates have not yet run on a real tag.
+
 ## [1.1.2] - 2026-10-28
 
 This targeted release repairs storage, miner controls, monitoring, alerts, authentication, dashboard behavior and platform tooling, and includes a rebuilt Windows installer.

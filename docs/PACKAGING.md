@@ -6,7 +6,7 @@ Pick the one that matches your computer. All of them give you the same app on po
 
 An agent can handle installation and setup using the [copyable README prompt](../README.md#let-your-agent-do-the-setup). Use artifacts from the [official stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest).
 
-This checkout describes the unreleased v1.1.2 candidate. Its versioned download links become usable only after that release's assets are published and verified. Until then, choose an available artifact from the stable release; do not treat a missing candidate asset as an installation route.
+This checkout describes the unreleased v1.1.3 candidate. Its versioned download links become usable only after that release's assets are published and verified. Until then, choose an available artifact from the stable release; do not treat a missing candidate asset as an installation route.
 
 ### Docker (best for a NAS, Raspberry Pi, Umbrel-style box or home server)
 
@@ -117,9 +117,9 @@ Before release, check that both archives contain `index.html` and actual files u
 ### Releasing
 
 1. Update `src/bsmm/__init__.py` (`__version__`), the web package/lock root versions, Umbrel template version/image tag and `CHANGELOG.md`. Regenerate `llms.txt` with `python scripts/gen_llms_txt.py`; check `uv lock --check` and preserve locked dependency versions. The local project entry may use dynamic version metadata rather than a literal version in `uv.lock`.
-2. Verify the integrated v1.1.2 candidate: focused repair regressions, backend/web suites, built wheel and sdist UI contents, and native Windows install/launch/upgrade/data preservation. Check `ten_minutes` covers 600 seconds and the UI says **Next 10 minutes**. Refresh screenshots against a disposable demo only. Review the exact public docs and final asset filenames before publication.
-   Run actionlint against all `.github/workflows` files. Exercise the pull-request Windows workflow on a draft candidate before creating the tag. Its first PowerShell step exports isolated paths through `GITHUB_ENV`. The native smoke uses a separate pinned v1.1.1 checkout to produce old data, then requires installed v1.1.2 to open it first, migrate, reopen and preserve it through reinstall/uninstall. Actual frozen cold setup must reserve every loopback discovery port; a Linux permission failure is not a pass. See [Windows build and smoke commands](../installer/windows/README.md).
-3. After release approval and verification, create and push `v1.1.2`. Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
+2. Verify the integrated v1.1.3 candidate: focused repair regressions, backend/web suites, built wheel and sdist UI contents, and native Windows install/launch/upgrade/data preservation. Check `ten_minutes` covers 600 seconds and the UI says **Next 10 minutes**. Refresh screenshots against a disposable demo only. Review the exact public docs and final asset filenames before publication.
+   Run actionlint against all `.github/workflows` files. Exercise the pull-request Windows workflow on a draft candidate before creating the tag. Its first PowerShell step exports isolated paths through `GITHUB_ENV`. The native smoke uses a separate pinned v1.1.1 checkout to produce old data, then requires installed v1.1.3 to open it first, migrate, reopen and preserve it through reinstall/uninstall. Actual frozen cold setup must reserve every loopback discovery port; a Linux permission failure is not a pass. See [Windows build and smoke commands](../installer/windows/README.md).
+3. After release approval and verification, create and push `v1.1.3`. Never move or replace a published tag: v1.1.0 remains the failed packaging attempt.
 4. `.github/workflows/release.yml` handles GitHub release artifacts and the multi-architecture image at ghcr.io. Read back the published assets, wheel URL and container tags. Verify the Windows installer is attached to the same release before announcing it. The v1.1.1 wheel and image were published; the current candidate still needs its own checks.
 
 ### Publishing to PyPI (one-time setup)
