@@ -15,7 +15,13 @@ ASSET = "bsmm-1.1.2-windows-setup.exe"
 ASSET_SHA256 = "f971da129f5810d2f399d786774544441bc572aa459e88e3b5b0b1ff04a10f1c"
 SMOKE_STEP = "Native disposable lifecycle and installer smoke"
 ENV_VARIABLE = "BSMM_PREVIOUS_INSTALLER"
-EXISTING_ACTIONS = {"actions/checkout@v4", "actions/setup-node@v4", "astral-sh/setup-uv@v5", "actions/upload-artifact@v4"}
+# Exactly the commit-SHA-pinned `uses:` values on origin/main (issue #29); this PR adds no new action
+EXISTING_ACTIONS = {
+    "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+    "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+    "astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86",
+    "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+}
 
 
 def _steps() -> list[str]:
