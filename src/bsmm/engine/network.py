@@ -200,11 +200,12 @@ class NetworkService:
         except SourceError as e:
             return ConnectionTest(ok=False, message=str(e))
 
-    async def add_source(self, kind: str, name: str, url: str | None, secret: dict[str, str] | None, options: dict[str, Any] | None) -> Source:
+    async def add_source(self, kind: str, name: str, url: str | None, secret: dict[str, str] | None, options: dict[str, Any] | None,
+                         *, enabled: bool = True) -> Source:
         if kind not in SOURCE_CLASSES:
             raise ValueError(f"unknown source type {kind!r}")
         src = Source(id=new_id("src"), kind=kind, name=name or SOURCE_CLASSES[kind].label, url=url, options=options or {},
-                     has_secret=bool(secret))
+                     has_secret=bool(secret), enabled=enabled)
         if kind == BitcoinCoreSource.kind:
             try:
                 await check_cookie_option(src.options)
