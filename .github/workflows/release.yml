@@ -14,6 +14,9 @@ jobs:
   package:
     name: Build the Python package (with the web UI inside)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.channel.outputs.version }}
+      is_prerelease: ${{ steps.channel.outputs.is_prerelease }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -23,12 +26,16 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
       - name: Check the tag matches the package version
+        id: channel
         run: |
           version="$(python3 -c "import re;print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/bsmm/__init__.py').read()).group(1))")"
-          tag="${GITHUB_REF_NAME#v}"
-          # PEP 440 writes 1.0.0rc1 where git tags usually say 1.0.0-rc.1
-          norm="$(echo "$tag" | sed -E 's/-?rc\.?/rc/; s/-?beta\.?/b/; s/-?alpha\.?/a/')"
+          # One parse of the tag (scripts/release_version.py) gives the canonical version and the channel.
+          # It runs in the locked environment (uv.lock pins packaging), like the Windows job.
+          uv sync --frozen --no-install-project
+          outputs="$(uv run --no-sync python scripts/release_version.py "$GITHUB_REF_NAME")"
+          norm="$(uv run --no-sync python scripts/release_version.py "$GITHUB_REF_NAME" --canonical)"
           if [ "$version" != "$norm" ]; then echo "tag $GITHUB_REF_NAME does not match package version $version"; exit 1; fi
+          echo "$outputs" >> "$GITHUB_OUTPUT"
       - name: Build the web UI
         working-directory: web
         run: |
@@ -73,7 +80,7 @@ jobs:
         with:
           files: dist/*
           generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') || contains(github.ref_name, 'rc') }}
+          prerelease: ${{ needs.package.outputs.is_prerelease == 'true' }}
 
   pypi:
     needs: [package, windows, ci]
@@ -110,9 +117,9 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ !contains(github.ref_name, '-') }}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') && !contains(github.ref_name, 'rc') }}
+            type=raw,value=${{ needs.package.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.package.outputs.is_prerelease != 'true' }}
+            type=raw,value=latest,enable=${{ needs.package.outputs.is_prerelease != 'true' }}
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
