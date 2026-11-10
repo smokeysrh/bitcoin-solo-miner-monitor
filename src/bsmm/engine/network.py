@@ -424,18 +424,21 @@ class NetworkService:
             await self.store.kv_set("blocks.last_checked", h)
 
     async def record_block_found(self, block: BlockInfo, address: str | None, *, source: str, device_id: str | None = None) -> bool:
-        new = await self.store.add_block_found(
-            hash_=block.hash, height=block.height, ts=block.ts, device_id=device_id, address=address,
-            reward_sats=block.reward_sats, source=source, data={"pool": block.pool_name, "tx_count": block.tx_count},
-        )
-        if not new:
-            return False
-        await self.events.emit(
-            "block_found", "YOU FOUND A BLOCK!", severity=Severity.SUCCESS,
-            body=f"Block {block.height:,} matches watched address {address}. This is monitoring evidence, not confirmation of a payout amount." if address else f"Block {block.height:,}.",
-            data={"height": block.height, "hash": block.hash, "reward_sats": block.reward_sats, "address": address, "source": source},
-            dedupe_key=f"block:{block.hash}",
-        )
+        # The block row and its alert event commit together: a failure between them rolls both back, so a retry
+        # cannot find the block already stored and skip the event.
+        async with self.store.db.tx():
+            new = await self.store.add_block_found(
+                hash_=block.hash, height=block.height, ts=block.ts, device_id=device_id, address=address,
+                reward_sats=block.reward_sats, source=source, data={"pool": block.pool_name, "tx_count": block.tx_count},
+            )
+            if not new:
+                return False
+            await self.events.emit(
+                "block_found", "YOU FOUND A BLOCK!", severity=Severity.SUCCESS,
+                body=f"Block {block.height:,} matches watched address {address}. This is monitoring evidence, not confirmation of a payout amount." if address else f"Block {block.height:,}.",
+                data={"height": block.height, "hash": block.hash, "reward_sats": block.reward_sats, "address": address, "source": source},
+                dedupe_key=f"block:{block.hash}",
+            )
         self.bus.publish("block_found", {"height": block.height, "hash": block.hash, "address": address, "source": source})
         return True
 

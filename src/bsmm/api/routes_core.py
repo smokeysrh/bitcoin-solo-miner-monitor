@@ -110,6 +110,15 @@ async def diagnostics(ctx: AppContext = Depends(get_ctx), _: Principal = Depends
         check("database", False, f"The database failed: {e}", "Check the data folder's permissions and free space.")
     free = shutil.disk_usage(ctx.config.data_dir if ctx.config.data_dir.exists() else Path("."))
     check("disk", free.free > 200 * 1024 * 1024, f"{free.free / 1e9:.1f} GB free where the data is stored.", "Free some disk space.")
+    storage = ctx.fleet.sample_storage
+    if storage["failing"]:
+        check("samples", False, f"Readings cannot be saved. {storage['backlog']} are held in memory and the oldest are discarded when it fills.",
+              "Check the data folder's permissions and free space; saving resumes on its own.")
+    elif storage["dropped"]:
+        check("samples", None, f"{storage['dropped']} readings were discarded while saving failed, so history has a gap.",
+              "The gap is permanent; this notice clears when the app restarts.")
+    else:
+        check("samples", True, "Readings are being saved.")
     views = ctx.fleet.views()
     online = [v for v in views if v.status.value in ("online", "degraded", "paused")]
     if not views:
