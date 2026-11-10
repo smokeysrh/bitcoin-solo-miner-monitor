@@ -60,7 +60,7 @@ const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
                     aria-hidden="true"
                   />
                   <component :is="item.icon" class="size-[18px] shrink-0" aria-hidden="true" />
-                  <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
+                  <span :class="collapsed ? 'sr-only' : 'truncate'">{{ item.label }}</span>
                   <span
                     v-if="badge(item.name)"
                     :class="[
