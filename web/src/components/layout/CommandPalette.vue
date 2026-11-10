@@ -103,14 +103,20 @@ const commands = computed<Cmd[]>(() => {
   return out
 })
 
+/** Rows are shown under group headings, so keep each group together (best match first) and use this one order for arrows, Enter and display. */
+function byGroup<T extends { item: Cmd }>(rows: T[]): T[] {
+  const groups = [...new Set(rows.map((r) => r.item.group))]
+  return groups.flatMap((g) => rows.filter((r) => r.item.group === g))
+}
+
 const results = computed(() => {
   const q = query.value.trim()
   if (!q) {
     // with nothing typed, show the most useful starting points
     const pick = new Set(['nav-dashboard', 'nav-miners', 'nav-odds', 'act-add', 'nav-bitcoin', 'nav-alerts', 'nav-settings', 'nav-kiosk'])
-    return commands.value.filter((c) => pick.has(c.id)).map((c) => ({ item: c, score: 1 }))
+    return byGroup(commands.value.filter((c) => pick.has(c.id)).map((c) => ({ item: c, score: 1 })))
   }
-  return rank(commands.value, q, (c) => `${c.label} ${c.hint ?? ''} ${c.keywords ?? ''} ${c.group}`).slice(0, 40)
+  return byGroup(rank(commands.value, q, (c) => `${c.label} ${c.hint ?? ''} ${c.keywords ?? ''} ${c.group}`).slice(0, 40))
 })
 
 watch(open, async (v) => {
