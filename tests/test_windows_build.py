@@ -43,7 +43,7 @@ def test_windows_release_waits_for_native_smoke():
     assert "installer/windows/smoke.py" in text and "--expected-version" in text
     assert text.index("installer/windows/smoke.py") < text.index("actions/upload-artifact")
     release = (ROOT / ".github/workflows/release.yml").read_text()
-    assert "needs: [package, windows]" in release and "name: windows-dist" in release
+    assert "needs: [package, windows, ci]" in release and "name: windows-dist" in release
 
 
 def test_windows_build_paths_use_runtime_environment_before_tools():

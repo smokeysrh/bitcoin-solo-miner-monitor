@@ -50,7 +50,13 @@ begin
   Exe := ExpandConstant('{app}\bsmm.exe');
   Result := True;
   if FileExists(Exe) then
-    Result := Exec(Exe, 'stop', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+  begin
+    Result := Exec(Exe, 'stop --strict', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+    // Releases up to 1.1.2 do not know --strict and exit 2 (usage error): use their own stop, still requiring exit 0.
+    if Result and (Code = 2) then
+      Result := Exec(Exe, 'stop', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+    Result := Result and (Code = 0);
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;

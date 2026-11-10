@@ -287,6 +287,10 @@ class Fleet:
 
     # -- device management -------------------------------------------------------------------------------
 
+    def adopt(self, dev: Device) -> DeviceRuntime:
+        """Start monitoring a device that is already saved (a committed config import)."""
+        return self._spawn(dev)
+
     def _spawn(self, dev: Device) -> DeviceRuntime:
         rt = DeviceRuntime(device=dev)
         if not dev.enabled:
@@ -428,6 +432,43 @@ class Fleet:
         rt.wake.set()
         self.bus.publish("device", {"id": dev.id, "view": self.view(dev.id).model_dump(mode="json")})  # type: ignore[union-attr]
         return dev
+
+    async def relocate_endpoint(self, device_id: str, host: str, port: int, *, from_endpoint: tuple[str, int],
+                                same_miner: Callable[[Device], bool]) -> Device | None:
+        """Move an offline miner to the address where its identity turned up (automatic IP healing).
+
+        The caller scans without any lock; every condition is rechecked here under the device lock. Returns ``None`` and
+        changes nothing when the miner was removed, edited, brought back, or no longer matches in the meantime.
+        """
+        rt = self.runtimes.get(device_id)
+        if rt is None:
+            return None
+        async with rt.lock:
+            if rt.removing or self._stopping or self.runtimes.get(device_id) is not rt:
+                return None
+            return await _complete(asyncio.create_task(self._relocate_locked(rt, host, port, from_endpoint, same_miner)))
+
+    async def _relocate_locked(self, rt: DeviceRuntime, host: str, port: int, from_endpoint: tuple[str, int],
+                               same_miner: Callable[[Device], bool]) -> Device | None:
+        dev = rt.device
+        if rt.status != DeviceStatus.OFFLINE or (dev.host, dev.port) != from_endpoint or not same_miner(dev):
+            return None
+        if any(other is not rt and (other.device.host, other.device.port) == (host, port) for other in self.runtimes.values()):
+            return None
+        candidate = dev.model_copy(deep=True)
+        candidate.host, candidate.port = host, port
+        if dev.host not in candidate.alt_hosts:
+            candidate.alt_hosts.append(dev.host)
+        await self.store.save_device(candidate)  # persist first: a failure leaves the runtime untouched
+        rt.device = candidate
+        old_driver, rt.driver = rt.driver, None
+        if old_driver:
+            try:
+                await old_driver.close()
+            except Exception:
+                log.warning("closing the old driver of %s failed", candidate.name, exc_info=True)
+        rt.wake.set()
+        return candidate
 
     # -- views ------------------------------------------------------------------------------------------------
 

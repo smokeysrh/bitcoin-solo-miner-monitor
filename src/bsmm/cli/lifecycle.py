@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -109,6 +110,55 @@ def owned_process(data: Path, record: dict[str, Any]) -> psutil.Process | None:
         return None
     except psutil.AccessDenied as e:
         raise CliError("Cannot verify the background process identity; state was retained.") from e
+
+
+def unresolved_state(data: Path, record: dict[str, Any]) -> bool:
+    """True when saved state may still name a live process this CLI cannot prove it owns.
+
+    Used after ``owned_process`` returned ``None``. Only a missing process, or a PID now held by a
+    process created at a different time, is positive absence. Query only; nothing is signalled.
+    """
+    pid: object = record.get("pid") if record else None
+    if not record:
+        try:
+            pid = int((data / "bsmm.pid").read_text(encoding="utf-8").strip())  # legacy PID-only file
+        except (OSError, ValueError):
+            return True  # unreadable or malformed: cannot tell
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return True
+    try:
+        if not psutil.pid_exists(pid):
+            return False
+        created = record.get("created")
+        if isinstance(created, int | float) and psutil.Process(pid).create_time() != created:
+            return False
+    except psutil.NoSuchProcess:
+        return False
+    except psutil.AccessDenied as e:
+        raise CliError("Cannot verify the background process identity; state was retained.") from e
+    return True
+
+
+SERVER_COMMANDS = frozenset({"serve", "demo"})
+
+
+def installed_server_running() -> bool:
+    """True when another process of this frozen build is running a server, however it was started.
+
+    Foreground ``serve`` and service/scheduled-task instances never write ``bsmm.pid``, yet hold the installed files.
+    Only meaningful for the installed exe; source runs report False. Query only; nothing is signalled.
+    """
+    if not getattr(sys, "frozen", False):
+        return False
+    me, exe = os.getpid(), os.path.normcase(sys.executable)
+    for proc in psutil.process_iter(["pid", "exe", "cmdline"]):
+        info = proc.info
+        if info["pid"] == me or not info["exe"] or os.path.normcase(info["exe"]) != exe:
+            continue
+        argv = info["cmdline"] or []
+        if len(argv) > 1 and argv[1] in SERVER_COMMANDS:
+            return True
+    return False
 
 
 def clear(data: Path) -> None:

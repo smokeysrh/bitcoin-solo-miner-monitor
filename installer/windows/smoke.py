@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from urllib.request import urlopen
 
@@ -27,6 +28,8 @@ NATIVE_DIAGNOSTIC_LIMIT = 4096
 WINDOWS_SHARING_VIOLATION = 32
 CLEANUP_ATTEMPTS = 81
 CLEANUP_RETRY_DELAY = 0.25  # At most 20 seconds of waiting for Inno self-cleanup.
+REFUSAL_START_SECONDS = 30.0
+REFUSAL_STOP_SECONDS = 15.0
 
 
 @contextlib.contextmanager
@@ -407,18 +410,144 @@ def smoke(command: list[str], root: Path, version: str, installer: Path | None, 
         sentinel.wait(timeout=10)
 
 
+def previous_release_upgrade(previous: Path, candidate: Path, root: Path, version: str) -> None:
+    """Install an earlier released setup, run it, then let the candidate installer replace it.
+
+    The earlier release's own stop command is what the candidate installer must cope with, so it must be the
+    real released exe. Uses an empty owned data directory; nothing is read from or written to real user data.
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("Native Windows installer checks cannot run on Linux")
+    data = root / "data"
+    env = isolated_env(root, data)
+    env["BSMM_PORT"] = str(port())
+    base = f"http://127.0.0.1:{env['BSMM_PORT']}"
+    target = root / "installed app"
+    exe = str(target / "bsmm.exe")
+    flags = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", f"/DIR={target}"]
+    assert not target.exists()
+    try:
+        run([str(previous), *flags], env)
+        assert Path(exe).is_file()
+        cli([exe], env, "start")  # the previous release is running when the candidate arrives
+        run([str(candidate), *flags], env)  # a refused stop makes the installer exit non-zero
+        assert not cli([exe], env, "start").get("already")  # the previous instance really was stopped
+        check_assets(base, version)
+        assert cli([exe], env, "stop")["stopped"]
+        run([str(target / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], env)
+        deadline = time.monotonic() + 20
+        while Path(exe).exists() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert not Path(exe).exists()
+        print(json.dumps({"previous_release_upgrade": True}), flush=True)
+    finally:
+        if Path(exe).exists():
+            run([exe, "stop"], env, success=False)
+
+
+def tree_identity(directory: Path) -> dict[str, tuple[int, str]]:
+    """Relative path -> (size, SHA-256) for every file under one owned directory. Names only, never contents."""
+    return {path.relative_to(directory).as_posix(): (path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest())
+            for path in sorted(directory.rglob("*")) if path.is_file()}
+
+
+def stable_data(data: Path) -> dict[str, str]:
+    # A running server may legitimately write its database/WAL; those are compared logically through credentials().
+    return {name: digest for name, digest in saved_data(data).items() if not name.startswith("bsmm.db")}
+
+
+def stop_owned_server(server: subprocess.Popen[bytes], data: Path, token: str) -> None:
+    """Cooperatively stop the one server this smoke launched; terminate only that Popen handle if it will not leave."""
+    if server.poll() is not None:
+        return
+    (data / "bsmm.stop").write_text(token, encoding="utf-8")
+    try:
+        server.wait(timeout=REFUSAL_STOP_SECONDS)
+    except subprocess.TimeoutExpired:
+        server.terminate()
+        server.wait(timeout=REFUSAL_STOP_SECONDS)
+        raise RuntimeError("Owned server ignored the cooperative stop request and had to be terminated by its handle") from None
+
+
+def refusal_with_live_server(candidate: Path, root: Path, version: str) -> None:
+    """The candidate installer must refuse to replace files while an unrecorded server of the installed exe runs.
+
+    A foreground ``serve`` has no ``bsmm.pid`` record, so ``stop --strict`` has to refuse. The installer must then exit
+    non-zero, change no program file or user data, and leave that server answering. Owned port/directory only; the server
+    is stopped through its own cooperative stop file, never by name or PID.
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("Native Windows installer checks cannot run on Linux")
+    data = root / "data"
+    env = isolated_env(root, data)
+    chosen = port()
+    env["BSMM_PORT"] = str(chosen)
+    base = f"http://127.0.0.1:{chosen}"
+    target = root / "installed app"
+    exe = str(target / "bsmm.exe")
+    install = [str(candidate), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", f"/DIR={target}"]
+    assert not target.exists()
+    server: subprocess.Popen[bytes] | None = None
+    token = uuid.uuid4().hex
+    try:
+        run(install, env)
+        assert Path(exe).is_file()
+        run([exe, "password", "--offline-local", "--data-dir", str(data), "--password", "disposable-smoke-password"], env)
+        (data / "preserve.txt").write_text("refusal sentinel", encoding="utf-8")
+        server = subprocess.Popen(  # noqa: S603
+            [exe, "serve", "--port", str(chosen), "--host", "127.0.0.1", "--data-dir", str(data),
+             "--log-file", str(data / "bsmm.log"), "--offline", "--managed-token", token],
+            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + REFUSAL_START_SECONDS
+        while not ((data / "bsmm.ready").is_file() and (data / "bsmm.ready").read_text(encoding="utf-8") == token):
+            assert server.poll() is None and time.monotonic() < deadline, "unrecorded server did not become ready"
+            time.sleep(0.2)
+        fetch(base, "/api/v1/health")  # answering on the owned port before the installer arrives
+        assert not (data / "bsmm.pid").exists(), "scenario needs a server without a PID record"
+        # Precondition: this is exactly the state strict stop must refuse (exit 1, not a usage error).
+        assert run([exe, "stop", "--strict"], env, success=False).returncode == 1
+        program, user_data, credential_snapshot = tree_identity(target), stable_data(data), credentials(data)
+        refused = run(install, env, success=False)
+        assert refused.returncode != 0, "installer must fail when it cannot confirm the server is stopped"
+        assert server.poll() is None, "refused installer must leave the running server alone"
+        check_assets(base, version)
+        assert tree_identity(target) == program, "refused installer changed installed program files"
+        assert stable_data(data) == user_data and credentials(data) == credential_snapshot, "refused installer changed user data"
+        assert (data / "preserve.txt").read_text(encoding="utf-8") == "refusal sentinel"
+        stop_owned_server(server, data, token)
+        run([exe, "stop", "--strict"], env)  # now positively absent: strict stop succeeds
+        run([str(target / "unins000.exe"), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], env)
+        deadline = time.monotonic() + 20
+        while Path(exe).exists() and time.monotonic() < deadline:
+            time.sleep(0.2)
+        assert not Path(exe).exists()
+        print(json.dumps({"installer_refuses_live_server": True}), flush=True)
+    finally:
+        if server is not None:
+            stop_owned_server(server, data, token)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path)
     parser.add_argument("--installer", type=Path)
+    parser.add_argument("--previous-installer", type=Path,
+                        help="Released setup of an earlier version, installed and started before the candidate replaces it")
     parser.add_argument("--legacy-source", type=Path, required=True,
                         help="Separate clean checkout of pinned v1.1.1 source (not an old Windows installer)")
     parser.add_argument("--expected-version", required=True)
     args = parser.parse_args(argv)
+    if args.previous_installer and not args.installer:
+        parser.error("--previous-installer requires --installer")
     command = [str(args.exe.resolve())] if args.exe else [sys.executable, "-m", "bsmm"]
     with owned_temp_directory() as folder:
         result = smoke(command, folder, args.expected_version, args.installer.resolve() if args.installer else None,
                        args.legacy_source.resolve())
+        if args.installer:
+            refusal_with_live_server(args.installer.resolve(), folder / "refusal", args.expected_version)
+        if args.previous_installer:
+            previous_release_upgrade(args.previous_installer.resolve(), args.installer.resolve(),
+                                     folder / "previous-upgrade", args.expected_version)
     print(json.dumps({**result, "temporary_directory_removed": True}), flush=True)
 
 
