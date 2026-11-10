@@ -68,6 +68,7 @@ function openAdd(kind?: string, url?: string): void {
 }
 function openEdit(s: Source): void {
   editing.value = s
+  heldCookie.value = null
   Object.assign(form, { kind: s.kind, name: s.name, url: s.url ?? '', secret: {}, options: Object.fromEntries(Object.entries(s.options).map(([k, v]) => [k, String(v ?? '')])) })
   test.value = null
   error.value = null
@@ -75,6 +76,32 @@ function openEdit(s: Source): void {
 }
 watch(() => form.kind, () => {
   if (!editing.value) test.value = null
+})
+
+// A saved cookie file belongs to the node it was set up for: when the address moves to another host the
+// field is emptied (so Test and Save never send it there) and it comes back if the address is put back.
+function hostOf(address: string | null | undefined): string | null {
+  const text = (address ?? '').trim()
+  if (!text) return null
+  try {
+    return new URL(text.includes('://') ? text : `http://${text}`).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+const heldCookie = ref<string | null>(null)
+watch(() => form.url, (url) => {
+  const saved = editing.value
+  const savedCookie = saved?.options.cookie_path
+  if (!saved || typeof savedCookie !== 'string' || !savedCookie) return
+  const sameHost = hostOf(url) === hostOf(saved.url)
+  if (!sameHost && form.options.cookie_path === savedCookie) {
+    heldCookie.value = savedCookie
+    form.options.cookie_path = ''
+  } else if (sameHost && heldCookie.value !== null && !form.options.cookie_path) {
+    form.options.cookie_path = heldCookie.value
+    heldCookie.value = null
+  }
 })
 
 function body() {
