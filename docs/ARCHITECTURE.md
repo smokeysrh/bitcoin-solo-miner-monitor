@@ -60,7 +60,7 @@ Vue 3 + TypeScript + Vite + Tailwind v4, Pinia for state, reka-ui for accessible
 
 - `lib/` holds framework-free code (API client, SSE stream with reconnect and watchdog, formatting, theme, fuzzy search, CSV, glossary).
 - `stores/` mirror server state; the SSE stream patches them live and refetches after a reconnect.
-- `components/dashboard/registry.ts` declares the 16 widgets (id, title, allowed spans). The layout is saved in the `ui.dashboard` setting, so it follows the user to any browser.
+- `components/dashboard/registry.ts` declares the 16 widgets (id, title, allowed spans). The layout is saved in the `ui.dashboard` setting, so it follows the user to any browser. The Bitcoin and Odds & costs pages use the same editor (`composables/useLayoutEditor.ts`, `components/layout/CustomizablePage.vue`) and save in `ui.bitcoin_page` and `ui.odds_page`.
 - Theme tokens (`bg-surface-1`, `text-muted`, `text-accent-text`) are CSS variables per theme (dark, black, light); every text colour is checked at 4.5:1 with axe in all three.
 - `public/sw.js` makes it installable; it never caches API responses.
 

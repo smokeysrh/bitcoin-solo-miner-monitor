@@ -754,6 +754,9 @@ export interface Settings {
     sound_on_block: boolean
     simple_mode: boolean
     dashboard: DashboardLayout | null
+    /** Absent in settings saved before these layouts existed. */
+    bitcoin_page?: PageLayout | null
+    odds_page?: PageLayout | null
     kiosk: KioskConfig | null
   }
   auth: { mode: 'none' | 'password'; public_read: boolean }
@@ -768,6 +771,12 @@ export interface DashboardWidgetPlacement {
 export interface DashboardLayout {
   version: 1
   widgets: DashboardWidgetPlacement[]
+}
+
+/** Which cards a page shows, in order. Cards left out are hidden. */
+export interface PageLayout {
+  version: 1
+  cards: string[]
 }
 
 export interface KioskConfig {

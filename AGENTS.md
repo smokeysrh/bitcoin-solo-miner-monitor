@@ -129,7 +129,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - Command palette `results` is the one displayed order (rows grouped, best match first within a group); arrows, active descendant and Enter index it. Collapsed sidebar links keep an `sr-only` page label.
 - UI: semantic colour tokens only (`bg-surface-1`, `text-muted`, `text-accent-text`). Text must pass 4.5:1 in dark, black and light themes; run the axe audit (`web/e2e/audit.mjs`).
 - Decorative overlays must preserve text contrast: the kiosk's accent glow is dark/black-only because it lowers light-theme subtle text below 4.5:1. The phone kiosk E2E covers this with axe.
-- Dashboard customization must stay operable without dragging: each card has labeled Move earlier/later buttons on the same draft array (focus kept, position announced), and widget previews are `inert` while editing. `web/src/issue44-dashboard-reorder.test.ts` covers it.
+- Dashboard customization must stay operable without dragging: each card has labeled Move earlier/later buttons on the same draft array (focus kept, position announced), and widget previews are `inert` while editing. `web/src/issue44-dashboard-reorder.test.ts` covers it. The Bitcoin and Odds & costs pages reuse that editor (`useLayoutEditor`, `CustomizablePage`) and save per page in `ui.bitcoin_page`/`ui.odds_page`; opaque keys must match in `src/bsmm/settings.py` and `web/src/stores/settings.ts`. `web/src/issue82-page-layouts.test.ts` covers it.
 
 ### Adding support for a new miner
 
