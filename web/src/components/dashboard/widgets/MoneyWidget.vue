@@ -28,7 +28,8 @@ const eco = computed(() => (live.odds?.available ? live.odds.economics : null))
           <p class="tnum mt-1 text-lg font-semibold text-fg">{{ fmt.money(eco.cost_per_year) }}</p>
         </div>
       </div>
-      <p class="mt-1.5 text-xs text-subtle">electricity at {{ fmt.money(eco.price_per_kwh, 3) }}/kWh{{ eco.power_w ? ` for ${fmt.formatPower(eco.power_w)}` : '' }}</p>
+      <p class="mt-1.5 text-xs text-subtle">electricity at {{ fmt.money(eco.price_per_kwh, 3) }}/kWh{{ eco.power_w != null ? ` for ${fmt.formatPower(eco.power_w)}` : '' }}</p>
+      <p v-if="eco.cost_note" class="mt-1.5 text-xs text-warn" data-testid="money-cost-note">{{ eco.cost_note }}</p>
 
       <dl class="mt-4 space-y-2 border-t border-line pt-3.5 text-sm">
         <div class="flex items-baseline justify-between gap-3">

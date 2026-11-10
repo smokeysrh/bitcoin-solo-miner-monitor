@@ -155,11 +155,15 @@ def build_summary(runtimes: list[DeviceRuntime], settings: Settings, *, demo: bo
             expected += t.hashrate_expected_hs
             expected_actual += hr_s
             have_expected = True
-        if t.power_w:
-            power += t.power_w
+        # A paused miner draws nothing (AxeOS reports 0 W, which the driver maps to None): known zero, not missing.
+        power_w = 0.0 if t.power_w is None and rt.status == DeviceStatus.PAUSED else t.power_w
+        if power_w is None:
+            s.devices_without_power += 1
+        else:
+            power += power_w
             have_power = True
-            if hr_s > 0:
-                eff_power += t.power_w
+            if power_w and hr_s > 0:
+                eff_power += power_w
                 eff_hash += hr_s
         if t.temp_asic_c is not None:
             temps.append(t.temp_asic_c)

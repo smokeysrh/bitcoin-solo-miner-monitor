@@ -8,8 +8,11 @@ tip then triggers a coinbase check, which is how a block you found is recognised
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import os
 import re
+import stat
 import time
 from pathlib import Path
 from typing import Any, ClassVar
@@ -54,6 +57,8 @@ ALLOWED_METHODS = frozenset(
     }
 )
 DEFAULT_PORT = 8332
+COOKIE_MAX_BYTES = 4096  # a real cookie is under 100 bytes
+_COOKIE_LINE = re.compile(r"__cookie__:\S+")  # Bitcoin Core always writes user "__cookie__", one line
 _PRINTABLE_RUN = re.compile(rb"[\x20-\x7e]{4,}")
 
 
@@ -78,6 +83,43 @@ def normalise_url(raw: str) -> str:
     return f"{m.group('scheme')}://{m.group('host')}:{port}"
 
 
+def node_host(url: str | None) -> str | None:
+    """The lower-case host a node address points at (None when it is not a usable address)."""
+    try:
+        return urlsplit(normalise_url(url or "")).hostname
+    except ValueError:
+        return None
+
+
+def read_cookie_file(path: str) -> str:
+    """Read an RPC cookie file: it must be a small regular file. Blocking; call it off the event loop."""
+    try:
+        fd = os.open(Path(path).expanduser(), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        with os.fdopen(fd, "rb") as f:
+            if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+                raise SourceAuthError("the RPC cookie path is not a regular file")
+            data = f.read(COOKIE_MAX_BYTES + 1)
+    except (OSError, ValueError, TypeError) as e:
+        raise SourceAuthError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
+    if len(data) > COOKIE_MAX_BYTES:
+        raise SourceAuthError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
+    try:
+        text = data.decode().strip()
+    except UnicodeDecodeError as e:
+        raise SourceAuthError("the RPC cookie file is not text") from e
+    if not _COOKIE_LINE.fullmatch(text):
+        # never echo the content: it may be some other secret file
+        raise SourceAuthError("the file is not a Bitcoin Core cookie file")
+    return text
+
+
+async def check_cookie_option(options: dict[str, Any]) -> None:
+    """Shared by the Test and Add routes: raise SourceAuthError if the chosen cookie file is unusable."""
+    path = options.get("cookie_path")
+    if path:
+        await asyncio.to_thread(read_cookie_file, path)
+
+
 class BitcoinRPC:
     def __init__(self, url: str, client: httpx.AsyncClient, *, user: str | None, password: str | None,
                  cookie_path: str | None = None, timeout: float = 8.0) -> None:
@@ -89,13 +131,10 @@ class BitcoinRPC:
         self.timeout = timeout
         self._id = 0
 
-    def _auth_header(self) -> dict[str, str]:
+    async def _auth_header(self) -> dict[str, str]:
         user, password = self.user, self.password
         if self.cookie_path:
-            try:
-                text = Path(self.cookie_path).expanduser().read_text().strip()
-            except OSError as e:
-                raise SourceAuthError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
+            text = await asyncio.to_thread(read_cookie_file, self.cookie_path)
             user, _, password = text.partition(":")
         if not user:
             raise SourceAuthError("an RPC user name and password (or cookie file) is required")
@@ -106,8 +145,9 @@ class BitcoinRPC:
         for item in payload if isinstance(payload, list) else [payload]:
             if item["method"] not in ALLOWED_METHODS:
                 raise RpcError(f"RPC method {item['method']!r} is not allowed (read-only client)")
+        headers = await self._auth_header()
         try:
-            resp = await self.client.post(self.url, json=payload, headers=self._auth_header(), timeout=self.timeout)
+            resp = await self.client.post(self.url, json=payload, headers=headers, timeout=self.timeout)
         except httpx.TimeoutException as e:
             raise SourceUnreachable(f"timed out after {self.timeout:g}s") from e
         except httpx.TransportError as e:
