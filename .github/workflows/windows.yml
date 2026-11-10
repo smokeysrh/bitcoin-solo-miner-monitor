@@ -81,6 +81,19 @@ jobs:
         run: |
           powershell -NoProfile -File installer/windows/test-check-native.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Resource verifier regression failed' }
+      - name: Download published v1.1.2 installer for the upgrade smoke
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $directory = Join-Path $env:RUNNER_TEMP 'bsmm-previous-release'
+          $installer = Join-Path $directory 'bsmm-1.1.2-windows-setup.exe'
+          # SHA-256 from the v1.1.2 release's SHA256SUMS asset
+          $expected = 'f971da129f5810d2f399d786774544441bc572aa459e88e3b5b0b1ff04a10f1c'
+          gh release download v1.1.2 --repo "$env:GITHUB_REPOSITORY" --pattern 'bsmm-1.1.2-windows-setup.exe' --dir $directory
+          if ($LASTEXITCODE -ne 0) { throw 'Previous release installer download failed' }
+          if (-not (Test-Path -LiteralPath $installer) -or (Get-Item -LiteralPath $installer).Length -le 0) { throw 'Previous release installer is missing or empty' }
+          if ((Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash -ne $expected) { throw 'Previous release installer does not match the published checksum' }
+          "BSMM_PREVIOUS_INSTALLER=$installer" >> $env:GITHUB_ENV
       - name: Native disposable lifecycle and installer smoke
         run: |
           $ports = @(80, 4028, 8332, 2019, 3334, 3006)
@@ -104,7 +117,7 @@ jobs:
               $iis.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
             }
             # Smoke must still exclusively bind ALL six ports, or fail closed.
-            uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
+            uv run --no-sync python installer/windows/smoke.py --exe dist/windows/portable/bsmm/bsmm.exe --installer "dist/windows/bsmm-$env:BSMM_BUILD_VERSION-windows-setup.exe" --previous-installer "$env:BSMM_PREVIOUS_INSTALLER" --expected-version "$env:BSMM_BUILD_VERSION" --legacy-source .ci-legacy-v1.1.1
             if ($LASTEXITCODE -ne 0) { throw 'Native smoke failed; artifacts are not release-ready' }
           } finally {
             if ($restoreIis) {

@@ -238,22 +238,42 @@ def _start(cfg: RuntimeConfig, wait: bool) -> dict[str, Any]:
     return {"running": True, "pid": proc.pid, "url": url, "log": str(cfg.data_dir / "bsmm.log")}
 
 
+def _refuse_live_server(strict: bool) -> None:
+    """--strict only: another server of this install (foreground, service, scheduled task) still holds its files."""
+    if strict and lifecycle.installed_server_running():
+        _fail(CliError(
+            "Another bsmm server from this install is still running; nothing was stopped.",
+            "Stop it with whatever started it (terminal, service or scheduled task), then retry.",
+        ))
+
+
 @app.command()
-def stop(data_dir: DATA = None, as_json: JSON = False) -> None:
+def stop(
+    data_dir: DATA = None, as_json: JSON = False,
+    strict: Annotated[bool, typer.Option("--strict", help="Fail unless the server is confirmed stopped or confirmed absent")] = False,
+) -> None:
     """Stop the background server started with `bsmm start`."""
     cfg = _config(data_dir)
     pidf = _pid_file(cfg)
     if not cfg.data_dir.exists():
+        _refuse_live_server(strict)
         _emit({"stopped": False, "reason": "not started by `bsmm start`"}, as_json, lambda d: console.print("Nothing to stop (no background server was started with `bsmm start`)."))
         return
     try:
         with lifecycle.locked(cfg.data_dir):
             if not pidf.exists():
+                _refuse_live_server(strict)
                 _emit({"stopped": False, "reason": "not started by `bsmm start`"}, as_json, lambda d: console.print("Nothing to stop (no background server was started with `bsmm start`)."))
                 return
             record = lifecycle.read_record(cfg.data_dir)
             proc = lifecycle.owned_process(cfg.data_dir, record)
             if proc is None:
+                if strict and lifecycle.unresolved_state(cfg.data_dir, record):
+                    raise CliError(
+                        "Cannot confirm that the server is stopped; saved state was kept and no process was stopped.",
+                        "Stop it with whatever started it (terminal, service or scheduled task), then retry.",
+                    )
+                _refuse_live_server(strict)
                 lifecycle.clear(cfg.data_dir)
                 _emit({"stopped": False, "reason": "stale or unverified PID state removed"}, as_json, lambda d: console.print(d["reason"]))
                 return
@@ -264,6 +284,7 @@ def stop(data_dir: DATA = None, as_json: JSON = False) -> None:
                     raise CliError("Shutdown did not finish; process state retained. No forced kill was attempted.")
                 time.sleep(lifecycle.POLL_SECONDS)
             lifecycle.clear(cfg.data_dir)
+            _refuse_live_server(strict)
     except CliError as e:
         _fail(e)
     _emit({"stopped": True}, as_json, lambda d: console.print("Stopped."))
@@ -734,7 +755,9 @@ def service_install(
     port: Annotated[int | None, typer.Option()] = None, data_dir: DATA = None,
 ) -> None:
     """Make the server start automatically (systemd user unit / launchd agent / Windows scheduled task)."""
-    cmd = svc.exe_command(port, str(data_dir) if data_dir else None)
+    # Pin the effective nonsecret settings: service managers do not inherit this terminal's environment.
+    cfg = _config(data_dir, port=port)
+    cmd = svc.exe_command(cfg.port, str(cfg.data_dir.resolve()), cfg.host, cfg.offline)
     if sys.platform.startswith("linux"):
         unit = svc.systemd_unit(cmd)
         path = svc.systemd_path()
