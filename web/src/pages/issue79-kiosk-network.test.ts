@@ -147,22 +147,22 @@ describe('issue 79: wall display Bitcoin network panel', () => {
     expect(section.findAll('[role="progressbar"]')).toHaveLength(0)
   })
 
-  it('shows every big number in the same orange', async () => {
+  it('shows the halving and difficulty-change numbers in orange and the rest in white', async () => {
     const section = await networkPanel(network())
     const halvingValue = section.get('[data-testid="kiosk-halving-value"]')
     const epochValue = section.get('[data-testid="kiosk-epoch-value"]')
     expect(halvingValue.classes()).toContain('text-accent-text')
     expect(epochValue.classes()).toContain('text-accent-text')
     expect(epochValue.classes()).not.toContain('text-fg')
-    // height, difficulty and price are orange too, so every big number on the panel is orange
+    // height, difficulty and price stay white (foreground), not orange
     for (const id of ['kiosk-height-value', 'kiosk-difficulty-value', 'kiosk-price-value']) {
       const value = section.get(`[data-testid="${id}"]`)
-      expect(value.classes(), id).toContain('text-accent-text')
-      expect(value.classes(), id).not.toContain('text-fg')
+      expect(value.classes(), id).toContain('text-fg')
+      expect(value.classes(), id).not.toContain('text-accent-text')
     }
   })
 
-  it('keeps Unavailable muted, not orange, for height, difficulty and price', async () => {
+  it('keeps Unavailable muted for height, difficulty and price', async () => {
     const section = await networkPanel(null)
     for (const id of ['kiosk-height-value', 'kiosk-difficulty-value', 'kiosk-price-value']) {
       const value = section.get(`[data-testid="${id}"]`)

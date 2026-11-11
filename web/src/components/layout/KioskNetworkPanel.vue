@@ -58,15 +58,15 @@ const epochEstimate = computed(() => estimate(epoch.value))
     <dl class="k-gap grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-height-label">Block height</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="height === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-height-value">{{ height === null ? UNAVAILABLE : fmt.formatNumber(height) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="height === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-height-value">{{ height === null ? UNAVAILABLE : fmt.formatNumber(height) }}</dd>
       </div>
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-difficulty-label">Difficulty</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="difficulty === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-difficulty-value">{{ difficulty === null ? UNAVAILABLE : fmt.formatDifficulty(difficulty) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="difficulty === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-difficulty-value">{{ difficulty === null ? UNAVAILABLE : fmt.formatDifficulty(difficulty) }}</dd>
       </div>
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-price-label">Bitcoin price</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="price === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-price-value">{{ price === null ? UNAVAILABLE : fmt.money(price, 0) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="price === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-price-value">{{ price === null ? UNAVAILABLE : fmt.money(price, 0) }}</dd>
       </div>
     </dl>
   </div>
