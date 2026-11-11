@@ -88,7 +88,7 @@ const odds = computed(() => (live.odds?.available ? live.odds : null))
 const net = computed(() => live.network)
 const clock = computed(() => new Date(now.value * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).slice(0, 12))
-const { chartHeight, tileGrid } = useKioskLayout(() => sorted.value.length)
+const { chartHeight, tileGrid, tileCell } = useKioskLayout(() => sorted.value.length)
 </script>
 
 <template>
@@ -126,7 +126,7 @@ const { chartHeight, tileGrid } = useKioskLayout(() => sorted.value.length)
 
         <template v-else-if="panel === 'miners'">
           <div class="grid w-full" :style="tileGrid">
-            <KioskMinerTile v-for="d in sorted" :key="d.id" :device="d" class="pointer-events-none" />
+            <KioskMinerTile v-for="(d, i) in sorted" :key="d.id" :device="d" :style="tileCell(i)" class="pointer-events-none" />
           </div>
         </template>
 
