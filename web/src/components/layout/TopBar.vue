@@ -60,11 +60,18 @@ const userItems = computed<MenuItem[]>(() => [
         @click="ui.paletteOpen = true"
       >
         <Search class="size-4" aria-hidden="true" />
-        <span class="pr-6">Search or jump to…</span>
-        <Kbd>{{ isMac ? '⌘' : 'Ctrl' }}</Kbd><Kbd>K</Kbd>
+        <span class="pr-2 xl:pr-6">Search or jump to…</span>
+        <span class="hidden items-center gap-2 xl:inline-flex"><Kbd>{{ isMac ? '⌘' : 'Ctrl' }}</Kbd><Kbd>K</Kbd></span>
       </button>
       <Tooltip text="Search (press /)">
         <Button size="icon" variant="ghost" class="md:hidden" aria-label="Search" @click="ui.paletteOpen = true"><Search class="size-[18px]" /></Button>
+      </Tooltip>
+
+      <Tooltip text="Wall display">
+        <Button to="/kiosk" size="sm" class="hidden px-2.5 lg:inline-flex xl:px-3" aria-label="Wall display" data-testid="open-kiosk">
+          <template #icon><Tv class="size-4" aria-hidden="true" /></template>
+          <span class="hidden xl:inline">Wall display</span>
+        </Button>
       </Tooltip>
 
       <Button v-if="session.canControl" variant="primary" size="sm" data-testid="add-miner" @click="ui.addMinerOpen = true">
