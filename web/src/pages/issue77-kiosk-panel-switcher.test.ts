@@ -256,4 +256,23 @@ describe('issue 77: rotation timer ownership', () => {
     await advance(ROTATE_MS * 3)
     expect(activeRotations()).toBe(0)
   })
+
+  it('keeps the live pill visible after the other chrome has faded out', async () => {
+    const w = await open()
+    const pill = w.get('live-badge-stub')
+    const fadedAncestor = (el: Element): boolean => {
+      for (let node: Element | null = el; node; node = node.parentElement) if (node.classList.contains('opacity-0')) return true
+      return false
+    }
+    // while the chrome is showing, nothing is faded
+    expect(fadedAncestor(pill.element)).toBe(false)
+
+    await advance(5000) // the chrome hides 4 seconds after the last movement
+    expect(fadedAncestor(w.get('footer').element)).toBe(true) // the chrome did fade out ...
+    expect(fadedAncestor(w.get('h1').element)).toBe(true)
+    expect(fadedAncestor(pill.element)).toBe(false) // ... but the pill did not
+
+    await advance(ROTATE_MS) // and it stays through rotation
+    expect(fadedAncestor(pill.element)).toBe(false)
+  })
 })

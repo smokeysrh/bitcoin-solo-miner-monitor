@@ -118,12 +118,13 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
   <main class="relative flex min-h-dvh flex-col overflow-clip bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
     <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl light:hidden" aria-hidden="true" />
 
-    <header class="relative flex items-center justify-between transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
+    <!-- The live pill stays visible so a stale or lost connection is always seen; the title and buttons fade with the other chrome. -->
+    <header class="relative flex items-center justify-between">
       <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Solo Miner Monitor' }}</h1>
+        <h1 class="text-lg font-semibold tracking-tight text-fg transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">{{ session.meta?.instance_name ?? 'Solo Miner Monitor' }}</h1>
         <LiveBadge />
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Full screen (F)" @click="fullscreen"><Maximize class="size-5" /></button>
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Leave the wall display" @click="router.push('/')"><X class="size-5" /></button>
       </div>
