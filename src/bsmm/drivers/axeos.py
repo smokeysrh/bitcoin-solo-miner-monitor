@@ -41,6 +41,7 @@ from bsmm.units import parse_difficulty, to_float, to_int
 
 _GH = 1e9
 _MAC_RE = re.compile(r"^[0-9A-Fa-f]{2}([:\-][0-9A-Fa-f]{2}){5}$")
+_MAC_GROUP_BIT = 0x01
 
 
 # --- parsing -----------------------------------------------------------------------------------
@@ -56,9 +57,13 @@ def is_axeos_payload(data: Any) -> bool:
 
 
 def normalize_mac(value: Any) -> str | None:
+    """Return an individual MAC, never zero or group/broadcast firmware placeholders."""
     if not isinstance(value, str) or not _MAC_RE.match(value.strip()):
         return None
-    return value.strip().upper().replace("-", ":")
+    mac = value.strip().upper().replace("-", ":")
+    if mac == "00:00:00:00:00:00" or int(mac[:2], 16) & _MAC_GROUP_BIT:
+        return None
+    return mac  # Locally administered unicast addresses remain distinct identities.
 
 
 def _temp(value: Any) -> float | None:
@@ -353,17 +358,27 @@ class AxeOSDriver(Driver):
 
     # reading ---------------------------------------------------------------------------------
 
+    def _check_identity(self, observed: DeviceInfo) -> None:
+        if self.info:
+            # Older releases could persist unusable MACs. Compare a copy, never rewrite them.
+            expected = self.info.model_copy(update={"mac": normalize_mac(self.info.mac)})
+            check_identity(expected, observed)
+
     async def poll(self) -> Telemetry:
         data = await request_json(self.client, "GET", f"{self.base}/api/system/info", timeout=self.timeout, retries=1)
         if not is_axeos_payload(data):
             raise BadResponse("the device answered, but not with ESP-Miner data")
         self.last_raw = data
-        if self.info:
-            check_identity(self.info, build_info(self.host, self.port, data))
+        self._check_identity(build_info(self.host, self.port, data))
         return parse_system_info(data)
 
     async def verify_identity(self) -> None:
         await self.poll()
+        raw_mac = (self.last_raw or {}).get("macAddr")
+        # Missing identity retains endpoint compatibility; a supplied unusable MAC cannot
+        # authorize control just because read-only polling treats it as unknown.
+        if raw_mac is not None and raw_mac != "" and normalize_mac(raw_mac) is None:
+            raise ActionFailed("firmware reported an unusable MAC; refusing control because miner identity cannot be verified")
 
     async def refresh_info(self) -> DeviceInfo | None:
         data = await request_json(self.client, "GET", f"{self.base}/api/system/info", timeout=self.timeout)
@@ -371,8 +386,7 @@ class AxeOSDriver(Driver):
             raise BadResponse("the device answered, but not with ESP-Miner data")
         asic = await self._asic()
         observed = build_info(self.host, self.port, data, asic)
-        if self.info:
-            check_identity(self.info, observed)
+        self._check_identity(observed)
         self.info = observed
         return self.info
 
