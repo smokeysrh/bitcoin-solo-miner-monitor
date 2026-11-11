@@ -779,10 +779,15 @@ export interface PageLayout {
   cards: string[]
 }
 
+/** Which odds horizon is the big number on the wall display. */
+export type OddsHeadline = 'ten_minutes' | 'day' | 'month' | 'year' | 'five_years' | 'ten_years'
+
 export interface KioskConfig {
   rotate_s: number
   panels: string[]
   show_clock: boolean
+  /** Missing or unknown means `ten_minutes` (shown as "Next block"). */
+  odds_headline?: OddsHeadline
 }
 
 // ----------------------------------------------------------------------------------- live stream

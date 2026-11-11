@@ -9,13 +9,21 @@ import LiveBadge from '@/components/layout/LiveBadge.vue'
 import KioskNetworkPanel from '@/components/layout/KioskNetworkPanel.vue'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
+import { useOddsHeadline } from '@/composables/useOddsHeadline'
+import { describeError } from '@/lib/api'
+import { formatHorizonChance, ODDS_HEADLINES } from '@/lib/oddsHeadline'
+import type { OddsHeadline } from '@/lib/types'
 import { useLive } from '@/stores/live'
+import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
+import { useToasts } from '@/stores/toasts'
 
 const live = useLive()
 const fmt = useFmt()
 const router = useRouter()
 const settings = useSettings()
+const session = useSession()
+const toasts = useToasts()
 const now = useNowSec()
 
 const ALL = ['overview', 'miners', 'odds', 'network', 'chart'] as const
@@ -110,6 +118,19 @@ const odds = computed(() => (live.odds?.available ? live.odds : null))
 const net = computed(() => live.network)
 const clock = computed(() => new Date(now.value * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
 const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).slice(0, 12))
+const oddsChoice = useOddsHeadline()
+const oddsHeadline = oddsChoice.current
+const oddsOthers = computed(() => ODDS_HEADLINES.filter((h) => h.key !== oddsHeadline.value.key))
+
+/** Tapping a time frame on the panel saves it as the wall display's headline, the same setting as Settings → Appearance. */
+async function chooseHeadline(key: OddsHeadline): Promise<void> {
+  restart() // a tap should not be followed straight away by the next panel
+  try {
+    await oddsChoice.choose(key)
+  } catch (e) {
+    toasts.error('Could not save that', describeError(e))
+  }
+}
 </script>
 
 <template>
@@ -150,13 +171,33 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
         </template>
 
         <template v-else-if="panel === 'odds'">
-          <p class="eyebrow text-center">Chance of finding a block</p>
+          <p class="eyebrow text-center text-[clamp(0.875rem,1.3vw,4rem)] leading-normal" data-testid="kiosk-odds-eyebrow">Chance of finding a block</p>
           <template v-if="odds">
-            <p class="text-gradient-accent tnum mt-4 text-center text-[clamp(3rem,12vw,9rem)] leading-none font-bold tracking-tight">{{ fmt.formatOdds(odds.horizons.year.probability) }}</p>
-            <p class="mt-3 text-center text-2xl text-muted">each year</p>
-            <dl class="mx-auto mt-10 grid w-full max-w-4xl grid-cols-2 gap-6 text-center sm:grid-cols-4">
-              <div v-for="[k, l] in [['ten_minutes', 'Next 10 minutes'], ['day', 'Today'], ['month', 'This month'], ['five_years', '5 years'], ['ten_years', '10 years']] as const" :key="k"><dt class="text-sm text-subtle">{{ l }}</dt><dd class="tnum mt-1 text-2xl font-semibold text-fg">{{ fmt.formatOdds(odds.horizons[k].probability) }}</dd></div>
+            <p class="text-gradient-accent tnum mt-4 text-center text-[clamp(3rem,12vw,30rem)] leading-none font-bold tracking-tight text-balance [overflow-wrap:anywhere]" data-testid="kiosk-odds-headline">{{ formatHorizonChance(odds.horizons[oddsHeadline.key]?.probability) }}</p>
+            <p class="mt-3 text-center text-[clamp(1.5rem,2.6vw,8rem)] leading-snug text-muted" data-testid="kiosk-odds-headline-label">{{ oddsHeadline.sentence }}</p>
+            <dl class="mt-[clamp(1rem,3vh,5rem)] grid w-full grid-cols-2 gap-x-4 gap-y-6 text-center lg:landscape:grid-cols-5" data-testid="kiosk-odds-others">
+              <div v-for="h in oddsOthers" :key="h.key"><dt class="text-[clamp(0.875rem,1.3vw,4rem)] text-subtle">{{ h.label }}</dt><dd class="tnum mt-1 text-[clamp(1.5rem,2.2vw,8rem)] font-semibold text-fg [overflow-wrap:anywhere]">{{ formatHorizonChance(odds.horizons[h.key]?.probability) }}</dd></div>
             </dl>
+            <div
+              v-if="session.canAdmin"
+              role="group"
+              aria-label="Odds time frame"
+              class="mt-[clamp(1.5rem,4vh,6rem)] flex flex-wrap justify-center gap-[clamp(0.5rem,1vw,2rem)] transition-opacity duration-500"
+              :class="chrome ? 'opacity-100' : 'opacity-0'"
+              :inert="!chrome"
+              data-testid="kiosk-odds-headline-choice"
+            >
+              <button
+                v-for="h in ODDS_HEADLINES"
+                :key="h.key"
+                type="button"
+                class="min-h-11 rounded-full border px-[clamp(0.75rem,1.6vw,3rem)] py-[clamp(0.25rem,0.5vw,1rem)] text-[clamp(0.875rem,1.3vw,4rem)] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+                :class="h.key === oddsHeadline.key ? 'border-accent bg-accent/15 text-accent-text' : 'border-line text-muted hover:text-fg'"
+                :aria-pressed="h.key === oddsHeadline.key"
+                :data-testid="`kiosk-odds-choice-${h.key}`"
+                @click="chooseHeadline(h.key)"
+              >{{ h.label }}</button>
+            </div>
           </template>
           <p v-else class="mt-6 text-center text-xl text-muted">Waiting for network data…</p>
         </template>
