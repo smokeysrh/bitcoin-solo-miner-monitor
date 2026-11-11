@@ -5,11 +5,13 @@ import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
 import { kindLabel, sourceLabel } from '@/lib/labels'
+import type { PageCard } from '@/lib/pageLayout'
 import { useLive } from '@/stores/live'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import KeyValue from '@/components/ui/KeyValue.vue'
+import CustomizablePage from '@/components/layout/CustomizablePage.vue'
 import MetricCard from '@/components/ui/MetricCard.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import Stat from '@/components/ui/Stat.vue'
@@ -18,6 +20,18 @@ import Term from '@/components/ui/Term.vue'
 const live = useLive()
 const fmt = useFmt()
 const now = useNowSec()
+
+/** Default order. Cell classes are written out in full so Tailwind finds them. */
+const CARDS: PageCard[] = [
+  { id: 'key-numbers', title: 'Key numbers', cell: 'lg:col-span-12' },
+  { id: 'difficulty', title: 'Difficulty adjustment', cell: 'lg:col-span-6' },
+  { id: 'halving', title: 'Next halving', cell: 'lg:col-span-6' },
+  { id: 'node', title: 'Your Bitcoin node', cell: 'lg:col-span-6' },
+  { id: 'pool', title: 'Your pool', cell: 'lg:col-span-6' },
+  { id: 'blocks', title: 'Latest blocks', cell: 'lg:col-span-8 lg:row-span-2' },
+  { id: 'found', title: 'Blocks you found', cell: 'lg:col-span-4' },
+  { id: 'sources', title: 'Data sources', cell: 'lg:col-span-4' },
+]
 
 const n = computed(() => live.network)
 const node = computed(() => n.value?.node ?? null)
@@ -29,16 +43,17 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
 </script>
 
 <template>
-  <div class="space-y-5">
-    <header>
+  <CustomizablePage page-key="bitcoin_page" :cards="CARDS" grid-class="grid gap-[var(--gap-grid)] lg:grid-cols-12">
+    <template #heading>
       <h2 class="text-2xl font-semibold tracking-tight text-fg">Bitcoin network</h2>
       <p class="mt-1 text-sm text-muted">
         <template v-if="n?.available">Data from {{ sourceLabel(n.source) }}<span v-if="n.stale" class="text-warn"> (stale)</span></template>
         <template v-else>No network data yet</template>
       </p>
-    </header>
+    </template>
 
-    <div v-if="n?.available" class="grid gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-4">
+    <template #key-numbers>
+    <section v-if="n?.available" aria-label="Key numbers" class="grid gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-4">
       <div class="card p-[var(--pad-card)]"><Stat label="Block height" :value="fmt.formatNumber(n.height)" :sub="n.tip_time ? `latest block ${fmt.formatAgo(n.tip_time, now)}` : undefined" size="lg" /></div>
       <div class="card p-[var(--pad-card)]">
         <Stat label="Difficulty" size="lg" :value="fmt.formatDifficulty(n.difficulty)" :sub="n.epoch?.estimated_change_pct != null ? `next change ${n.epoch.estimated_change_pct >= 0 ? '+' : ''}${n.epoch.estimated_change_pct.toFixed(2)}%` : undefined">
@@ -47,10 +62,11 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
       </div>
       <div class="card p-[var(--pad-card)]"><Stat label="Network hashrate" size="lg" :value="fmt.splitHash(n.network_hashrate_hs).value" :unit="fmt.splitHash(n.network_hashrate_hs).unit" /></div>
       <div class="card p-[var(--pad-card)]"><Stat label="Bitcoin price" size="lg" :value="n.btc_price ? fmt.money(n.btc_price, 0) : '–'" :sub="`Block reward ${n.block_reward_btc ?? '–'} BTC`" /></div>
-    </div>
+    </section>
+    </template>
 
-    <div v-if="n?.available" class="grid gap-[var(--gap-grid)] lg:grid-cols-2">
-      <MetricCard v-if="n.epoch" title="Difficulty adjustment" :icon="Network">
+    <template #difficulty>
+      <MetricCard v-if="n?.available && n.epoch" title="Difficulty adjustment" :icon="Network">
         <p class="text-sm text-muted">The <Term k="retarget">difficulty adjusts</Term> every 2,016 blocks so blocks keep arriving about every ten minutes.</p>
         <ProgressBar class="mt-4" :value="n.epoch.progress" tone="info" label="Progress to the next adjustment" />
         <div class="mt-4">
@@ -62,7 +78,10 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           ]" />
         </div>
       </MetricCard>
-      <MetricCard v-if="n.halving" title="Next halving" :icon="Bitcoin">
+    </template>
+
+    <template #halving>
+      <MetricCard v-if="n?.available && n.halving" title="Next halving" :icon="Bitcoin">
         <p class="text-sm text-muted">Every 210,000 blocks the new coins in each block are <Term k="halving">cut in half</Term>.</p>
         <ProgressBar class="mt-4" :value="n.halving.progress" tone="violet" label="Progress to the next halving" />
         <div class="mt-4">
@@ -74,9 +93,9 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           ]" />
         </div>
       </MetricCard>
-    </div>
+    </template>
 
-    <div class="grid gap-[var(--gap-grid)] lg:grid-cols-2">
+    <template #node>
       <MetricCard title="Your Bitcoin node" :icon="Server">
         <template v-if="node">
           <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -102,7 +121,9 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           <Button to="/settings/sources" variant="soft">Connect a node</Button>
         </EmptyState>
       </MetricCard>
+    </template>
 
+    <template #pool>
       <MetricCard title="Your pool" :icon="Network">
         <template v-if="pools.length">
           <div v-for="p in pools" :key="p.kind + (p.address ?? '')" class="space-y-4 [&+&]:mt-6 [&+&]:border-t [&+&]:border-line [&+&]:pt-6">
@@ -137,9 +158,9 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           <Button to="/settings/sources" variant="soft">Connect a pool</Button>
         </EmptyState>
       </MetricCard>
-    </div>
+    </template>
 
-    <div class="grid gap-[var(--gap-grid)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+    <template #blocks>
       <MetricCard title="Latest blocks" :icon="Blocks">
         <div v-if="live.recentBlocks.length" class="relative overflow-x-auto">
           <table class="w-full min-w-[420px] text-sm">
@@ -157,8 +178,9 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
         </div>
         <p v-else class="text-sm text-muted">Recent blocks appear once network data is available.</p>
       </MetricCard>
+    </template>
 
-      <div class="space-y-[var(--gap-grid)]">
+    <template #found>
         <MetricCard title="Blocks you found" :icon="Trophy">
           <ul v-if="live.blocksFound.length" class="space-y-3">
             <li v-for="b in live.blocksFound" :key="b.hash" class="rounded-xl border border-accent-line bg-accent-softer p-3">
@@ -168,6 +190,9 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           </ul>
           <p v-else class="text-sm leading-relaxed text-muted">None yet. When it happens you will see it here, on the dashboard and in every notification channel you set up.</p>
         </MetricCard>
+    </template>
+
+    <template #sources>
         <MetricCard title="Data sources" subtitle="Where the numbers above come from">
           <ul class="space-y-2.5">
             <li v-for="s in sources" :key="s.id" class="flex items-center gap-2.5 text-sm">
@@ -178,7 +203,6 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
           </ul>
           <RouterLink to="/settings/sources" class="mt-4 inline-block text-xs font-medium text-accent-text underline underline-offset-2 hover:no-underline">Manage data sources</RouterLink>
         </MetricCard>
-      </div>
-    </div>
-  </div>
+    </template>
+  </CustomizablePage>
 </template>

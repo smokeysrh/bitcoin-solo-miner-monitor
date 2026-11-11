@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Check, ChevronLeft, ChevronRight, EyeOff, GripVertical, Maximize2, Pencil, Plus, RotateCcw, Radar } from 'lucide-vue-next'
-import { computed, nextTick, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import { useLayoutEditor } from '@/composables/useLayoutEditor'
 import { useNowSec } from '@/composables/useNowSec'
 import { describeError } from '@/lib/api'
 import { formatAgo } from '@/lib/format'
@@ -24,12 +25,10 @@ const ui = useUi()
 const now = useNowSec()
 
 const saved = computed(() => resolveLayout(settings.data?.ui.dashboard, settings.simple))
-const draft = ref<DashboardWidgetPlacement[]>([])
+const root = ref<HTMLElement | null>(null)
+const { draft, announcement, begin, hide, append, move } = useLayoutEditor<DashboardWidgetPlacement>((id) => WIDGET_BY_ID[id]?.title ?? id, root)
 const editing = ref(false)
 const saving = ref(false)
-const root = ref<HTMLElement | null>(null)
-// Spoken by screen readers after a keyboard move; cleared whenever editing starts.
-const announcement = ref('')
 
 // What is on screen: the draft while editing, the saved layout otherwise. Widgets that mean nothing without a
 // miner are skipped until one exists, so a brand-new install is not a wall of empty charts.
@@ -41,8 +40,7 @@ const tray = computed(() => availableWidgets(draft.value))
 const noMiners = computed(() => live.loaded && live.deviceCount === 0)
 
 function startEdit(): void {
-  draft.value = saved.value.map((p) => ({ ...p }))
-  announcement.value = ''
+  begin(saved.value)
   editing.value = true
 }
 
@@ -73,35 +71,10 @@ function resize(p: DashboardWidgetPlacement): void {
   const def = WIDGET_BY_ID[p.id]
   if (def) p.span = cycleSpan(def, p.span)
 }
-function hide(id: string): void {
-  draft.value = draft.value.filter((p) => p.id !== id)
-}
 
-type MoveDirection = 'earlier' | 'later'
-
-/** Keyboard and single-pointer alternative to dragging: moves a card one place in the same draft array. */
-function move(id: string, direction: MoveDirection): void {
-  const from = draft.value.findIndex((p) => p.id === id)
-  const to = direction === 'earlier' ? from - 1 : from + 1
-  if (from < 0 || to < 0 || to >= draft.value.length) return
-  const next = [...draft.value]
-  const [item] = next.splice(from, 1)
-  next.splice(to, 0, item!)
-  draft.value = next
-  announcement.value = `${WIDGET_BY_ID[id]?.title ?? id} moved to position ${to + 1} of ${next.length}`
-  void nextTick(() => focusMoveControl(id, direction, to, next.length))
-}
-
-/** Re-inserting the card's element drops keyboard focus: restore it to the same control, or the opposite one at an end. */
-function focusMoveControl(id: string, direction: MoveDirection, position: number, count: number): void {
-  const atEnd = direction === 'earlier' ? position === 0 : position === count - 1
-  const target: MoveDirection = atEnd ? (direction === 'earlier' ? 'later' : 'earlier') : direction
-  const buttons = Array.from(root.value?.querySelectorAll<HTMLButtonElement>('[data-move]') ?? [])
-  buttons.find((b) => b.dataset.move === `${id}:${target}`)?.focus()
-}
 function add(id: string): void {
   const def = WIDGET_BY_ID[id]
-  if (def) draft.value = [...draft.value, { id, span: def.defaultSpan }]
+  if (def) append({ id, span: def.defaultSpan })
 }
 
 

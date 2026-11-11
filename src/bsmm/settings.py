@@ -116,6 +116,8 @@ class UiSettings(_S):
     sound_on_block: bool = False
     simple_mode: bool = False
     dashboard: dict[str, Any] | None = None  # widget layout (opaque to the server)
+    bitcoin_page: dict[str, Any] | None = None  # card layout of the Bitcoin page (opaque to the server)
+    odds_page: dict[str, Any] | None = None  # card layout of the Odds & costs page (opaque to the server)
     kiosk: dict[str, Any] | None = None
 
 
@@ -144,10 +146,14 @@ log = logging.getLogger(__name__)
 Listener = Callable[[Settings, Settings], Awaitable[None] | None]
 
 
+#: Keys whose value is replaced whole by a patch (opaque to the server). Keep in step with `opaque` in web/src/stores/settings.ts.
+OPAQUE_KEYS = ("dashboard", "bitcoin_page", "odds_page", "kiosk", "quiet_hours")
+
+
 def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     out = copy.deepcopy(base)
     for k, v in patch.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict) and k not in ("dashboard", "kiosk", "quiet_hours"):
+        if isinstance(v, dict) and isinstance(out.get(k), dict) and k not in OPAQUE_KEYS:
             out[k] = deep_merge(out[k], v)
         else:
             out[k] = v

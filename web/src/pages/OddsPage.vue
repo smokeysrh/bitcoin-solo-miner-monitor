@@ -3,9 +3,11 @@ import { Calculator, Coins, Dices, RotateCcw, Sparkles } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { api, describeError } from '@/lib/api'
+import type { PageCard } from '@/lib/pageLayout'
 import type { HorizonKey, Odds, OddsAvailable } from '@/lib/types'
 import { useLive } from '@/stores/live'
 import Button from '@/components/ui/Button.vue'
+import CustomizablePage from '@/components/layout/CustomizablePage.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
@@ -15,6 +17,15 @@ import Term from '@/components/ui/Term.vue'
 
 const live = useLive()
 const fmt = useFmt()
+
+/** Default order. Cell classes are written out in full so Tailwind finds them. */
+const CARDS: PageCard[] = [
+  { id: 'hero', title: 'Your chance of finding a block', cell: 'md:col-span-2' },
+  { id: 'horizons', title: 'Chance over time', cell: 'md:col-span-2' },
+  { id: 'economics', title: 'Electricity vs. payout' },
+  { id: 'work', title: 'Work done so far' },
+  { id: 'plain', title: 'In plain English', cell: 'md:col-span-2' },
+]
 
 // null = "use my live value"; anything typed becomes a what-if
 const whatIf = reactive<{ ths: number | null; difficulty: number | null; power: number | null; growth: number | null }>({ ths: null, difficulty: null, power: null, growth: null })
@@ -91,17 +102,21 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
 </script>
 
 <template>
-  <div class="space-y-5">
-    <header class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-fg">Odds &amp; costs</h2>
-        <p class="mt-1 max-w-2xl text-sm text-muted">The honest numbers: how likely a block is, what the electricity costs, and what changes if you add hardware.</p>
-      </div>
+  <CustomizablePage
+    page-key="odds_page"
+    :cards="CARDS"
+    grid-class="grid gap-[var(--gap-grid)] md:grid-cols-2"
+    wrap-class="grid gap-[var(--gap-grid)] xl:grid-cols-[minmax(0,1fr)_22rem]"
+  >
+    <template #heading>
+      <h2 class="text-2xl font-semibold tracking-tight text-fg">Odds &amp; costs</h2>
+      <p class="mt-1 max-w-2xl text-sm text-muted">The honest numbers: how likely a block is, what the electricity costs, and what changes if you add hardware.</p>
+    </template>
+    <template #actions>
       <Button v-if="active" variant="ghost" size="sm" @click="reset"><template #icon><RotateCcw class="size-4" /></template>Back to my real numbers</Button>
-    </header>
+    </template>
 
-    <div class="grid gap-[var(--gap-grid)] xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <div class="space-y-[var(--gap-grid)]">
+    <template #hero>
         <section v-if="o" class="card relative overflow-hidden p-[var(--pad-card)]" data-testid="odds-hero">
           <div class="pointer-events-none absolute -top-24 -right-10 size-72 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
           <div class="relative">
@@ -119,7 +134,9 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
         <EmptyState v-else-if="shown && !shown.available" :icon="Dices" title="Odds need network data" :description="shown.reason">
           <Button to="/settings/sources" variant="soft">Connect a data source</Button>
         </EmptyState>
+    </template>
 
+    <template #horizons>
         <MetricCard v-if="o" title="Chance over time" :icon="Dices">
           <ul class="space-y-3.5" data-testid="odds-horizons">
             <li v-for="[k, label] in HORIZONS" :key="k" class="grid grid-cols-[8.5rem_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[10rem_1fr_9rem]">
@@ -133,9 +150,10 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
           <p class="mt-4 text-xs text-subtle">Bars use a log scale so very small chances stay visible.</p>
           <p class="mt-3 text-sm text-muted">Next 10 minutes is a fixed 600-second chance of at least one block, not the chance of winning the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due.</p>
         </MetricCard>
+    </template>
 
-        <div v-if="o" class="grid gap-[var(--gap-grid)] md:grid-cols-2">
-          <MetricCard title="Electricity vs. payout" :icon="Coins">
+    <template #economics>
+          <MetricCard v-if="o" title="Electricity vs. payout" :icon="Coins">
             <KeyValue :rows="[
               { label: 'Power drawn', value: fmt.formatPower(o.economics.power_w) },
               { label: `Cost per day`, value: fmt.money(o.economics.cost_per_day) },
@@ -151,7 +169,10 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               Electricity price: {{ fmt.money(o.economics.price_per_kwh, 3) }}/kWh. <RouterLink to="/settings/energy" class="text-accent-text underline underline-offset-2 hover:no-underline">Change</RouterLink>
             </p>
           </MetricCard>
-          <MetricCard title="Work done so far" :icon="Sparkles">
+    </template>
+
+    <template #work>
+          <MetricCard v-if="o" title="Work done so far" :icon="Sparkles">
             <KeyValue :rows="[
               { label: 'Hashes tried', value: fmt.formatSI(o.work.total_hashes, 'H') },
               { label: 'Blocks of work', value: o.work.expected_blocks_of_work.toExponential(2) },
@@ -162,17 +183,18 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             ]" />
             <p class="mt-4 text-xs leading-relaxed text-subtle"><Term k="bestshare">Best share</Term> shows the luckiest single hash. It is a fun measure of luck, not a sign you are getting closer.</p>
           </MetricCard>
-        </div>
+    </template>
 
+    <template #plain>
         <MetricCard v-if="o?.plain_english?.length" title="In plain English">
           <ul class="space-y-2.5 text-sm leading-relaxed text-muted">
             <li v-for="line in o.plain_english" :key="line" class="flex gap-2.5"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />{{ line }}</li>
           </ul>
         </MetricCard>
-      </div>
+    </template>
 
-      <aside class="xl:sticky xl:top-24 xl:self-start">
-        <MetricCard title="What-if calculator" :icon="Calculator">
+    <template #aside>
+      <MetricCard title="What-if calculator" :icon="Calculator">
           <p class="mb-4 text-sm text-muted">Leave a box empty to use your real value. Type to see what changes.</p>
           <div class="space-y-4">
             <Field :label="`Hashrate (your fleet: ${fmt.hashrate(live.summary?.hashrate_hs)})`">
@@ -197,8 +219,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             </Field>
           </div>
           <p v-if="error" class="mt-4 text-sm text-bad" role="alert">{{ error }}</p>
-        </MetricCard>
-      </aside>
-    </div>
-  </div>
+      </MetricCard>
+    </template>
+  </CustomizablePage>
 </template>
