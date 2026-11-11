@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.3] - Unreleased
 
-This patch release collects 30 bug fixes made since v1.1.2. The release date is set when the tag is approved.
+This patch release collects 32 bug fixes made since v1.1.2. The release date is set when the tag is approved.
 
 ### Fixed
 - **Alerts and blocks:**
@@ -20,6 +20,8 @@ This patch release collects 30 bug fixes made since v1.1.2. The release date is 
   - Electricity cost shows as unknown when a miner's power is missing (#33, PR #58).
   - Disabled source creation is honored, and healed miners are relocated under the fleet lock (#36, PR #70).
   - Unsaved samples are capped while storage is failing, and the storage problem is reported (#37, PR #65).
+  - Miners whose firmware reports a group or all-zero MAC address (for example the Magic Miner BG02) stay online; such a MAC is treated as unknown, and control actions are refused until the miner's identity can be verified (#75, PR #83).
+  - A single poll with a mismatched miner identity no longer flips a working miner offline; it counts as one failed poll, and a miner that has really been replaced still goes offline at the normal threshold (#92, PR #93).
 - **Data safety and storage:**
   - A database written by a newer version is refused instead of opened (#30, PR #46).
   - Config import now applies fully or not at all (#31, PR #55).
