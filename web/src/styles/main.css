@@ -82,6 +82,13 @@
   --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
   --accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
   --accent-line: color-mix(in oklab, var(--accent) 38%, transparent);
+  /* Wall display series companions to the brand orange (#f7931a = oklch 0.7523 0.1663 62.6): same lightness and, as far
+     as sRGB allows, the same chroma, with only the hue changed, so bars and lines sit at the orange's depth.
+     blue   oklch(0.7525 0.1490 235.2): sRGB tops out at about 0.150 chroma at this lightness for any blue.
+     violet oklch(0.7526 0.1655 310.2): within 1% of the orange's chroma.
+     Fixed values; they do not follow a custom accent. The light theme keeps its darker --info / --violet below. */
+  --accent-blue: #2dbcff;
+  --accent-violet: #cf8efc;
   --ok-soft: color-mix(in oklab, var(--ok) 14%, transparent);
   --warn-soft: color-mix(in oklab, var(--warn) 15%, transparent);
   --bad-soft: color-mix(in oklab, var(--bad) 15%, transparent);
@@ -95,6 +102,9 @@
 /* Orange/amber text on a white page is too pale to read, so text-sized accent gets darker in light mode. */
 :root[data-theme='light'] {
   --accent-text: color-mix(in oklab, var(--accent) 62%, black);
+  /* Light-mode bars and lines must still read on white (the pale dark-theme pair would be 2:1), so they stay as dark as the status blue and violet. */
+  --accent-blue: var(--info);
+  --accent-violet: var(--violet);
 }
 
 :root[data-density='compact'] {

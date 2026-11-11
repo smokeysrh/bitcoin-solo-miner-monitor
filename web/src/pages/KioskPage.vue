@@ -6,7 +6,7 @@ import { useRouter } from 'vue-router'
 import HistoryChart from '@/components/charts/HistoryChart.vue'
 import MinerTile from '@/components/miners/MinerTile.vue'
 import LiveBadge from '@/components/layout/LiveBadge.vue'
-import ProgressBar from '@/components/ui/ProgressBar.vue'
+import KioskNetworkPanel from '@/components/layout/KioskNetworkPanel.vue'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
 import { useLive } from '@/stores/live'
@@ -162,13 +162,7 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
         </template>
 
         <template v-else-if="panel === 'network'">
-          <div class="mx-auto grid w-full max-w-5xl gap-8 text-center sm:grid-cols-3">
-            <div><p class="eyebrow">Block height</p><p class="tnum mt-2 text-5xl font-bold text-fg">{{ fmt.formatNumber(net?.height) }}</p></div>
-            <div><p class="eyebrow">Difficulty</p><p class="tnum mt-2 text-5xl font-bold text-fg">{{ fmt.formatDifficulty(net?.difficulty) }}</p></div>
-            <div><p class="eyebrow">Bitcoin</p><p class="tnum mt-2 text-5xl font-bold text-fg">{{ net?.btc_price ? fmt.money(net.btc_price, 0) : '–' }}</p></div>
-          </div>
-          <div v-if="net?.epoch" class="mx-auto mt-12 w-full max-w-3xl"><div class="mb-2 flex justify-between text-sm text-muted"><span>Next difficulty change</span><span class="tnum">{{ fmt.formatNumber(net.epoch.blocks_remaining) }} blocks</span></div><ProgressBar :value="net.epoch.progress" tone="info" :height="12" label="Progress to the next adjustment" /></div>
-          <div v-if="net?.halving" class="mx-auto mt-8 w-full max-w-3xl"><div class="mb-2 flex justify-between text-sm text-muted"><span>Next halving</span><span class="tnum">{{ fmt.formatNumber(net.halving.blocks_remaining) }} blocks</span></div><ProgressBar :value="net.halving.progress" tone="violet" :height="12" label="Progress to the next halving" /></div>
+          <KioskNetworkPanel :net="net" />
         </template>
 
         <template v-else>

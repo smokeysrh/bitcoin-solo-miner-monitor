@@ -5,13 +5,13 @@ const props = withDefaults(
   defineProps<{
     /** 0..1 */
     value: number | null
-    tone?: 'accent' | 'ok' | 'warn' | 'bad' | 'info' | 'violet'
+    tone?: 'accent' | 'ok' | 'warn' | 'bad' | 'info' | 'violet' | 'accent-blue' | 'accent-violet'
     height?: number
     label?: string
   }>(),
   { tone: 'accent', height: 8 },
 )
-const color = computed(() => ({ accent: 'var(--accent)', ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)', info: 'var(--info)', violet: 'var(--violet)' })[props.tone])
+const color = computed(() => ({ accent: 'var(--accent)', ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)', info: 'var(--info)', violet: 'var(--violet)', 'accent-blue': 'var(--accent-blue)', 'accent-violet': 'var(--accent-violet)' })[props.tone])
 const pct = computed(() => Math.min(100, Math.max(0, (props.value ?? 0) * 100)))
 </script>
 
