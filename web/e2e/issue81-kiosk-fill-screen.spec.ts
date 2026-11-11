@@ -199,3 +199,20 @@ test('issue81 overview and miners panels keep passing the colour contrast audit'
     expect(results.violations, `${panel} contrast`).toEqual([])
   }
 })
+
+test('issue81 miner cards have an orange fade on the right and an orange hashrate', async ({ page }) => {
+  await openPanel(page, { width: 1920, height: 1080 }, 'miners')
+  const tile = page.locator('section[aria-label="miners"] [data-testid^="miner-tile-"]').first()
+  const look = await tile.evaluate((el) => {
+    const fade = getComputedStyle(el, '::before')
+    const value = el.querySelector('.kt-hash-value')
+    const probe = document.createElement('span')
+    probe.className = 'text-accent-text'
+    document.body.appendChild(probe)
+    const accentText = getComputedStyle(probe).color
+    probe.remove()
+    return { fadeImage: fade.backgroundImage, valueColor: value ? getComputedStyle(value).color : null, accentText }
+  })
+  expect(look.fadeImage).toContain('linear-gradient')
+  expect(look.valueColor).toBe(look.accentText)
+})
