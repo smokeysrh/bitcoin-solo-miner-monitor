@@ -603,8 +603,8 @@ class Fleet:
         now = time.time()
         rt.failures += 1
         rt.last_error = str(error) or error.__class__.__name__
-        if isinstance(error, IdentityMismatch):
-            rt.failures = max(rt.failures, cfg.offline_after_failures)
+        # An identity mismatch counts like any other failed poll: one odd reading must not flip a working miner
+        # offline (#92). A replaced miner still mismatches on every poll, so it reaches the threshold anyway.
         restarting = now < rt.expect_back_until and not isinstance(error, IdentityMismatch)
         if restarting:
             self._set_status(rt, DeviceStatus.DEGRADED, "Restarting")
