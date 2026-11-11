@@ -169,4 +169,25 @@ describe('issue 80: the history chart passes the wall display variant through', 
     expect(wrapper.find('[data-testid="kiosk-chart-legend"]').exists()).toBe(false)
     expect(wrapper.findComponent({ name: 'VChartStub' }).props('option')).toBeTruthy()
   })
+
+  it('draws the power line in the accent blue on the wall display, and keeps the status blue everywhere else', async () => {
+    history()
+    const colours = async (extra: { kiosk?: boolean }) => ((await mountHistory(extra)).findComponent(TimeSeriesChart).props('series') as ChartSeries[]).map((s) => s.color)
+    expect(await colours(KIOSK_PROPS)).toEqual(['var(--accent)', 'var(--accent-blue)'])
+    expect(await colours({})).toEqual(['var(--accent)', 'var(--info)']) // the normal chart is untouched
+  })
+
+  it('hands the canvas the accent blue value, not the status blue', async () => {
+    history()
+    document.documentElement.style.setProperty('--accent-blue', '#2dbcff')
+    document.documentElement.style.setProperty('--info', '#60a5fa')
+    try {
+      const wrapper = await mountHistory(KIOSK_PROPS)
+      const option = wrapper.findComponent({ name: 'VChartStub' }).props('option') as unknown as ChartOption
+      expect(option.series.map((s) => s.lineStyle.color)).toEqual(['#f7931a', '#2dbcff'])
+    } finally {
+      document.documentElement.style.removeProperty('--accent-blue')
+      document.documentElement.style.removeProperty('--info')
+    }
+  })
 })

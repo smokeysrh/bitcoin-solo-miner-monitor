@@ -44,6 +44,12 @@ export function metricMeta(spec: string): MetricMeta | undefined {
   return METRICS[spec.split(':')[0] ?? spec]
 }
 
+/** On the wall display the blue and violet series use the accent companions (same depth as the orange, see main.css). */
+const KIOSK_COLORS: Record<string, string> = { 'var(--info)': 'var(--accent-blue)', 'var(--violet)': 'var(--accent-violet)' }
+export function kioskColor(color: string): string {
+  return KIOSK_COLORS[color] ?? color
+}
+
 export function formatMetric(kind: MetricKind, v: number, fmt: Fmt): string {
   switch (kind) {
     case 'hashrate':

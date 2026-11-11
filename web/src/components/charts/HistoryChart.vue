@@ -2,7 +2,7 @@
 import { LineChart as ChartIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { api, ApiError } from '@/lib/api'
-import { DEVICE_COLORS, metricMeta, type MetricKind } from '@/lib/metrics'
+import { DEVICE_COLORS, kioskColor, metricMeta, type MetricKind } from '@/lib/metrics'
 import { useLive } from '@/stores/live'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -129,7 +129,7 @@ const series = computed<ChartSeries[]>(() => {
       key: spec,
       name: !props.deviceId && FLEET_LABELS[base] ? FLEET_LABELS[base]! : meta.label,
       data: raw.value[spec] ?? raw.value[base] ?? [],
-      color: meta.color,
+      color: props.kiosk ? kioskColor(meta.color) : meta.color,
       kind: meta.kind,
       axis: axisFor(meta.kind),
       area: i === 0,
