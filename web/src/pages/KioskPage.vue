@@ -10,14 +10,12 @@ import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
 import { useLive } from '@/stores/live'
-import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 
 const live = useLive()
 const fmt = useFmt()
 const router = useRouter()
 const settings = useSettings()
-const session = useSession()
 const now = useNowSec()
 
 const ALL = ['overview', 'miners', 'odds', 'network', 'chart'] as const
@@ -116,14 +114,11 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
 
 <template>
   <main class="relative flex min-h-dvh flex-col overflow-clip bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
+    <!-- The live pill sits in the very top-left corner and stays visible so a stale or lost connection is always seen. The wall display has no title; only the buttons fade with the other chrome. -->
+    <div class="absolute top-3 left-3 z-10" data-testid="kiosk-live-pill"><LiveBadge large /></div>
     <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl light:hidden" aria-hidden="true" />
 
-    <!-- The live pill stays visible so a stale or lost connection is always seen; the title and buttons fade with the other chrome. -->
-    <header class="relative flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold tracking-tight text-fg transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">{{ session.meta?.instance_name ?? 'Solo Miner Monitor' }}</h1>
-        <LiveBadge />
-      </div>
+    <header class="relative flex items-center justify-end">
       <div class="flex items-center gap-2 transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Full screen (F)" @click="fullscreen"><Maximize class="size-5" /></button>
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Leave the wall display" @click="router.push('/')"><X class="size-5" /></button>

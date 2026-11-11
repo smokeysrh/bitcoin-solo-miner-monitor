@@ -6,7 +6,10 @@ import { useLive } from '@/stores/live'
 import StatusDot from '@/components/ui/StatusDot.vue'
 import Tooltip from '@/components/ui/Tooltip.vue'
 
-defineProps<{ compact?: boolean }>()
+defineProps<{ compact?: boolean; large?: boolean }>()
+// `large` is the regular pill scaled by 1.35: text 12px to 16.2px, padding 10x4px to 13.5x5.4px, gap 8px to 10.8px, dot 6px to 8px.
+const REGULAR = 'gap-2 px-2.5 py-1 text-xs'
+const LARGE = 'gap-[0.675rem] px-[0.84375rem] py-[0.3375rem] text-[1.0125rem]'
 const live = useLive()
 const now = useNowSec()
 
@@ -27,8 +30,8 @@ const detail = computed(() => (live.lastUpdate ? `Last update ${formatAgo(live.l
 
 <template>
   <Tooltip :text="detail">
-    <span class="inline-flex items-center gap-2 rounded-full border border-line bg-surface-2 px-2.5 py-1 text-xs font-medium" :class="view.tone" role="status" data-testid="live-badge">
-      <StatusDot :status="view.dot" size="sm" />
+    <span class="inline-flex items-center rounded-full border border-line bg-surface-2 font-medium" :class="[large ? LARGE : REGULAR, view.tone]" role="status" data-testid="live-badge">
+      <StatusDot :status="view.dot" :size="large ? 'md' : 'sm'" />
       <span v-if="!compact">{{ view.text }}</span>
       <span v-else class="sr-only">{{ view.text }}</span>
     </span>

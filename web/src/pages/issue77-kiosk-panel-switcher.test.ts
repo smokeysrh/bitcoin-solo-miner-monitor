@@ -3,7 +3,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import type { Settings } from '@/lib/types'
+import type { Meta, Settings } from '@/lib/types'
+import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import KioskPage from '@/pages/KioskPage.vue'
 
@@ -269,10 +270,27 @@ describe('issue 77: rotation timer ownership', () => {
 
     await advance(5000) // the chrome hides 4 seconds after the last movement
     expect(fadedAncestor(w.get('footer').element)).toBe(true) // the chrome did fade out ...
-    expect(fadedAncestor(w.get('h1').element)).toBe(true)
+    expect(fadedAncestor(w.get('header button').element)).toBe(true)
     expect(fadedAncestor(pill.element)).toBe(false) // ... but the pill did not
 
     await advance(ROTATE_MS) // and it stays through rotation
     expect(fadedAncestor(pill.element)).toBe(false)
+  })
+
+  it('shows no title on the wall display and puts the large live pill first, in the top-left corner', async () => {
+    useSession().meta = { instance_name: 'Fixture fleet' } as Meta
+    const w = await open()
+    expect(w.find('h1').exists()).toBe(false)
+    expect(w.text()).not.toContain('Fixture fleet')
+    expect(w.text()).not.toContain('Solo Miner Monitor')
+
+    const first = w.get('main').element.firstElementChild as HTMLElement
+    expect(first.getAttribute('data-testid')).toBe('kiosk-live-pill')
+    expect(first.querySelector('live-badge-stub')).not.toBeNull()
+    expect(first.querySelector('live-badge-stub')?.hasAttribute('large')).toBe(true)
+    expect(first.classList.contains('absolute')).toBe(true)
+    expect(first.classList.contains('top-3')).toBe(true)
+    expect(first.classList.contains('left-3')).toBe(true)
+    expect(w.findAll('live-badge-stub')).toHaveLength(1)
   })
 })
