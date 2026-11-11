@@ -777,7 +777,7 @@ export interface KioskConfig {
   rotate_s: number
   panels: string[]
   show_clock: boolean
-  /** Missing or unknown means `year`. */
+  /** Missing or unknown means `ten_minutes` (shown as "Next block"). */
   odds_headline?: OddsHeadline
 }
 

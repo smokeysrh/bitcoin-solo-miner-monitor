@@ -11,7 +11,7 @@ export interface OddsHeadlineChoice {
 
 /** The six horizons that can be the big number, in the order they are listed. */
 export const ODDS_HEADLINES: readonly OddsHeadlineChoice[] = [
-  { key: 'ten_minutes', label: 'Next 10 minutes', sentence: 'Chance of a block in the next 10 minutes' },
+  { key: 'ten_minutes', label: 'Next block', sentence: 'Chance of a block in the next 10 minutes' },
   { key: 'day', label: 'Today', sentence: 'Chance of a block today' },
   { key: 'month', label: 'This month', sentence: 'Chance of a block this month' },
   { key: 'year', label: 'This year', sentence: 'Chance of a block this year' },
@@ -19,8 +19,8 @@ export const ODDS_HEADLINES: readonly OddsHeadlineChoice[] = [
   { key: 'ten_years', label: '10 years', sentence: 'Chance of a block in the next 10 years' },
 ]
 
-/** What an older saved wall display (no `odds_headline`) has always shown. */
-export const DEFAULT_ODDS_HEADLINE: OddsHeadline = 'year'
+/** What the wall display shows until a headline is chosen, and for an older saved record without `odds_headline`. */
+export const DEFAULT_ODDS_HEADLINE: OddsHeadline = 'ten_minutes'
 
 /** The wall display's settings before anything was saved. Keep in step with the fallback in KioskPage.vue. */
 export const DEFAULT_KIOSK: KioskConfig = {
@@ -29,7 +29,7 @@ export const DEFAULT_KIOSK: KioskConfig = {
   show_clock: true,
 }
 
-/** A saved value that is missing or not one of the six choices falls back to the yearly headline. */
+/** A saved value that is missing or not one of the six choices falls back to the default headline. */
 export function oddsHeadlineChoice(saved: unknown): OddsHeadlineChoice {
   const found = ODDS_HEADLINES.find((choice) => choice.key === saved)
   return found ?? ODDS_HEADLINES.find((choice) => choice.key === DEFAULT_ODDS_HEADLINE)!

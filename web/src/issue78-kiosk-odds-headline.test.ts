@@ -7,6 +7,7 @@ import type { Odds, Settings } from '@/lib/types'
 import { mergeSettings, useSettings } from '@/stores/settings'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
+import { useToasts } from '@/stores/toasts'
 import AppearanceSettings from '@/pages/settings/AppearanceSettings.vue'
 import KioskPage from '@/pages/KioskPage.vue'
 
@@ -28,7 +29,7 @@ vi.mock('@/components/layout/LiveBadge.vue', async () => {
 type Choice = 'ten_minutes' | 'day' | 'month' | 'year' | 'five_years' | 'ten_years'
 const ORDER: Choice[] = ['ten_minutes', 'day', 'month', 'year', 'five_years', 'ten_years']
 const SHORT: Record<Choice, string> = {
-  ten_minutes: 'Next 10 minutes',
+  ten_minutes: 'Next block',
   day: 'Today',
   month: 'This month',
   year: 'This year',
@@ -121,17 +122,29 @@ describe('issue 78: wall display odds headline', () => {
     expect(smallValues(wrapper)).toEqual(others.map((k) => TEXT[k]))
   })
 
-  it('keeps the yearly headline for an old record without the field', async () => {
+  it('leads with Next block for an old record without the field', async () => {
     const wrapper = await openKiosk(ONLY_ODDS, oddsFixture())
-    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.year)
-    expect(text(wrapper, 'kiosk-odds-headline-label')).toBe(SENTENCE.year)
-    expect(smallLabels(wrapper)).toEqual(['Next 10 minutes', 'Today', 'This month', '5 years', '10 years'])
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.ten_minutes)
+    expect(text(wrapper, 'kiosk-odds-headline-label')).toBe(SENTENCE.ten_minutes)
+    expect(smallLabels(wrapper)).toEqual(['Today', 'This month', 'This year', '5 years', '10 years'])
   })
 
-  it('falls back to the yearly headline for an unknown saved value', async () => {
+  it('leads with Next block when nothing was ever saved', async () => {
+    const wrapper = await openKiosk(null, oddsFixture())
+    await wrapper.get('button[aria-label="Show odds"]').trigger('click') // the unsaved default rotation starts on Overview
+    await flushPromises()
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.ten_minutes)
+  })
+
+  it('falls back to the Next block headline for an unknown saved value', async () => {
     const wrapper = await openKiosk({ ...ONLY_ODDS, odds_headline: 'fortnight' }, oddsFixture())
-    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.year)
-    expect(text(wrapper, 'kiosk-odds-headline-label')).toBe(SENTENCE.year)
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.ten_minutes)
+    expect(text(wrapper, 'kiosk-odds-headline-label')).toBe(SENTENCE.ten_minutes)
+  })
+
+  it('never shows the old "Next 10 minutes" name as a label', async () => {
+    const wrapper = await openKiosk(ONLY_ODDS, oddsFixture())
+    expect(wrapper.text()).not.toContain('Next 10 minutes') // the sentence says "in the next 10 minutes", lower case
   })
 
   it('keeps zero as zero, in the headline and in the small list', async () => {
@@ -165,10 +178,10 @@ describe('issue 78: Settings -> Appearance control', () => {
   }
   const select = (wrapper: Wrapper): HTMLSelectElement => wrapper.get('[data-testid="kiosk-odds-headline-setting"]').element as HTMLSelectElement
 
-  it('offers the six time frames, defaults to this year and has a label', async () => {
+  it('offers the six time frames, defaults to Next block and has a label', async () => {
     const wrapper = await openSettings(ONLY_ODDS)
     expect(Array.from(select(wrapper).options).map((o) => o.text)).toEqual(ORDER.map((k) => SHORT[k]))
-    expect(select(wrapper).value).toBe('year')
+    expect(select(wrapper).value).toBe('ten_minutes')
     const label = wrapper.find(`label[for="${select(wrapper).id}"]`)
     expect(select(wrapper).id).not.toBe('')
     expect(label.exists()).toBe(true)
@@ -176,13 +189,13 @@ describe('issue 78: Settings -> Appearance control', () => {
 
   it('saves the choice inside the existing ui.kiosk object and keeps its other fields', async () => {
     const wrapper = await openSettings({ rotate_s: 20, panels: ['odds', 'network'], show_clock: false })
-    await wrapper.get('[data-testid="kiosk-odds-headline-setting"]').setValue('ten_minutes')
+    await wrapper.get('[data-testid="kiosk-odds-headline-setting"]').setValue('year')
     await flushPromises()
     expect(api.updateSettings).toHaveBeenCalledTimes(1)
     expect(vi.mocked(api.updateSettings).mock.calls[0]![0]).toEqual({
-      ui: { kiosk: { rotate_s: 20, panels: ['odds', 'network'], show_clock: false, odds_headline: 'ten_minutes' } },
+      ui: { kiosk: { rotate_s: 20, panels: ['odds', 'network'], show_clock: false, odds_headline: 'year' } },
     })
-    expect(select(wrapper).value).toBe('ten_minutes')
+    expect(select(wrapper).value).toBe('year')
   })
 
   it('starts from the wall display defaults when nothing was saved yet', async () => {
@@ -192,5 +205,76 @@ describe('issue 78: Settings -> Appearance control', () => {
     expect(vi.mocked(api.updateSettings).mock.calls[0]![0]).toEqual({
       ui: { kiosk: { rotate_s: 15, panels: ['overview', 'miners', 'odds', 'network', 'chart'], show_clock: true, odds_headline: 'day' } },
     })
+  })
+})
+
+describe('issue 78: time frame control on the wall display odds panel', () => {
+  const choice = (wrapper: Wrapper, key: Choice) => wrapper.get(`[data-testid="kiosk-odds-choice-${key}"]`)
+  const group = (wrapper: Wrapper) => wrapper.get('[data-testid="kiosk-odds-headline-choice"]')
+
+  it('lists the six time frames and marks the one that is the headline', async () => {
+    const wrapper = await openKiosk({ ...ONLY_ODDS, odds_headline: 'month' }, oddsFixture())
+    expect(group(wrapper).attributes('role')).toBe('group')
+    expect(group(wrapper).attributes('aria-label')).toBe('Odds time frame')
+    const buttons = group(wrapper).findAll('button')
+    expect(buttons.map((b) => b.text())).toEqual(ORDER.map((k) => SHORT[k]))
+    expect(buttons.map((b) => b.attributes('aria-pressed'))).toEqual(ORDER.map((k) => String(k === 'month')))
+  })
+
+  it('marks Next block when nothing was chosen yet', async () => {
+    const wrapper = await openKiosk(ONLY_ODDS, oddsFixture())
+    expect(choice(wrapper, 'ten_minutes').attributes('aria-pressed')).toBe('true')
+  })
+
+  it('changes the headline at once and saves it with the other wall display options', async () => {
+    const wrapper = await openKiosk({ rotate_s: 20, panels: ['odds', 'network'], show_clock: false }, oddsFixture())
+    await choice(wrapper, 'day').trigger('click')
+    await flushPromises()
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.day)
+    expect(text(wrapper, 'kiosk-odds-headline-label')).toBe(SENTENCE.day)
+    expect(choice(wrapper, 'day').attributes('aria-pressed')).toBe('true')
+    expect(api.updateSettings).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(api.updateSettings).mock.calls[0]![0]).toEqual({
+      ui: { kiosk: { rotate_s: 20, panels: ['odds', 'network'], show_clock: false, odds_headline: 'day' } },
+    })
+  })
+
+  it('keeps the Settings option and the panel in step, in both directions', async () => {
+    useSettings().data = config(ONLY_ODDS)
+    useLive().odds = oddsFixture()
+    const r = await router()
+    const kiosk = mount(KioskPage, { attachTo: document.body, global: { plugins: [r] } })
+    const appearance = mount(AppearanceSettings, { attachTo: document.body, global: { plugins: [r] } })
+    wrappers.push(kiosk, appearance)
+    await flushPromises()
+    const setting = (): HTMLSelectElement => appearance.get('[data-testid="kiosk-odds-headline-setting"]').element as HTMLSelectElement
+    expect(setting().value).toBe('ten_minutes')
+
+    await choice(kiosk, 'five_years').trigger('click')
+    await flushPromises()
+    expect(setting().value).toBe('five_years')
+
+    await appearance.get('[data-testid="kiosk-odds-headline-setting"]').setValue('month')
+    await flushPromises()
+    expect(text(kiosk, 'kiosk-odds-headline')).toBe(TEXT.month)
+    expect(choice(kiosk, 'month').attributes('aria-pressed')).toBe('true')
+    expect(choice(kiosk, 'five_years').attributes('aria-pressed')).toBe('false')
+  })
+
+  it('puts the old headline back and says so when the save fails', async () => {
+    vi.mocked(api.updateSettings).mockRejectedValue(new Error('server said no'))
+    const wrapper = await openKiosk({ ...ONLY_ODDS, odds_headline: 'year' }, oddsFixture())
+    await choice(wrapper, 'day').trigger('click')
+    await flushPromises()
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.year)
+    expect(choice(wrapper, 'year').attributes('aria-pressed')).toBe('true')
+    expect(useToasts().items.map((t) => t.title)).toContain('Could not save that')
+  })
+
+  it('is not offered to a session that cannot change settings', async () => {
+    useSession().me = { name: 'tv', scope: 'read', via: 'public' }
+    const wrapper = await openKiosk(ONLY_ODDS, oddsFixture())
+    expect(wrapper.find('[data-testid="kiosk-odds-headline-choice"]').exists()).toBe(false)
+    expect(text(wrapper, 'kiosk-odds-headline')).toBe(TEXT.ten_minutes)
   })
 })

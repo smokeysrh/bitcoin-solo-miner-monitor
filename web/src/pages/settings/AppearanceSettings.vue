@@ -6,7 +6,8 @@ import Segmented from '@/components/ui/Segmented.vue'
 import Select from '@/components/ui/Select.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { describeError } from '@/lib/api'
-import { DEFAULT_KIOSK, ODDS_HEADLINES, oddsHeadlineChoice } from '@/lib/oddsHeadline'
+import { useOddsHeadline } from '@/composables/useOddsHeadline'
+import { ODDS_HEADLINES } from '@/lib/oddsHeadline'
 import { ACCENT_PRESETS, THEMES, type ThemePref } from '@/lib/theme'
 import type { OddsHeadline } from '@/lib/types'
 import { useSettings } from '@/stores/settings'
@@ -23,11 +24,14 @@ async function patch(change: Parameters<typeof settings.patch>[0]): Promise<void
   }
 }
 
-/** `ui.kiosk` is saved whole, so keep the other wall display options and add or change only the headline. */
+const oddsHeadline = useOddsHeadline()
 async function setOddsHeadline(value: OddsHeadline | null | undefined): Promise<void> {
   if (!value) return
-  const current = settings.data?.ui.kiosk ?? DEFAULT_KIOSK
-  await patch({ ui: { kiosk: { ...current, panels: [...current.panels], odds_headline: value } } })
+  try {
+    await oddsHeadline.choose(value)
+  } catch (e) {
+    toasts.error('Could not save that', describeError(e))
+  }
 }
 
 // miniature previews, drawn with each theme's real colours
@@ -114,7 +118,7 @@ const accent = (): string => settings.data?.ui.accent ?? '#F7931A'
     <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
       <div>
         <label for="kiosk-odds-headline" class="text-sm font-medium text-fg">Odds headline on the wall display</label>
-        <p id="kiosk-odds-headline-hint" class="text-xs text-subtle">The big number on the odds screen. The other time frames stay smaller below it.</p>
+        <p id="kiosk-odds-headline-hint" class="text-xs text-subtle">The big number on the odds screen. The other time frames stay smaller below it. You can also change it on the wall display itself.</p>
       </div>
       <Select
         id="kiosk-odds-headline"
@@ -122,7 +126,7 @@ const accent = (): string => settings.data?.ui.accent ?? '#F7931A'
         data-testid="kiosk-odds-headline-setting"
         described-by="kiosk-odds-headline-hint"
         :options="ODDS_HEADLINES.map((h) => ({ value: h.key, label: h.label }))"
-        :model-value="oddsHeadlineChoice(settings.data?.ui.kiosk?.odds_headline).key"
+        :model-value="oddsHeadline.current.value.key"
         @update:model-value="(v) => setOddsHeadline(v)"
       />
     </div>

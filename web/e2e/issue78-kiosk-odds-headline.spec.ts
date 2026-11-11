@@ -52,7 +52,7 @@ interface Measured {
 test('the chosen horizon is the big number and the setting is saved with the wall display options', async ({ page, request }) => {
   await page.goto('/settings/appearance')
   const control = page.getByLabel('Odds headline on the wall display')
-  await expect(control).toHaveValue('year') // nothing saved yet: today's behaviour
+  await expect(control).toHaveValue('ten_minutes') // nothing saved yet: Next block
   await control.selectOption('day')
   await expect(control).toHaveValue('day')
   await expect.poll(async () => ((await savedKiosk(request)) as { odds_headline?: string } | null)?.odds_headline).toBe('day')
@@ -62,11 +62,21 @@ test('the chosen horizon is the big number and the setting is saved with the wal
   await expect(page.getByTestId('kiosk-odds-headline-label')).toHaveText('Chance of a block today')
 })
 
-test('an old saved wall display without the field still shows the yearly headline', async ({ page, request }) => {
+test('an old saved wall display without the field leads with Next block', async ({ page, request }) => {
   await saveKiosk(request, ODDS_ONLY)
   await page.goto('/kiosk')
   await expect(page.getByTestId('kiosk-odds-headline')).toContainText(/^1 in /)
-  await expect(page.getByTestId('kiosk-odds-headline-label')).toHaveText('Chance of a block this year')
+  await expect(page.getByTestId('kiosk-odds-headline-label')).toHaveText(TEN_MINUTES_LABEL)
+})
+
+test('the time frame can be chosen on the wall display and Settings shows the same choice', async ({ page, request }) => {
+  await saveKiosk(request, ODDS_ONLY)
+  await page.goto('/kiosk')
+  await page.getByTestId('kiosk-odds-choice-month').click()
+  await expect(page.getByTestId('kiosk-odds-headline-label')).toHaveText('Chance of a block this month')
+  await expect.poll(async () => ((await savedKiosk(request)) as { odds_headline?: string } | null)?.odds_headline).toBe('month')
+  await page.goto('/settings/appearance')
+  await expect(page.getByLabel('Odds headline on the wall display')).toHaveValue('month')
 })
 
 test('odds headline fits, never overlaps and grows with the screen at every wall display size', async ({ page, request }) => {
