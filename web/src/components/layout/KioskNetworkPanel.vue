@@ -42,7 +42,7 @@ const epochEstimate = computed(() => estimate(epoch.value))
         <p v-if="halving" class="k-label font-medium text-muted">blocks to go</p>
       </div>
       <p v-if="halvingEstimate" class="k-note text-muted" data-testid="kiosk-halving-estimate">{{ halvingEstimate }}</p>
-      <ProgressBar v-if="halving" class="k-bar" :value="halving.progress" tone="violet" :height="12" label="Progress to the next halving" />
+      <ProgressBar v-if="halving" class="k-bar" :value="halving.progress" tone="accent-violet" :height="12" label="Progress to the next halving" />
     </div>
 
     <div class="k-gap">
@@ -52,21 +52,21 @@ const epochEstimate = computed(() => estimate(epoch.value))
         <p v-if="epoch" class="k-label font-medium text-muted">blocks to go</p>
       </div>
       <p v-if="epochEstimate" class="k-note text-muted" data-testid="kiosk-epoch-estimate">{{ epochEstimate }}</p>
-      <ProgressBar v-if="epoch" class="k-bar" :value="epoch.progress" tone="info" :height="12" label="Progress to the next adjustment" />
+      <ProgressBar v-if="epoch" class="k-bar" :value="epoch.progress" tone="accent-blue" :height="12" label="Progress to the next adjustment" />
     </div>
 
     <dl class="k-gap grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-height-label">Block height</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="height === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-height-value">{{ height === null ? UNAVAILABLE : fmt.formatNumber(height) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="height === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-height-value">{{ height === null ? UNAVAILABLE : fmt.formatNumber(height) }}</dd>
       </div>
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-difficulty-label">Difficulty</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="difficulty === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-difficulty-value">{{ difficulty === null ? UNAVAILABLE : fmt.formatDifficulty(difficulty) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="difficulty === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-difficulty-value">{{ difficulty === null ? UNAVAILABLE : fmt.formatDifficulty(difficulty) }}</dd>
       </div>
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-price-label">Bitcoin price</dt>
-        <dd class="k-small tnum leading-none font-bold" :class="price === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-price-value">{{ price === null ? UNAVAILABLE : fmt.money(price, 0) }}</dd>
+        <dd class="k-small tnum leading-none font-bold" :class="price === null ? 'k-off text-muted' : 'text-accent-text'" data-testid="kiosk-price-value">{{ price === null ? UNAVAILABLE : fmt.money(price, 0) }}</dd>
       </div>
     </dl>
   </div>

@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia, type Pinia } from 'pinia'
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import KioskPage from '@/pages/KioskPage.vue'
+import ProgressBar from '@/components/ui/ProgressBar.vue'
 import type { EpochInfo, HalvingInfo, NetworkState, Settings } from '@/lib/types'
 import { useLive } from '@/stores/live'
 import { useSettings } from '@/stores/settings'
@@ -146,15 +147,38 @@ describe('issue 79: wall display Bitcoin network panel', () => {
     expect(section.findAll('[role="progressbar"]')).toHaveLength(0)
   })
 
-  it('shows the blocks until the next difficulty change in the same orange as the next halving', async () => {
+  it('shows every big number in the same orange', async () => {
     const section = await networkPanel(network())
     const halvingValue = section.get('[data-testid="kiosk-halving-value"]')
     const epochValue = section.get('[data-testid="kiosk-epoch-value"]')
     expect(halvingValue.classes()).toContain('text-accent-text')
     expect(epochValue.classes()).toContain('text-accent-text')
     expect(epochValue.classes()).not.toContain('text-fg')
-    // the smaller height / difficulty / price numbers stay neutral
-    expect(section.get('[data-testid="kiosk-height-value"]').classes()).not.toContain('text-accent-text')
+    // height, difficulty and price are orange too, so every big number on the panel is orange
+    for (const id of ['kiosk-height-value', 'kiosk-difficulty-value', 'kiosk-price-value']) {
+      const value = section.get(`[data-testid="${id}"]`)
+      expect(value.classes(), id).toContain('text-accent-text')
+      expect(value.classes(), id).not.toContain('text-fg')
+    }
+  })
+
+  it('keeps Unavailable muted, not orange, for height, difficulty and price', async () => {
+    const section = await networkPanel(null)
+    for (const id of ['kiosk-height-value', 'kiosk-difficulty-value', 'kiosk-price-value']) {
+      const value = section.get(`[data-testid="${id}"]`)
+      expect(value.text(), id).toBe('Unavailable')
+      expect(value.classes(), id).toContain('text-muted')
+      expect(value.classes(), id).not.toContain('text-accent-text')
+    }
+  })
+
+  it('draws the two bars in the accent companion tones, not the status blue and violet', async () => {
+    const section = await networkPanel(network())
+    const tones = Object.fromEntries(section.findAllComponents(ProgressBar).map((bar: VueWrapper): [string, string] => {
+      const { label, tone } = bar.props() as { label: string; tone: string }
+      return [label, tone]
+    }))
+    expect(tones).toEqual({ 'Progress to the next halving': 'accent-violet', 'Progress to the next adjustment': 'accent-blue' })
   })
 
   it('keeps Unavailable muted, not orange, for the difficulty change', async () => {
