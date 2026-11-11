@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useEventListener } from '@vueuse/core'
-import { Maximize, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Lock, LockOpen, Maximize, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import HistoryChart from '@/components/charts/HistoryChart.vue'
@@ -10,14 +10,12 @@ import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
 import { useLive } from '@/stores/live'
-import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 
 const live = useLive()
 const fmt = useFmt()
 const router = useRouter()
 const settings = useSettings()
-const session = useSession()
 const now = useNowSec()
 
 const ALL = ['overview', 'miners', 'odds', 'network', 'chart'] as const
@@ -27,15 +25,28 @@ const panels = computed<Panel[]>(() => {
   const p = cfg.value.panels.filter((x): x is Panel => (ALL as readonly string[]).includes(x))
   return p.length ? p : [...ALL]
 })
+const PANEL_LABEL: Record<Panel, string> = { overview: 'Overview', miners: 'Miners', odds: 'Odds', network: 'Network', chart: 'Chart' }
+// Big, plain buttons for a display read from across a room; they grow with the screen. Orange is reserved for the lock.
+const BUTTON =
+  'inline-flex min-h-[clamp(2.75rem,4vw,6rem)] min-w-11 items-center justify-center gap-[0.4em] rounded-2xl border-2 px-[1.1em] text-[clamp(1.125rem,1.5vw,4rem)] font-semibold whitespace-nowrap transition-colors'
+const BUTTON_IDLE = `${BUTTON} border-line-strong bg-surface-1 text-muted hover:bg-surface-2 hover:text-fg`
+const BUTTON_CURRENT = `${BUTTON} border-fg bg-surface-3 text-fg`
 const idx = ref(0)
 const panel = computed(() => panels.value[idx.value % panels.value.length]!)
 const chrome = ref(true)
+/** Locked: stay on the current panel. Choosing a panel never changes this; only the lock button does. */
+const locked = ref(false)
+/** Spoken by the polite live region for choices the viewer makes, never for automatic rotation. */
+const announcement = ref('')
 let rotate: ReturnType<typeof setInterval> | null = null
 let hide: ReturnType<typeof setTimeout> | null = null
 let lock: { release: () => Promise<void> } | null = null
 
+/** The one place the rotation timer is owned: stop any running one, and start a fresh full period unless locked. */
 function restart(): void {
   if (rotate) clearInterval(rotate)
+  rotate = null
+  if (locked.value) return
   rotate = setInterval(() => (idx.value = (idx.value + 1) % panels.value.length), Math.max(5, cfg.value.rotate_s) * 1000)
 }
 function poke(): void {
@@ -45,6 +56,12 @@ function poke(): void {
 }
 function jump(n: number): void {
   idx.value = (n + panels.value.length) % panels.value.length
+  announcement.value = `Showing ${PANEL_LABEL[panel.value]}`
+  restart()
+}
+function toggleLock(): void {
+  locked.value = !locked.value
+  announcement.value = locked.value ? `Locked on ${PANEL_LABEL[panel.value]}. The display stays on this panel.` : 'Rotation resumed.'
   restart()
 }
 async function fullscreen(): Promise<void> {
@@ -59,8 +76,13 @@ async function fullscreen(): Promise<void> {
 useEventListener(window, 'mousemove', poke)
 useEventListener(window, 'touchstart', poke)
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
-  if (e.key === 'ArrowRight' || e.key === ' ') jump(idx.value + 1)
-  else if (e.key === 'ArrowLeft') jump(idx.value - 1)
+  // Space advances one panel (as before; the lock is not changed). On a focused button it is that button's own key.
+  const onControl = e.target instanceof Element && e.target.closest('button, a, input, select, textarea') !== null
+  if (e.key === 'ArrowRight') jump(idx.value + 1)
+  else if (e.key === ' ' && !onControl) {
+    e.preventDefault()
+    jump(idx.value + 1)
+  } else if (e.key === 'ArrowLeft') jump(idx.value - 1)
   else if (e.key === 'f') void fullscreen()
   else if (e.key === 'Escape' && !document.fullscreenElement) void router.push('/')
   poke()
@@ -77,6 +99,7 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   if (rotate) clearInterval(rotate)
+  rotate = null
   if (hide) clearTimeout(hide)
   void lock?.release()
 })
@@ -90,15 +113,13 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
 </script>
 
 <template>
-  <main class="relative flex min-h-dvh flex-col overflow-hidden bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
+  <main class="relative flex min-h-dvh flex-col overflow-clip bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
+    <!-- The live pill sits in the very top-left corner and stays visible so a stale or lost connection is always seen. The wall display has no title; only the buttons fade with the other chrome. -->
+    <div class="absolute top-3 left-3 z-10" data-testid="kiosk-live-pill"><LiveBadge large /></div>
     <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl light:hidden" aria-hidden="true" />
 
-    <header class="relative flex items-center justify-between transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
-      <div class="flex items-center gap-4">
-        <h1 class="text-lg font-semibold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Solo Miner Monitor' }}</h1>
-        <LiveBadge />
-      </div>
-      <div class="flex items-center gap-2">
+    <header class="relative flex items-center justify-end">
+      <div class="flex items-center gap-2 transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Full screen (F)" @click="fullscreen"><Maximize class="size-5" /></button>
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Leave the wall display" @click="router.push('/')"><X class="size-5" /></button>
       </div>
@@ -156,8 +177,14 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
       </section>
     </Transition>
 
-    <footer class="relative flex items-center justify-center gap-2 transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'">
-      <button v-for="(p, n) in panels" :key="p" class="h-2 rounded-full transition-all" :class="n === idx % panels.length ? 'w-8 bg-accent' : 'w-2 bg-line-strong hover:bg-subtle'" :aria-label="`Show ${p}`" @click="jump(n)" />
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
+    <footer class="sticky bottom-0 z-10 flex flex-wrap items-center justify-center gap-[clamp(0.5rem,1vw,1.5rem)] bg-bg/90 pt-4 pb-[clamp(0.5rem,1vw,2rem)] transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'" @focusin="poke">
+      <button type="button" :class="BUTTON_IDLE" aria-label="Previous panel" @click="jump(idx - 1)"><ChevronLeft class="size-[1.25em]" aria-hidden="true" />Previous</button>
+      <button v-for="(p, n) in panels" :key="p" type="button" :class="n === idx % panels.length ? BUTTON_CURRENT : BUTTON_IDLE" :aria-current="n === idx % panels.length ? 'true' : undefined" :aria-label="`Show ${p}`" @click="jump(n)">{{ PANEL_LABEL[p] }}</button>
+      <button type="button" :class="BUTTON_IDLE" aria-label="Next panel" @click="jump(idx + 1)">Next<ChevronRight class="size-[1.25em]" aria-hidden="true" /></button>
+      <button type="button" :class="[BUTTON, 'ml-[1em]', locked ? 'border-accent bg-accent text-accent-fg' : 'border-line-strong bg-surface-3 text-fg hover:bg-surface-2']" :aria-pressed="locked" aria-label="Lock on this panel" @click="toggleLock">
+        <component :is="locked ? Lock : LockOpen" class="size-[1.25em]" aria-hidden="true" />Lock
+      </button>
     </footer>
   </main>
 </template>
