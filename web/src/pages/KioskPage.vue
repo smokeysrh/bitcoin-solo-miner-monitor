@@ -166,7 +166,8 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
         </template>
 
         <template v-else>
-          <div class="mx-auto w-full max-w-6xl"><HistoryChart :metrics="['hashrate_hs', 'power_w']" range="24h" :height="460" legend /></div>
+          <!-- fills the screen: 12rem is the page padding, header, section padding and footer around this panel -->
+          <div class="flex h-[calc(100dvh_-_12rem)] w-full flex-col"><HistoryChart class="min-h-0 flex-1" :metrics="['hashrate_hs', 'power_w']" range="24h" :height="240" kiosk /></div>
         </template>
       </section>
     </Transition>
