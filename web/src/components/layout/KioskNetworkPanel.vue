@@ -48,7 +48,7 @@ const epochEstimate = computed(() => estimate(epoch.value))
     <div class="k-gap">
       <p class="k-label font-semibold text-muted" data-testid="kiosk-epoch-label">Next difficulty change</p>
       <div class="flex flex-wrap items-baseline justify-center gap-x-[0.3em]">
-        <p class="k-epoch tnum leading-none font-bold" :class="epoch ? 'text-fg' : 'k-off text-muted'" data-testid="kiosk-epoch-value">{{ epoch ? fmt.formatNumber(epoch.blocks_remaining) : UNAVAILABLE }}</p>
+        <p class="k-epoch tnum leading-none font-bold" :class="epoch ? 'text-accent-text' : 'k-off text-muted'" data-testid="kiosk-epoch-value">{{ epoch ? fmt.formatNumber(epoch.blocks_remaining) : UNAVAILABLE }}</p>
         <p v-if="epoch" class="k-label font-medium text-muted">blocks to go</p>
       </div>
       <p v-if="epochEstimate" class="k-note text-muted" data-testid="kiosk-epoch-estimate">{{ epochEstimate }}</p>

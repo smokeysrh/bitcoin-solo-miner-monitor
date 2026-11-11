@@ -145,4 +145,23 @@ describe('issue 79: wall display Bitcoin network panel', () => {
     expect(unavailableCount(text)).toBeGreaterThanOrEqual(5)
     expect(section.findAll('[role="progressbar"]')).toHaveLength(0)
   })
+
+  it('shows the blocks until the next difficulty change in the same orange as the next halving', async () => {
+    const section = await networkPanel(network())
+    const halvingValue = section.get('[data-testid="kiosk-halving-value"]')
+    const epochValue = section.get('[data-testid="kiosk-epoch-value"]')
+    expect(halvingValue.classes()).toContain('text-accent-text')
+    expect(epochValue.classes()).toContain('text-accent-text')
+    expect(epochValue.classes()).not.toContain('text-fg')
+    // the smaller height / difficulty / price numbers stay neutral
+    expect(section.get('[data-testid="kiosk-height-value"]').classes()).not.toContain('text-accent-text')
+  })
+
+  it('keeps Unavailable muted, not orange, for the difficulty change', async () => {
+    const section = await networkPanel(network({ epoch: null }))
+    const epochValue = section.get('[data-testid="kiosk-epoch-value"]')
+    expect(epochValue.text()).toBe('Unavailable')
+    expect(epochValue.classes()).toContain('text-muted')
+    expect(epochValue.classes()).not.toContain('text-accent-text')
+  })
 })
