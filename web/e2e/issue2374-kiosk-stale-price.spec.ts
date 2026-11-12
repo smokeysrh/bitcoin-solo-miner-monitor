@@ -5,6 +5,11 @@ import { expect, test, type Page } from '@playwright/test'
 // price is always fresh, so the real demo overview is changed in flight to mark its price source stale, the same way
 // issue98-solo-blocks.spec.ts changes a demo response. Nothing is saved: only the settings the page needs
 // (one panel, theme) are set and then restored. Run against a task-owned `--demo --offline` server.
+//
+// The live stream is held for the same reason: the overview is only the page's starting state. The server publishes a
+// `network` event on every network merge (the demo merges every 15 s) and `web/src/stores/live.ts` replaces the whole
+// network object with it, so a real, fresh demo price arriving during or just after the first load would silently
+// replace the stale one served here and the note would never show.
 
 const NOTE = 'kiosk-price-stale'
 const NOTE_TEXT = 'Price not updating (last updated 2h ago)'
@@ -25,6 +30,11 @@ async function serveStalePrice(page: Page): Promise<void> {
     json.network.field_sources = { ...json.network.field_sources, prices: { source: 'mempool_space', ts: staleSince, stale: true } }
     await route.fulfill({ response, json })
   })
+}
+
+/** Refuses the live stream, so no `network` event can replace the stale price served above. Nothing here asserts "Live". */
+async function holdStream(page: Page): Promise<void> {
+  await page.route('**/api/v1/stream?**', (route) => route.abort())
 }
 
 test.describe('issue 2374: wall display stale price note', () => {
@@ -52,6 +62,7 @@ test.describe('issue 2374: wall display stale price note', () => {
       const set = await request.patch('/api/v1/settings', { data: { ui: { theme } } })
       expect(set.ok()).toBeTruthy()
       await serveStalePrice(page)
+      await holdStream(page)
       await page.setViewportSize({ width: 1920, height: 1080 })
       await page.goto('/kiosk')
       await expect(page.getByTestId('kiosk')).toBeVisible()
