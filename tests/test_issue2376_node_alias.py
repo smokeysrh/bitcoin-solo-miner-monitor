@@ -189,3 +189,22 @@ async def test_a_name_lookup_that_never_answers_is_given_up_on(api, tcp, resolve
     found = node_of(job, NODE_IP)
     assert found["already_configured"] is False and found["refusal"]["reason"] == "needs_login"
     assert resolver.calls == [NODE_NAME]
+
+
+async def test_a_saved_name_the_resolver_rejects_outright_means_no_match_and_the_scan_still_finishes(api, tcp, resolver):
+    _c, ctx, hosts = api
+    hosts[NODE_IP] = Refuser().app()
+    hosts[OTHER_IP] = Refuser().app()
+    tcp.open.update({(NODE_IP, 8332), (OTHER_IP, 8332)})
+    rejected_name = "umbrel..local"  # an empty label: the stdlib resolver refuses it before any lookup
+    resolver.names[rejected_name] = UnicodeError("label empty or too long")
+    resolver.names[NODE_NAME] = [NODE_IP]
+    await save_node(ctx, f"http://{rejected_name}")
+    await save_node(ctx, f"http://{NODE_NAME}")
+    await save_node(ctx, f"http://{OTHER_IP}:8332")
+
+    job = await scan(ctx)
+
+    assert node_of(job, NODE_IP)["already_configured"] is True  # the other saved name still resolves
+    assert node_of(job, OTHER_IP)["already_configured"] is True  # the literal saved address still matches
+    assert sorted(resolver.calls) == sorted([rejected_name, NODE_NAME])
