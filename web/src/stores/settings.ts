@@ -30,9 +30,9 @@ function localAppearance(): Partial<Settings['ui']> {
 
 const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v)
 
-/** Same merge rules as the server: nested objects merge, `dashboard`/`kiosk`/`quiet_hours` are replaced whole. */
+/** Same merge rules as the server: nested objects merge, the layouts, `kiosk` and `quiet_hours` are replaced whole. */
 export function mergeSettings<T>(base: T, patch: Json): T {
-  const opaque = new Set(['dashboard', 'kiosk', 'quiet_hours'])
+  const opaque = new Set(['dashboard', 'bitcoin_page', 'odds_page', 'kiosk', 'quiet_hours'])
   const out: Json = { ...(base as Json) }
   for (const [k, v] of Object.entries(patch)) {
     const cur = out[k]

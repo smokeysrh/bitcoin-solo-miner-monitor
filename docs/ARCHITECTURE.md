@@ -50,7 +50,7 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 
 ### Next 10 minutes
 
-`mining.HORIZONS.ten_minutes` is 600 seconds. `/api/v1/odds`, overview odds, `bsmm odds`, and MCP `get_odds` expose `horizons.ten_minutes` for live fleet data and what-if overrides. The dashboard widget, Odds page and kiosk label it **Next 10 minutes**. There is no dedicated per-device odds endpoint; agents can supply a device's observed TH/s as the existing `hashrate_ths` what-if parameter.
+`mining.HORIZONS.ten_minutes` is 600 seconds. `/api/v1/odds`, overview odds, `bsmm odds`, and MCP `get_odds` expose `horizons.ten_minutes` for live fleet data and what-if overrides. The dashboard widget and Odds page label it **Next 10 minutes**. The wall display labels it **Next block** (the owner's choice) and its headline line reads "Chance of a block in the next 10 minutes"; the value is the same fixed 600-second window, not a different calculation. There is no dedicated per-device odds endpoint; agents can supply a device's observed TH/s as the existing `hashrate_ths` what-if parameter.
 
 At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of winning the very next network block. Past work never makes a miner due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
 
@@ -60,7 +60,7 @@ Vue 3 + TypeScript + Vite + Tailwind v4, Pinia for state, reka-ui for accessible
 
 - `lib/` holds framework-free code (API client, SSE stream with reconnect and watchdog, formatting, theme, fuzzy search, CSV, glossary).
 - `stores/` mirror server state; the SSE stream patches them live and refetches after a reconnect.
-- `components/dashboard/registry.ts` declares the 16 widgets (id, title, allowed spans). The layout is saved in the `ui.dashboard` setting, so it follows the user to any browser.
+- `components/dashboard/registry.ts` declares the 16 widgets (id, title, allowed spans). The layout is saved in the `ui.dashboard` setting, so it follows the user to any browser. The Bitcoin and Odds & costs pages use the same editor (`composables/useLayoutEditor.ts`, `components/layout/CustomizablePage.vue`) and save in `ui.bitcoin_page` and `ui.odds_page`.
 - Theme tokens (`bg-surface-1`, `text-muted`, `text-accent-text`) are CSS variables per theme (dark, black, light); every text colour is checked at 4.5:1 with axe in all three.
 - `public/sw.js` makes it installable; it never caches API responses.
 

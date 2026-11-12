@@ -754,6 +754,9 @@ export interface Settings {
     sound_on_block: boolean
     simple_mode: boolean
     dashboard: DashboardLayout | null
+    /** Absent in settings saved before these layouts existed. */
+    bitcoin_page?: PageLayout | null
+    odds_page?: PageLayout | null
     kiosk: KioskConfig | null
   }
   auth: { mode: 'none' | 'password'; public_read: boolean }
@@ -770,10 +773,21 @@ export interface DashboardLayout {
   widgets: DashboardWidgetPlacement[]
 }
 
+/** Which cards a page shows, in order. Cards left out are hidden. */
+export interface PageLayout {
+  version: 1
+  cards: string[]
+}
+
+/** Which odds horizon is the big number on the wall display. */
+export type OddsHeadline = 'ten_minutes' | 'day' | 'month' | 'year' | 'five_years' | 'ten_years'
+
 export interface KioskConfig {
   rotate_s: number
   panels: string[]
   show_clock: boolean
+  /** Missing or unknown means `ten_minutes` (shown as "Next block"). */
+  odds_headline?: OddsHeadline
 }
 
 // ----------------------------------------------------------------------------------- live stream

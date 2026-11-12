@@ -3,6 +3,7 @@
  * One chart component for every time series in the app. Tree-shaken ECharts (canvas) so the whole
  * charting stack costs one lazy-loaded chunk.
  */
+import { useWindowSize } from '@vueuse/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import { AxisPointerComponent, DataZoomComponent, GridComponent, LegendComponent, MarkAreaComponent, TooltipComponent } from 'echarts/components'
 import { color as ecolor, graphic, use } from 'echarts/core'
@@ -44,6 +45,11 @@ const props = withDefaults(
     zeroBased?: boolean
     /** hero-style: no axes or grid, just the line and a tooltip */
     minimal?: boolean
+    /**
+     * wall display: fills the height its parent gives it, shows a large HTML legend with each series' current value,
+     * and draws big axis numbers and lines that differ by style as well as colour. Fixed for the life of the component.
+     */
+    kiosk?: boolean
   }>(),
   { height: 260, legend: false, zoom: true },
 )
@@ -51,6 +57,25 @@ const props = withDefaults(
 const fmt = useFmt()
 const settings = useSettings()
 const tick = useThemeTick()
+
+/** Wall display sizing: text follows the shorter screen side, so a portrait screen is as readable as a landscape one. */
+const KIOSK_FALLBACK_SIDE = 720
+const KIOSK_AXIS_FONT_DIVISOR = 40
+const KIOSK_AXIS_FONT_MIN = 16
+const KIOSK_AXIS_FONT_MAX = 96
+const KIOSK_LINE_WIDTH_DIVISOR = 6
+const KIOSK_LINE_WIDTH_MIN = 4
+const DEFAULT_LINE_WIDTH = 2
+const KIOSK_TOP_ROOM = 0.75 // of a label's height, so the top axis number is not cut off
+const KIOSK_SWATCH_DASH = '12 8'
+const windowSize = props.kiosk ? useWindowSize({ listenOrientation: false }) : null
+const kioskFont = computed(() => {
+  const side = Math.min(windowSize?.width.value ?? Infinity, windowSize?.height.value ?? Infinity)
+  const base = Number.isFinite(side) ? side : KIOSK_FALLBACK_SIDE
+  return Math.min(KIOSK_AXIS_FONT_MAX, Math.max(KIOSK_AXIS_FONT_MIN, Math.round(base / KIOSK_AXIS_FONT_DIVISOR)))
+})
+/** Lines alternate solid and dashed, so the two are told apart without colour. */
+const kioskDashed = (index: number): boolean => index % 2 === 1
 
 function resolve(c: string): string {
   const m = /^var\((--[\w-]+)\)$/.exec(c.trim())
@@ -89,6 +114,22 @@ const description = computed(() => {
 })
 
 const shownFrom = computed(() => Math.max(0, props.t.length - MAX_TABLE_ROWS))
+
+/** One legend entry per series: its name with the unit, and its newest value on its own. */
+const legendItems = computed(() =>
+  props.series.map((s, index) => {
+    let latest: number | null = null
+    for (let i = props.t.length - 1; i >= 0 && latest === null; i--) {
+      const v = s.data[i]
+      if (typeof v === 'number') latest = v
+    }
+    const text = latest === null ? null : formatMetric(s.kind, latest, fmt)
+    const cut = text === null ? -1 : text.indexOf(' ')
+    const value = text === null ? '–' : cut < 0 ? text : text.slice(0, cut)
+    const unit = text === null || cut < 0 ? '' : text.slice(cut + 1)
+    return { key: s.key, color: s.color, dashed: kioskDashed(index), label: unit ? `${s.name} (${unit})` : s.name, value }
+  }),
+)
 const rows = computed(() =>
   props.t.slice(shownFrom.value).map((ts, j) => {
     const index = shownFrom.value + j
@@ -120,6 +161,10 @@ const option = computed<EChartsOption>(() => {
   const dualAxis = axisKinds[1] !== null
   const times = props.t.map((x) => x * 1000)
 
+  const kiosk = props.kiosk === true
+  const font = kiosk ? kioskFont.value : 11
+  const axisText = kiosk ? text : axis // from across a room the numbers get full-strength text
+
   const yAxes = ([0, 1] as const)
     .filter((i) => axisKinds[i] !== null)
     .map((i) => ({
@@ -133,9 +178,9 @@ const option = computed<EChartsOption>(() => {
       splitLine: { show: i === 0 && !props.minimal, lineStyle: { color: grid } },
       axisLabel: {
         show: !props.minimal,
-        color: axis,
-        fontSize: 11,
-        margin: 8,
+        color: axisText,
+        fontSize: font,
+        margin: kiosk ? Math.round(font / 2) : 8,
         formatter: (v: number) => formatAxis(axisKinds[i]!, v, fmt),
       },
     }))
@@ -147,8 +192,8 @@ const option = computed<EChartsOption>(() => {
     textStyle: { fontFamily: 'Inter Variable, system-ui, sans-serif' },
     grid: props.minimal
       ? { left: 0, right: 0, top: 6, bottom: 0, containLabel: false }
-      : { left: 4, right: dualAxis ? 4 : 10, top: props.legend ? 34 : 12, bottom: props.zoom ? 4 : 2, containLabel: true },
-    legend: props.legend
+      : { left: 4, right: dualAxis ? 4 : 10, top: kiosk ? Math.ceil(font * KIOSK_TOP_ROOM) : props.legend ? 34 : 12, bottom: props.zoom ? 4 : 2, containLabel: true },
+    legend: props.legend && !kiosk
       ? { top: 0, left: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, itemGap: 16, textStyle: { color: axis, fontSize: 12 }, inactiveColor: line }
       : { show: false },
     tooltip: {
@@ -183,11 +228,11 @@ const option = computed<EChartsOption>(() => {
       axisLine: { show: !props.minimal, lineStyle: { color: grid } },
       axisTick: { show: false },
       splitLine: { show: false },
-      axisLabel: { show: !props.minimal, color: axis, fontSize: 11, hideOverlap: true },
+      axisLabel: { show: !props.minimal, color: axisText, fontSize: font, hideOverlap: true },
     },
     yAxis: yAxes,
     dataZoom: props.zoom ? [{ type: 'inside', xAxisIndex: 0, filterMode: 'none', zoomOnMouseWheel: 'shift', moveOnMouseMove: true }] : [],
-    series: props.series.map((s) => {
+    series: props.series.map((s, index) => {
       const c = resolve(s.color)
       const base = {
         name: s.name,
@@ -207,7 +252,11 @@ const option = computed<EChartsOption>(() => {
         step: s.step ? ('end' as const) : false,
         smooth: s.step ? false : 0.25,
         sampling: 'lttb' as const,
-        lineStyle: { width: s.width ?? 2, color: c },
+        lineStyle: {
+          width: s.width ?? (kiosk ? Math.max(KIOSK_LINE_WIDTH_MIN, Math.round(font / KIOSK_LINE_WIDTH_DIVISOR)) : DEFAULT_LINE_WIDTH),
+          color: c,
+          ...(kiosk ? { type: kioskDashed(index) ? ('dashed' as const) : ('solid' as const) } : {}),
+        },
         areaStyle: s.area
           ? { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: ecolor.modifyAlpha(c, 0.28) }, { offset: 1, color: ecolor.modifyAlpha(c, 0) }]) }
           : undefined,
@@ -218,9 +267,28 @@ const option = computed<EChartsOption>(() => {
 </script>
 
 <template>
-  <div>
-    <div :style="{ height: `${height}px` }" role="img" :aria-label="label" :aria-describedby="descriptionId">
-      <VChart class="chart-host" :option="option" autoresize :init-options="{ renderer: 'canvas' }" />
+  <div :class="kiosk ? 'flex min-h-0 flex-1 flex-col' : undefined">
+    <ul
+      v-if="kiosk"
+      data-testid="kiosk-chart-legend"
+      class="mb-4 flex flex-wrap items-center justify-center gap-x-[2em] gap-y-[0.5em] text-[clamp(1.125rem,2.8vmin,6rem)] text-fg"
+    >
+      <li v-for="item in legendItems" :key="item.key" data-testid="kiosk-series-item" class="flex items-center gap-[0.5em]">
+        <svg class="h-[0.5em] w-[3em] shrink-0" viewBox="0 0 48 8" aria-hidden="true">
+          <line x1="0" y1="4" x2="48" y2="4" stroke-width="5" :style="{ stroke: item.color }" :stroke-dasharray="item.dashed ? KIOSK_SWATCH_DASH : undefined" />
+        </svg>
+        <span data-testid="kiosk-series-label" class="font-medium">{{ item.label }}</span>
+        <span data-testid="kiosk-series-value" class="tnum text-[1.8em] leading-none font-bold">{{ item.value }}</span>
+      </li>
+    </ul>
+    <div
+      :class="kiosk ? 'relative flex-1' : undefined"
+      :style="kiosk ? { minHeight: `${height}px` } : { height: `${height}px` }"
+      role="img"
+      :aria-label="label"
+      :aria-describedby="descriptionId"
+    >
+      <VChart :class="kiosk ? 'chart-host absolute inset-0' : 'chart-host'" :option="option" autoresize :init-options="{ renderer: 'canvas' }" />
     </div>
     <p :id="descriptionId" class="sr-only">{{ description }}</p>
     <details v-if="!minimal" class="mt-2 text-sm">
