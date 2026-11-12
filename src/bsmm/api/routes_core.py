@@ -30,6 +30,7 @@ from bsmm.engine.network import SOURCE_CLASSES
 from bsmm.models import AlertRule, Channel, Device, Source
 from bsmm.net import local_ipv4_networks
 from bsmm.settings import Settings, deep_merge
+from bsmm.sources.base import hide_url_login
 from bsmm.updates import check_for_update
 
 router = APIRouter()
@@ -189,7 +190,7 @@ async def export_config(ctx: AppContext = Depends(get_ctx), _: Principal = Depen
         "devices": [d.model_dump(mode="json") for d in await ctx.store.list_devices()],
         "rules": [r.model_dump(mode="json") for r in await ctx.store.list_rules()],
         "channels": [c.model_dump(mode="json") for c in await ctx.store.list_channels()],
-        "sources": [s.model_dump(mode="json") for s in await ctx.store.list_sources()],
+        "sources": [{**s.model_dump(mode="json"), "url": hide_url_login(s.url)} for s in await ctx.store.list_sources()],
         "note": "Passwords, tokens and webhook URLs are never exported. Re-enter them after importing.",
     }
 

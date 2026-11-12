@@ -35,7 +35,7 @@ class SourceBadResponse(SourceError):
 
 URL_LOGIN_MESSAGE = "The address can't contain a user name or password."
 URL_LOGIN_HINT = "Remove it from the address. For a Bitcoin node, enter them in the RPC user name and RPC password fields."
-_URL_AUTHORITY = re.compile(r"^(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)?(?P<netloc>[^/?#]*)(?P<rest>.*)$", re.DOTALL)
+_URL_AUTHORITY = re.compile(r"^(?P<prefix>(?:[A-Za-z][A-Za-z0-9+.-]*:)?//)?(?P<netloc>[^/?#]*)(?P<rest>.*)$", re.DOTALL)
 
 
 def url_has_login(url: str | None) -> bool:
@@ -51,7 +51,7 @@ def hide_url_login(url: str | None) -> str | None:
     m = _URL_AUTHORITY.match(url.strip())
     if not m or "@" not in m.group("netloc"):
         return url
-    return f"{m.group('scheme') or ''}***@{m.group('netloc').rpartition('@')[2]}{m.group('rest')}"
+    return f"{m.group('prefix') or ''}***@{m.group('netloc').rpartition('@')[2]}{m.group('rest')}"
 
 
 class _M(BaseModel):

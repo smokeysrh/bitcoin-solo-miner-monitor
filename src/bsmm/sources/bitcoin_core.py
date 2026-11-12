@@ -81,10 +81,10 @@ def normalise_url(raw: str) -> str:
     text = (raw or "").strip()
     if not text:
         raise ValueError("enter the node's address, for example http://192.168.1.10:8332")
+    if url_has_login(text):  # checked as typed: a "//user:pass@host" form must not be read as a bare host
+        raise ValueError(f"{URL_LOGIN_MESSAGE} Enter them in the RPC user name and RPC password fields.")
     if "://" not in text:
         text = "http://" + text
-    if url_has_login(text):
-        raise ValueError(f"{URL_LOGIN_MESSAGE} Enter them in the RPC user name and RPC password fields.")
     m = re.match(r"^(?P<scheme>https?)://(?P<host>\[[^\]]+\]|[^/:]+)(?::(?P<port>\d+))?", text)
     if not m:
         raise ValueError(f"{raw!r} is not a valid address")
