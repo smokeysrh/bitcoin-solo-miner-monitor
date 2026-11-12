@@ -111,13 +111,13 @@ async def test_discord_posts_an_embed(make_wire):
     [req] = wire.requests
     assert req.method == "POST" and str(req.url) == DISCORD_URL
     assert wire.json() == {
-        "username": "Solo Miner Monitor",
+        "username": "HashHurdr",
         "embeds": [{
             "title": f"{ICON[Severity.WARNING]} Gamma is running hot",
             "description": "ASIC 91 °C (limit 75)",
             "color": 0xF59E0B,
             "timestamp": "2023-11-14T22:13:20Z",
-            "footer": {"text": f"Solo Miner Monitor {__version__}"},
+            "footer": {"text": f"HashHurdr {__version__}"},
         }],
     }
 
@@ -240,7 +240,7 @@ async def test_ntfy_title_header_stays_ascii_and_the_body_stays_utf8(make_wire):
     first, second = wire.requests
     assert first.headers["title"] == "Temprature leve"
     assert first.content.decode() == "Zażółć gęślą jaźń ☀"
-    assert second.headers["title"] == "Solo Miner Monitor"  # nothing ASCII left, so fall back to a name
+    assert second.headers["title"] == "HashHurdr"  # nothing ASCII left, so fall back to a name
     assert second.content.decode() == "🔥🔥"  # an empty body falls back to the title text
 
 
@@ -479,11 +479,11 @@ async def test_email_starttls_flow_builds_the_message(monkeypatch, make_wire):
     assert (c.kind, c.host, c.port, c.timeout) == ("plain", "smtp.test", 587, 15)
     assert c.calls == ["starttls", ("login", "me@x.test", "hunter2"), "send", "quit"]
     [msg] = c.messages
-    assert msg["Subject"] == "[Solo Miner Monitor] Gamma is running hot"
+    assert msg["Subject"] == "[HashHurdr] Gamma is running hot"
     assert msg["From"] == "miners@x.test" and msg["To"] == "a@x.test, b@x.test"
     text = msg.get_content()
     assert "Gamma is running hot" in text and "ASIC 91 °C (limit 75)" in text
-    assert text.rstrip().endswith(f"-- Solo Miner Monitor {__version__}")
+    assert text.rstrip().endswith(f"-- HashHurdr {__version__}")
 
 
 async def test_email_ssl_uses_the_ssl_class_and_no_starttls(monkeypatch, make_wire):
@@ -968,4 +968,4 @@ async def test_send_test_inline_for_email_uses_the_given_secret(lan, make_wire, 
     res = await notifier.send_test_inline("email", MAIL, {"password": "hunter2"})
     assert res.ok is True
     assert conns[0].calls[1] == ("login", "me@x.test", "hunter2")
-    assert conns[0].messages[0]["Subject"] == "[Solo Miner Monitor] Test notification"
+    assert conns[0].messages[0]["Subject"] == "[HashHurdr] Test notification"

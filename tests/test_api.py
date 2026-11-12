@@ -335,13 +335,13 @@ async def test_prometheus_metrics(api):
 async def test_agent_docs(api):
     c, *_ = api
     txt = await c.get("/llms.txt")
-    assert txt.status_code == 200 and txt.text.startswith("# Bitcoin Solo Miner Monitor")
+    assert txt.status_code == 200 and txt.text.startswith("# HashHurdr")
     assert "/api/v1/meta" in txt.text and "http://bsmm.test" in txt.text
     guide = (await c.get("/api/v1/agent/guide")).json()
     assert guide["api_base"] == "http://bsmm.test/api/v1" and len(guide["setup_recipe"]) >= 8
     assert any("dry_run" in s for s in guide["safety"])
     spec = (await c.get("/openapi.json")).json()
-    assert spec["info"]["title"].startswith("Bitcoin Solo Miner Monitor")
+    assert spec["info"]["title"].startswith("HashHurdr")
     # every operation has an id, a summary and a tag: that is what makes the spec usable by agents
     for path, item in spec["paths"].items():
         for method, op in item.items():
