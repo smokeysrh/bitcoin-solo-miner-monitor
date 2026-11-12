@@ -153,11 +153,11 @@ class DiscordChannel(BaseChannel):
             "description": n.body[:3800],
             "color": COLOR[n.severity],
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(n.ts)),
-            "footer": {"text": f"Solo Miner Monitor {__version__}"},
+            "footer": {"text": f"HashHurdr {__version__}"},
         }
         if n.url:
             embed["url"] = n.url
-        await self._post(self.value("webhook_url"), json={"username": "Solo Miner Monitor", "embeds": [embed]})
+        await self._post(self.value("webhook_url"), json={"username": "HashHurdr", "embeds": [embed]})
 
 
 class TelegramChannel(BaseChannel):
@@ -193,7 +193,7 @@ class NtfyChannel(BaseChannel):
         server = (self.value("server") or "https://ntfy.sh").rstrip("/")
         prio = {Severity.INFO: "2", Severity.SUCCESS: "3", Severity.WARNING: "4", Severity.CRITICAL: "5"}[n.severity]
         tags = {Severity.INFO: "information_source", Severity.SUCCESS: "white_check_mark", Severity.WARNING: "warning", Severity.CRITICAL: "rotating_light"}[n.severity]
-        headers = {"Title": n.title.encode("ascii", "ignore").decode() or "Solo Miner Monitor", "Priority": prio, "Tags": tags}
+        headers = {"Title": n.title.encode("ascii", "ignore").decode() or "HashHurdr", "Priority": prio, "Tags": tags}
         if self.value("token"):
             headers["Authorization"] = f"Bearer {self.value('token')}"
         await self._post(f"{server}/{self.value('topic')}", content=(n.body or n.title).encode(), headers=headers)
@@ -267,10 +267,10 @@ class EmailChannel(BaseChannel):
         port = int(self.value("port") or 587)
         security = self.value("security") or "starttls"
         msg = EmailMessage()
-        msg["Subject"] = f"[Solo Miner Monitor] {n.title}"[:200]
+        msg["Subject"] = f"[HashHurdr] {n.title}"[:200]
         msg["From"] = self.value("sender")
         msg["To"] = ", ".join(a.strip() for a in self.value("to").split(",") if a.strip())
-        msg.set_content(f"{n.title}\n\n{n.body}\n\n-- Solo Miner Monitor {__version__}")
+        msg.set_content(f"{n.title}\n\n{n.body}\n\n-- HashHurdr {__version__}")
         ctx = ssl.create_default_context()
         try:
             if security == "ssl":

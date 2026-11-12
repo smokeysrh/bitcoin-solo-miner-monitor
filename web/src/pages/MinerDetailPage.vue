@@ -63,7 +63,7 @@ const tabs = computed<TabDef[]>(() => {
 watch(
   () => device.value?.name,
   (name) => {
-    if (name) document.title = `${name} · Solo Miner Monitor`
+    if (name) document.title = `${name} · HashHurdr`
   },
   { immediate: true },
 )

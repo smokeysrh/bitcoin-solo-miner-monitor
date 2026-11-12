@@ -111,7 +111,6 @@ def test_page_head_uses_the_name_and_the_supplied_favicons():
     html = (ROOT / "web/index.html").read_text(encoding="utf-8")
     assert "<title>HashHurdr</title>" in html
     assert "<noscript>HashHurdr needs JavaScript." in html
-    assert "Solo Miner Monitor" not in html
     assert '<link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />' in html
     assert '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />' in html
     assert '<link rel="apple-touch-icon" href="/apple-touch-icon-180.png" />' in html

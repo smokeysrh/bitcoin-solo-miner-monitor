@@ -137,7 +137,7 @@ const subtitle = computed(() => {
         <div class="relative max-w-2xl">
           <h3 class="text-gradient-accent text-3xl font-bold tracking-tight">Let’s find your miners</h3>
           <p class="mt-3 text-base leading-relaxed text-muted">
-            Solo Miner Monitor shows every miner you own on one screen, tells you the real odds of finding a block, and warns you when something breaks.
+            HashHurdr shows every miner you own on one screen, tells you the real odds of finding a block, and warns you when something breaks.
             Start by scanning your network. It takes about twenty seconds and changes nothing on your miners.
           </p>
           <div class="mt-5 flex flex-wrap gap-3">

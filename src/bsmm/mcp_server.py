@@ -106,7 +106,7 @@ def _unwrap(resp: httpx.Response) -> Any:
 
 
 def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") -> MCPServer:
-    mcp = MCPServer(name=name, title="Bitcoin Solo Miner Monitor", instructions=INSTRUCTIONS, version=__version__)
+    mcp = MCPServer(name=name, title="HashHurdr", instructions=INSTRUCTIONS, version=__version__)
 
     async def api(ctx: Context, method: str, path: str, *, params: dict[str, Any] | None = None, body: Any = None) -> Any:
         headers = None
@@ -313,7 +313,7 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     @mcp.prompt(description="Walk a new user through setting up their mining monitor")
     def setup_my_miners() -> str:
         return (
-            "Set up the Bitcoin Solo Miner Monitor for me. 1) call get_overview and tell me what is already configured. 2) call scan_network and show me "
+            "Set up HashHurdr, the Bitcoin Solo Miner Monitor, for me. 1) call get_overview and tell me what is already configured. 2) call scan_network and show me "
             "the miners and node/pool candidates it found; add them with add_discovered_miners after I confirm. 3) If a node or pool was found, ask me for "
             "any credentials it needs and call configure_source. 4) Ask for my electricity price per kWh and apply it with update_settings. 5) Offer to set up "
             "phone alerts with create_notification_channel (ntfy is the easiest). 6) Finish with get_odds and explain my chances honestly and kindly."

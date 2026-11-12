@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
-// These tests drive the real UI against a running Solo Miner Monitor in DEMO mode (simulated miners, nothing is saved):
+// These tests drive the real UI against a running HashHurdr in DEMO mode (simulated miners, nothing is saved):
 //   bsmm serve --demo --offline --port 8421; BSMM_DEV_API=http://127.0.0.1:8421 npm run dev -- --port 6001
 // Or BASE=http://localhost:8421 against the built app. The demo gate runs before any test fixture.
 // CHROME=/path/to/chrome uses an existing browser instead of Playwright's own download.

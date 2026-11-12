@@ -15,6 +15,7 @@ VersionInfoProductTextVersion={#AppVersion}
 AppPublisher=Bitcoin Solo Miner Monitor
 DefaultDirName={localappdata}\Programs\Bitcoin Solo Miner Monitor
 DefaultGroupName=Bitcoin Solo Miner Monitor
+SetupIconFile=hashhurdr.ico
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible

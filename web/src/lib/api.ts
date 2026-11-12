@@ -128,7 +128,7 @@ export async function request<T>(method: string, path: string, opts: RequestOpti
   } catch (e) {
     if (opts.signal?.aborted || epoch !== sessionEpoch) throw e
     const timedOut = e instanceof DOMException && e.name === 'TimeoutError'
-    throw new ApiError(0, 'network', timedOut ? 'The server took too long to answer.' : 'Could not reach the server.', 'Check that Solo Miner Monitor is still running.')
+    throw new ApiError(0, 'network', timedOut ? 'The server took too long to answer.' : 'Could not reach the server.', 'Check that HashHurdr is still running.')
   } finally {
     clearTimeout(timer)
     pending.delete(controller)

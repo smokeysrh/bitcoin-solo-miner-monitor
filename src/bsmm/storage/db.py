@@ -217,7 +217,7 @@ class Database:
             found = await self.schema_version()
             if found > SUPPORTED_SCHEMA_VERSION:
                 raise RuntimeError(
-                    f"This database was written by a newer Solo Miner Monitor (schema {found}; this version "
+                    f"This database was written by a newer HashHurdr (schema {found}; this version "
                     f"understands up to {SUPPORTED_SCHEMA_VERSION}). Nothing was changed. Reinstall the "
                     f"matching newer version, or restore the backup you made before upgrading."
                 )

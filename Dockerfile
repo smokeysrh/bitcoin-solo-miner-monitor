@@ -27,7 +27,7 @@ RUN python -m build --wheel --outdir /dist
 
 # ---- 3. runtime ----------------------------------------------------------------------------------------------
 FROM python:3.12-slim
-LABEL org.opencontainers.image.title="Bitcoin Solo Miner Monitor" \
+LABEL org.opencontainers.image.title="HashHurdr" \
       org.opencontainers.image.description="Dashboard, API and MCP server for solo Bitcoin miners" \
       org.opencontainers.image.source="https://github.com/smokeysrh/bitcoin-solo-miner-monitor" \
       org.opencontainers.image.licenses="MIT"

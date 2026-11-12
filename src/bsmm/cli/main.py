@@ -37,7 +37,7 @@ from bsmm.units import format_duration, format_hashrate, format_odds, format_si
 
 app = typer.Typer(
     name="bsmm",
-    help="Bitcoin Solo Miner Monitor: find, monitor and tune your solo miners.\n\nNew here? Run `bsmm setup`. AI agent? Run `bsmm agent-guide`.",
+    help="HashHurdr, the Bitcoin Solo Miner Monitor: find, monitor and tune your solo miners.\n\nNew here? Run `bsmm setup`. AI agent? Run `bsmm agent-guide`.",
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_show_locals=False,
@@ -139,7 +139,7 @@ def serve(
     _setup_logging(cfg.log_level, log_file)
     app_ = create_app(cfg)
     urls = _lan_urls(cfg.port) or [f"http://localhost:{cfg.port}"]
-    console.print(f"[bold #F7931A]Bitcoin Solo Miner Monitor[/] {__version__}" + ("  [yellow](demo mode: simulated miners, nothing is saved)[/]" if cfg.demo else ""))
+    console.print(f"[bold #F7931A]HashHurdr[/] {__version__}" + ("  [yellow](demo mode: simulated miners, nothing is saved)[/]" if cfg.demo else ""))
     console.print(f"  Open on this computer:  [link]http://localhost:{cfg.port}[/]")
     for u in urls:
         console.print(f"  Or from your phone/PC:  [link]{u}[/]")
@@ -406,7 +406,7 @@ def doctor(url: URL = None, token: TOKEN = None, data_dir: DATA = None, as_json:
 
     def human(diag: dict[str, Any]) -> None:
         icons = {"pass": "[green]✓[/]", "warn": "[yellow]![/]", "fail": "[red]✗[/]"}
-        console.print(f"[bold]Bitcoin Solo Miner Monitor {diag['version']}[/]  (Python {diag['python']}, {diag['platform']})")
+        console.print(f"[bold]HashHurdr {diag['version']}[/]  (Python {diag['python']}, {diag['platform']})")
         for c in diag["checks"]:
             console.print(f"{icons[c['status']]} {c['message']}" + (f"\n    [dim]Fix: {c['fix']}[/]" if c.get("fix") else ""))
         for dev in diag["devices"]:
@@ -538,7 +538,7 @@ def setup(
         if meta["auth"]["mode"] == "password" and not api.token:
             api.token = _local_admin_token(cfg)
             api.client.headers["Authorization"] = f"Bearer {api.token}"
-        log(f"[bold #F7931A]Solo Miner Monitor[/] {meta['version']} is running.")
+        log(f"[bold #F7931A]HashHurdr[/] {meta['version']} is running.")
 
         log("Looking for miners on your network (about 20 seconds)...")
         job = api.post("/discovery", {"cidrs": cidr})

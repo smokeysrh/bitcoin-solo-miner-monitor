@@ -100,7 +100,7 @@ SAFETY: list[str] = [
 
 def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> dict[str, Any]:
     return {
-        "name": "Bitcoin Solo Miner Monitor",
+        "name": "HashHurdr",
         "version": __version__,
         "summary": "Dashboard and API for solo Bitcoin miners: discovers miners, monitors them, watches the user's node and pool, "
                    "computes block odds, alerts, and lets you control miners within safe limits.",
@@ -143,9 +143,9 @@ def llms_txt(base: str = "http://localhost:8420") -> str:
     node_flow = "\n".join(f"{i}. {s}" for i, s in enumerate(NODE_REFUSAL_FLOW, 1))
     preflight = "\n".join(f"- {s}" for s in SETUP_PREFLIGHT)
     safety = "\n".join(f"- {s}" for s in SAFETY)
-    return f"""# Bitcoin Solo Miner Monitor
+    return f"""# HashHurdr
 
-> Self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version {__version__}.
+> HashHurdr, the Bitcoin Solo Miner Monitor: a self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version {__version__}.
 
 This server: {base}
 Everything below is also available as JSON at {base}/api/v1/agent/guide.
