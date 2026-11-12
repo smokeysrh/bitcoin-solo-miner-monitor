@@ -13,8 +13,9 @@ import ipaddress
 import logging
 import sqlite3
 import time
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 
@@ -25,7 +26,7 @@ from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
 from bsmm.models import Device, ProbeResult, Severity, Source
-from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
+from bsmm.net import MAX_SCAN_HOSTS, is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
 from bsmm.sources.base import NodeRefusal, SourceError
 from bsmm.sources.bitcoin_core import normalise_url, probe_node_access
 from bsmm.sources.public_pool import PublicPoolSource
@@ -33,9 +34,25 @@ from bsmm.storage.store import Store, new_id
 
 log = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
 MINER_PORTS = (80, 4028)
 NODE_PORTS = (8332, 2019, 3334, 3006)
 SWEEP_PORTS = MINER_PORTS + NODE_PORTS
+SWEEP_HOST_WORKERS = 100  # addresses swept at once; the socket semaphore in ``_run`` still caps open connections
+PROBE_HOST_WORKERS = 16  # hosts identified at once
+MAX_SCAN_RANGES = 16  # ranges per scan; the default suggestion offers two, and a LAN rarely has more than a handful
+
+
+async def _for_each_bounded(items: Iterable[T], func: Callable[[T], Awaitable[None]], workers: int) -> None:
+    """Run ``func`` over ``items`` with at most ``workers`` running at once (no task is created per item)."""
+    pending = iter(items)
+
+    async def worker() -> None:
+        for item in pending:  # workers share the iterator: each item is taken by exactly one of them
+            await func(item)
+
+    await asyncio.gather(*(worker() for _ in range(workers)))
 
 
 @dataclass(slots=True)
@@ -130,16 +147,22 @@ class DiscoveryService:
         if len(extra_ports) > 8:
             raise ValueError("Scan at most 8 extra ports at a time.")
         cidrs = cidrs or self.suggest_cidrs()[:2]
-        hosts: list[str] = []
+        if len(cidrs) > MAX_SCAN_RANGES:  # before any expansion: repeats of one range never grow the address total
+            raise ValueError(f"Scan at most {MAX_SCAN_RANGES} ranges at a time.")
+        unique: dict[str, None] = {}  # ordered set: every requested address once, whatever ranges it came from
         for c in cidrs:
             part = list(iter_hosts(c))
             if not allow_public and not all(is_private_host(h) for h in part[:3] or part):
                 raise ValueError(f"{c} is not a private network. Scanning public addresses is blocked (use a home/office range such as 192.168.1.0/24).")
-            hosts.extend(part)
+            unique.update(dict.fromkeys(part))
+            if len(unique) > MAX_SCAN_HOSTS:
+                raise ValueError(
+                    f"These ranges cover more than {MAX_SCAN_HOSTS} different addresses; scanning more than {MAX_SCAN_HOSTS} "
+                    "at once is not allowed (use fewer or smaller ranges)")
         # skip this computer's own LAN addresses (it is not a miner), but honour an explicit request for
         # loopback: that is how you find a Bitcoin node or pool running on the very same machine
         own = {a for a in own_ipv4_addresses() if not a.startswith("127.")}
-        hosts = [h for h in dict.fromkeys(hosts) if h not in own]
+        hosts = [h for h in unique if h not in own]
         job = DiscoveryJob(id=new_id("scan"), cidrs=cidrs, total_hosts=len(hosts))
         self.jobs[job.id] = job
         job._task = asyncio.create_task(self._run(job, hosts, include_sources, extra_ports), name=f"discovery-{job.id}")
@@ -197,28 +220,27 @@ class DiscoveryService:
                     last_pub = time.monotonic()
                     self._publish(job)
 
-            await asyncio.gather(*(check(h) for h in hosts))
+            await _for_each_bounded(hosts, check, SWEEP_HOST_WORKERS)
 
             job.phase = "identifying"
             self._publish(job)
-            probe_sem = asyncio.Semaphore(16)
 
-            async def probe(host: str, ports: set[int]) -> None:
-                async with probe_sem:
-                    jobs = []
-                    if 80 in ports:
-                        jobs.append(probe_host(host, 80, client=self.http, timeout=4.0, drivers=[AxeOSDriver.name]))
-                    if 4028 in ports:
-                        jobs.append(probe_host(host, 4028, client=self.http, timeout=4.0, drivers=[CgminerDriver.name]))
-                    for p in ports & set(extra):  # user-supplied ports: let every driver have a go
-                        jobs.append(probe_host(host, p, client=self.http, timeout=4.0))
-                    found: list[ProbeResult] = [r for batch in await asyncio.gather(*jobs) for r in batch]
-                    found.sort(key=lambda r: r.confidence, reverse=True)
-                    for res in found[:1]:
-                        await self._add_candidate(job, res)
+            async def probe(item: tuple[str, set[int]]) -> None:
+                host, ports = item
+                jobs = []
+                if 80 in ports:
+                    jobs.append(probe_host(host, 80, client=self.http, timeout=4.0, drivers=[AxeOSDriver.name]))
+                if 4028 in ports:
+                    jobs.append(probe_host(host, 4028, client=self.http, timeout=4.0, drivers=[CgminerDriver.name]))
+                for p in ports & set(extra):  # user-supplied ports: let every driver have a go
+                    jobs.append(probe_host(host, p, client=self.http, timeout=4.0))
+                found: list[ProbeResult] = [r for batch in await asyncio.gather(*jobs) for r in batch]
+                found.sort(key=lambda r: r.confidence, reverse=True)
+                for res in found[:1]:
+                    await self._add_candidate(job, res)
 
             miner_ports = set(MINER_PORTS) | set(extra)
-            await asyncio.gather(*(probe(h, p) for h, p in open_ports.items() if p & miner_ports))
+            await _for_each_bounded([item for item in open_ports.items() if item[1] & miner_ports], probe, PROBE_HOST_WORKERS)
             self._mark_duplicates(job)
 
             if include_sources:
