@@ -1,5 +1,5 @@
 /**
- * Types for the Solo Miner Monitor REST API (v1). They mirror the Python models in
+ * Types for the HashHurdr REST API (v1). They mirror the Python models in
  * `src/bsmm/models.py`, `settings.py` and the route modules. Field names carry their unit.
  */
 

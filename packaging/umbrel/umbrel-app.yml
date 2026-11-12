@@ -1,7 +1,7 @@
 manifestVersion: 1
 id: bitcoin-solo-miner-monitor
 category: bitcoin
-name: Solo Miner Monitor
+name: HashHurdr
 version: "1.3.0"
 tagline: Mission control for your solo Bitcoin miners
 description: >-

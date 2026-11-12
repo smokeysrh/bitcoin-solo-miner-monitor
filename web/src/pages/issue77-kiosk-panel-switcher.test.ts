@@ -282,7 +282,7 @@ describe('issue 77: rotation timer ownership', () => {
     const w = await open()
     expect(w.find('h1').exists()).toBe(false)
     expect(w.text()).not.toContain('Fixture fleet')
-    expect(w.text()).not.toContain('Solo Miner Monitor')
+    expect(w.text()).not.toContain('HashHurdr')
 
     const first = w.get('main').element.firstElementChild as HTMLElement
     expect(first.getAttribute('data-testid')).toBe('kiosk-live-pill')

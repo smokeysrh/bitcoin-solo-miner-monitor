@@ -223,6 +223,7 @@ async def test_version_and_help_need_no_server():
     assert res.exit_code == 0 and res.stdout.strip() == __version__
     helped = await cli("--help")
     assert helped.exit_code == 0
+    assert "HashHurdr" in helped.stdout
     for command in ("serve", "start", "stop", "status", "list", "odds", "doctor", "discover", "add", "setup", "token", "password", "mcp"):
         assert command in helped.stdout
 
@@ -350,7 +351,7 @@ async def test_doctor_passes_on_a_healthy_install(server):
     assert [d["name"] for d in diag["devices"]] == ["Garage"] and diag["devices"][0]["status"] == "online"
     human = await cli("doctor", "--url", server.base)
     plain = flat(human.stdout)
-    assert human.exit_code == 0 and f"Bitcoin Solo Miner Monitor {__version__}" in plain
+    assert human.exit_code == 0 and f"HashHurdr {__version__}" in plain
     assert "✓ The database is working." in plain and "! No password: anyone on the network can use this dashboard." in plain
     assert "Fix: Set one in Settings > Security." in plain
 
@@ -534,7 +535,7 @@ async def test_password_command_works_on_the_database_when_no_server_is_running(
 
 async def test_agent_guide_prints_what_the_running_server_serves(server):
     res = await cli("agent-guide", "--url", server.base)
-    assert res.exit_code == 0 and res.stdout.startswith("# Bitcoin Solo Miner Monitor")
+    assert res.exit_code == 0 and res.stdout.startswith("# HashHurdr")
     assert f"This server: {server.base}" in res.stdout and f"{server.base}/api/v1/agent/guide" in res.stdout
     served = await asyncio.to_thread(httpx.get, f"{server.base}/llms.txt")
     assert res.stdout == served.text
@@ -543,7 +544,7 @@ async def test_agent_guide_prints_what_the_running_server_serves(server):
 async def test_agent_guide_works_without_a_server(tmp_path):
     url = dead_url()
     res = await cli("agent-guide", "--url", url)
-    assert res.exit_code == 0 and res.stdout.startswith("# Bitcoin Solo Miner Monitor")
+    assert res.exit_code == 0 and res.stdout.startswith("# HashHurdr")
     assert f"This server: {url}" in res.stdout and "Set it up for a user" in res.stdout and "POST /api/v1/discovery" in res.stdout
 
 

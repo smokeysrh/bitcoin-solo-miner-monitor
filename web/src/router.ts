@@ -75,6 +75,6 @@ router.beforeEach((to) => {
 router.afterEach((to) => {
   const session = useSession()
   const name = session.meta?.instance_name
-  const title = (to.meta.title as string | undefined) ?? 'Solo Miner Monitor'
-  document.title = name && name !== 'My solo mining fleet' ? `${title} · ${name}` : `${title} · Solo Miner Monitor`
+  const title = (to.meta.title as string | undefined) ?? 'HashHurdr'
+  document.title = name && name !== 'My solo mining fleet' ? `${title} · ${name}` : `${title} · HashHurdr`
 })

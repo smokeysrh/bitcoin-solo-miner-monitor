@@ -11,7 +11,7 @@ const remember = (event, key, res) =>
     caches
       .open(CACHE)
       .then((cache) => cache.put(key, res))
-      .catch((err) => console.warn('Solo Miner Monitor could not save a copy for offline use:', err)),
+      .catch((err) => console.warn('HashHurdr could not save a copy for offline use:', err)),
   )
 const recall = (key) =>
   caches
@@ -57,7 +57,7 @@ self.addEventListener('fetch', (event) => {
           if (res.ok) remember(event, '/', res.clone())
           return res
         })
-        .catch(async () => (await recall('/')) ?? new Response('Solo Miner Monitor is not reachable right now.', { status: 503, headers: { 'Content-Type': 'text/plain' } })),
+        .catch(async () => (await recall('/')) ?? new Response('HashHurdr is not reachable right now.', { status: 503, headers: { 'Content-Type': 'text/plain' } })),
     )
   }
 })

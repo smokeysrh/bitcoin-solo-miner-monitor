@@ -66,7 +66,7 @@ const tone = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad' } as const
 </script>
 
 <template>
-  <SettingsCard title="Solo Miner Monitor">
+  <SettingsCard title="HashHurdr">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <p class="tnum text-3xl font-bold tracking-tight text-fg" data-testid="version">{{ info?.version ?? session.meta?.version ?? '…' }}</p>

@@ -3,6 +3,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
+import { BRAND_ASSETS } from '@/lib/brand'
 import { NAV } from '@/lib/nav'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
@@ -28,9 +29,11 @@ const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
 <template>
   <aside class="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface-1/70 backdrop-blur-xl lg:flex" aria-label="Main navigation">
     <div class="flex h-16 shrink-0 items-center gap-3 px-[18px]">
-      <LogoMark :size="30" />
-      <div v-if="!collapsed" class="min-w-0">
-        <p class="truncate text-[15px] leading-tight font-semibold tracking-tight text-fg">Solo Miner Monitor</p>
+      <LogoMark v-if="collapsed" alt="HashHurdr" />
+      <div v-else class="min-w-0">
+        <!-- The horizontal lockup carries the name. One file per background: the dark theme and black theme use "-dark", the light theme uses "-light". -->
+        <img :src="BRAND_ASSETS.lockupHorizontalDark" alt="HashHurdr" width="145" height="32" class="h-8 w-auto light:hidden" />
+        <img :src="BRAND_ASSETS.lockupHorizontalLight" alt="HashHurdr" width="145" height="32" class="hidden h-8 w-auto light:block" />
         <p class="truncate text-[11px] text-subtle">{{ session.meta?.instance_name }}</p>
       </div>
     </div>

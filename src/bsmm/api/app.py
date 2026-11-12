@@ -101,7 +101,7 @@ def _allowed_host(value: str, names: set[str]) -> bool:
         return False
 
 DESCRIPTION = """
-Dashboard, monitoring and control for **solo Bitcoin miners**. Discovers miners on your network, watches
+HashHurdr, the Bitcoin Solo Miner Monitor: dashboard, monitoring and control for **solo Bitcoin miners**. Discovers miners on your network, watches
 your node and pool, computes the odds of finding a block, and alerts you.
 
 **New here (human or AI agent)?** Call `GET /api/v1/meta`, then read `GET /api/v1/agent/guide` or `/llms.txt`.
@@ -163,7 +163,7 @@ def create_app(config: RuntimeConfig | None = None, *, ctx: AppContext | None = 
                     await context.stop()
 
     app = FastAPI(
-        title="Bitcoin Solo Miner Monitor API",
+        title="HashHurdr API",
         version=__version__,
         description=DESCRIPTION,
         openapi_tags=TAGS,
@@ -245,9 +245,9 @@ def _mount_ui(app: FastAPI) -> None:
         @app.get("/", include_in_schema=False)
         async def no_ui() -> HTMLResponse:
             return HTMLResponse(
-                "<!doctype html><meta charset=utf-8><title>Solo Miner Monitor</title>"
+                "<!doctype html><meta charset=utf-8><title>HashHurdr</title>"
                 "<body style='font:16px system-ui;background:#0b0e14;color:#e6e8ee;max-width:42rem;margin:4rem auto;padding:0 1rem'>"
-                "<h1>Solo Miner Monitor</h1><p>The API is running, but the web interface was not built into this install.</p>"
+                "<h1>HashHurdr</h1><p>The API is running, but the web interface was not built into this install.</p>"
                 "<p>Developers: <code>cd web &amp;&amp; npm install &amp;&amp; npm run build</code>. Everyone else: use the release package or Docker image.</p>"
                 "<p><a style='color:#f7931a' href='/docs'>API docs</a> &middot; <a style='color:#f7931a' href='/api/v1/meta'>/api/v1/meta</a> &middot; "
                 "<a style='color:#f7931a' href='/llms.txt'>llms.txt</a></p></body>"

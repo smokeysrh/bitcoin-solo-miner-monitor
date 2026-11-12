@@ -100,7 +100,7 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
 <template>
   <main class="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 py-6 sm:py-10">
     <header class="mb-6 flex items-center justify-between">
-      <div class="flex items-center gap-3"><LogoMark :size="32" /><span class="text-sm font-semibold text-fg">Solo Miner Monitor</span></div>
+      <div class="flex items-center gap-3"><LogoMark :size="32" alt="" /><span class="text-sm font-semibold text-fg">HashHurdr</span></div>
       <button class="text-sm text-subtle hover:text-fg" data-testid="skip-setup" @click="finish('/')">Skip setup</button>
     </header>
 

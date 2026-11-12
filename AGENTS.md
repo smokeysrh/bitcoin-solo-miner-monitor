@@ -2,7 +2,7 @@
 
 Two kinds of agent read this file. Jump to the part that is yours.
 
-- **Part 1: you are helping a person run Solo Miner Monitor** (set it up, check on their miners, answer "what are my odds").
+- **Part 1: you are helping a person run HashHurdr** (set it up, check on their miners, answer "what are my odds").
 - **Part 2: you are changing this repository** (fixing a bug, adding a driver, improving the UI).
 
 ---
@@ -136,6 +136,7 @@ python scripts/gen_llms_txt.py           # regenerate llms.txt after touching sr
 - CSV export headers carry user-chosen miner names: `web/src/lib/csv.ts` prefixes any header a spreadsheet would read as a formula (`= + - @`, after leading whitespace/control characters, or starting with tab/CR) with an apostrophe. Sample values stay numeric and are never prefixed. `web/src/lib/issue34-csv-formula.test.ts` covers it.
 - Bulk action dialogs clear preview results at every preview start and enable Apply only for a successful preview of the exact action and IDs, which Apply sends unchanged. Close or action/selection change invalidates it; late responses from an older operation are ignored. The dialog cannot be dismissed while applying.
 - Keep user-facing text plain: short sentences, no jargon without a `<Term>` explanation (`web/src/lib/glossary.ts`).
+- **HashHurdr is the display name; technical identifiers keep their old names.** Show HashHurdr (first mention may say "HashHurdr, the Bitcoin Solo Miner Monitor") in screens, CLI/API/MCP text, notifications and docs. Never rename the package `bitcoin-solo-miner-monitor`, the `bsmm` import/CLI/service/scheduled-task names, data and key paths, API paths, the Docker image and compose service, `bsmm.*` localStorage keys, the `bsmm-shell-` cache prefix, the PWA `start_url`/`scope`, the Umbrel id, or the Windows installer's AppId, install folder, Start Menu group and output file name (`installer/windows/check-native.ps1` looks the group up by name; only its icon changed). Official marks (name, wordmark, logo, app icon) are unmodified copies of the brand kit files under `web/public/`, `docs/brand/` and `installer/windows/hashhurdr.ico`: never edit, recolour or redraw them (`BRAND.md`). Tests: `tests/test_brand_identity.py`, `web/src/issue2390-brand-files.test.ts`, `web/src/issue2390-brand-identity.test.ts`.
 - Command palette `results` is the one displayed order (rows grouped, best match first within a group); arrows, active descendant and Enter index it. Collapsed sidebar links keep an `sr-only` page label.
 - UI: semantic colour tokens only (`bg-surface-1`, `text-muted`, `text-accent-text`). Text must pass 4.5:1 in dark, black and light themes; run the axe audit (`web/e2e/audit.mjs`).
 - Decorative overlays must preserve text contrast: the kiosk's accent glow is dark/black-only because it lowers light-theme subtle text below 4.5:1. The phone kiosk E2E covers this with axe.

@@ -1,7 +1,7 @@
 {
-  "name": "Solo Miner Monitor",
-  "short_name": "Solo Miner",
-  "description": "Mission control for solo Bitcoin miners.",
+  "name": "HashHurdr",
+  "short_name": "HashHurdr",
+  "description": "HashHurdr, the Bitcoin Solo Miner Monitor. Built for Plebs, By Plebs.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

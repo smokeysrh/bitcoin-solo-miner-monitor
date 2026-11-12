@@ -26,7 +26,7 @@ def exe_command(port: int | None = None, data_dir: str | None = None, host: str 
 
 def systemd_unit(cmd: list[str], user_unit: bool = True) -> str:
     return f"""[Unit]
-Description=Bitcoin Solo Miner Monitor
+Description=HashHurdr
 After=network-online.target
 Wants=network-online.target
 

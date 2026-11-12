@@ -41,9 +41,9 @@ async function submit(): Promise<void> {
   <main class="grid min-h-dvh place-items-center p-4">
     <div class="w-full max-w-sm animate-fade-up">
       <div class="mb-8 flex flex-col items-center gap-3 text-center">
-        <LogoMark :size="52" />
+        <LogoMark :size="64" alt="" />
         <div>
-          <h1 class="text-xl font-semibold tracking-tight text-fg">Solo Miner Monitor</h1>
+          <h1 class="text-xl font-semibold tracking-tight text-fg">HashHurdr</h1>
           <p class="mt-1 text-sm text-muted">{{ session.meta?.instance_name }}</p>
         </div>
       </div>

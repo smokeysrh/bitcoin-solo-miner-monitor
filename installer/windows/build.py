@@ -61,7 +61,8 @@ def build(output: Path, *, installer: bool = False) -> list[Path]:
                "--collect-all", "bsmm", "--collect-all", "mcp", "--collect-submodules", "uvicorn",
                "--copy-metadata", "bitcoin-solo-miner-monitor"]
     if sys.platform == "win32":
-        command += ["--version-file", str(resource)]
+        # hashhurdr.ico is the brand kit's favicon.ico (16, 32 and 48 px), copied unmodified.
+        command += ["--version-file", str(resource), "--icon", str(ROOT / "installer/windows/hashhurdr.ico")]
     command += [str(ROOT / "installer/windows/entry.py")]
     subprocess.run(command, cwd=ROOT, check=True)  # noqa: S603
     bundle = output / "portable/bsmm"

@@ -24,7 +24,7 @@ onMounted(async () => {
 })
 
 const needsToken = computed(() => session.meta?.auth.mode === 'password')
-const prompt = computed(() => `Read ${origin}/llms.txt and set up Solo Miner Monitor for me. Find my miners on the network, connect my node or pool if you can find it, and ask me before you change anything on a miner.`)
+const prompt = computed(() => `Read ${origin}/llms.txt and set up HashHurdr for me. Find my miners on the network, connect my node or pool if you can find it, and ask me before you change anything on a miner.`)
 
 const mcpHttp = computed(() => JSON.stringify({ mcpServers: { 'solo-miner-monitor': { url: `${origin}/mcp`, ...(needsToken.value ? { headers: { Authorization: 'Bearer YOUR_TOKEN' } } : {}) } } }, null, 2))
 const mcpStdio = computed(() => JSON.stringify({ mcpServers: { 'solo-miner-monitor': { command: 'bsmm', args: ['mcp', '--url', origin, ...(needsToken.value ? ['--token', 'YOUR_TOKEN'] : [])] } } }, null, 2))

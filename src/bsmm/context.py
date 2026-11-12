@@ -81,7 +81,7 @@ class AppContext:
             asyncio.create_task(self._heal_loop(), name="heal-moved-devices"),
             asyncio.create_task(self._update_loop(), name="update-check"),
         ]
-        log.info("Solo Miner Monitor %s started (%d miner(s))", __version__, len(self.fleet.runtimes))
+        log.info("HashHurdr %s started (%d miner(s))", __version__, len(self.fleet.runtimes))
 
     async def stop(self) -> None:
         for t in self._bg:
