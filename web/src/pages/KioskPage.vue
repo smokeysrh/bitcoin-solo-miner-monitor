@@ -4,10 +4,11 @@ import { ChevronLeft, ChevronRight, Lock, LockOpen, Maximize, X } from 'lucide-v
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import HistoryChart from '@/components/charts/HistoryChart.vue'
-import MinerTile from '@/components/miners/MinerTile.vue'
+import KioskMinerTile from '@/components/miners/KioskMinerTile.vue'
 import LiveBadge from '@/components/layout/LiveBadge.vue'
 import KioskNetworkPanel from '@/components/layout/KioskNetworkPanel.vue'
 import { useFmt } from '@/composables/useFmt'
+import { useKioskLayout } from '@/composables/useKioskLayout'
 import { useNowSec } from '@/composables/useNowSec'
 import { useOddsHeadline } from '@/composables/useOddsHeadline'
 import { describeError } from '@/lib/api'
@@ -121,6 +122,7 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
 const oddsChoice = useOddsHeadline()
 const oddsHeadline = oddsChoice.current
 const oddsOthers = computed(() => ODDS_HEADLINES.filter((h) => h.key !== oddsHeadline.value.key))
+const { chartHeight, tileGrid, tileCell } = useKioskLayout(() => sorted.value.length)
 
 /** Tapping a time frame on the panel saves it as the wall display's headline, the same setting as Settings → Appearance. */
 async function chooseHeadline(key: OddsHeadline): Promise<void> {
@@ -134,7 +136,7 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
 </script>
 
 <template>
-  <main class="relative flex min-h-dvh flex-col overflow-clip bg-bg p-6 sm:p-10" :class="!chrome && 'cursor-none'" data-testid="kiosk">
+  <main class="relative flex min-h-dvh flex-col overflow-clip bg-bg p-[max(1rem,2vmin)]" :class="!chrome && 'cursor-none'" data-testid="kiosk">
     <!-- The live pill sits in the very top-left corner and stays visible so a stale or lost connection is always seen. The wall display has no title; only the buttons fade with the other chrome. -->
     <div class="absolute top-3 left-3 z-10" data-testid="kiosk-live-pill"><LiveBadge large /></div>
     <div class="pointer-events-none absolute -top-40 -left-32 size-[40rem] rounded-full bg-accent/10 blur-3xl light:hidden" aria-hidden="true" />
@@ -145,28 +147,28 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
         <button class="grid size-10 place-items-center rounded-xl text-muted hover:bg-surface-3 hover:text-fg" aria-label="Leave the wall display" @click="router.push('/')"><X class="size-5" /></button>
       </div>
     </header>
-    <p v-if="cfg.show_clock" class="tnum absolute top-6 right-1/2 translate-x-1/2 text-lg font-medium text-subtle sm:top-10" aria-hidden="true">{{ clock }}</p>
+    <p v-if="cfg.show_clock" class="tnum absolute top-[max(1rem,2vmin)] right-1/2 translate-x-1/2 text-lg font-medium text-subtle" aria-hidden="true">{{ clock }}</p>
 
     <Transition name="panel" mode="out-in">
-      <section :key="panel" class="relative flex flex-1 flex-col justify-center py-8" :aria-label="panel">
+      <section :key="panel" class="relative flex flex-1 flex-col justify-center py-[max(1rem,2vmin)]" :aria-label="panel">
         <template v-if="panel === 'overview'">
-          <p class="eyebrow text-center">Fleet hashrate</p>
-          <p class="mt-4 flex items-baseline justify-center gap-4">
-            <span class="text-gradient-accent tnum text-[clamp(4rem,16vw,12rem)] leading-none font-bold tracking-tight">{{ hash.value }}</span>
-            <span class="text-[clamp(1.5rem,4vw,3rem)] font-medium text-subtle">{{ hash.unit }}</span>
+          <p class="eyebrow text-center text-[length:max(0.875rem,2.4vmin)] leading-[1.25]">Fleet hashrate</p>
+          <p class="mt-[1.5vmin] flex items-baseline justify-center gap-[2vmin]">
+            <span class="text-gradient-accent tnum text-[length:clamp(4rem,min(18vw,28vmin),48rem)] leading-[1.2] font-bold tracking-tight">{{ hash.value }}</span>
+            <span class="text-[length:clamp(1.5rem,min(5vw,8vmin),12rem)] font-medium text-subtle">{{ hash.unit }}</span>
           </p>
-          <div class="mx-auto mt-6 h-40 w-full max-w-5xl"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="160" minimal /></div>
-          <dl class="mx-auto mt-8 grid w-full max-w-5xl grid-cols-2 gap-6 text-center sm:grid-cols-4">
-            <div><dt class="text-sm text-subtle">Miners online</dt><dd class="tnum mt-1 text-4xl font-semibold text-fg">{{ s?.devices_online ?? 0 }}<span class="text-xl text-subtle"> / {{ s?.devices_total ?? 0 }}</span></dd></div>
-            <div><dt class="text-sm text-subtle">Power</dt><dd class="tnum mt-1 text-4xl font-semibold text-fg">{{ fmt.formatPower(s?.power_w) }}</dd></div>
-            <div><dt class="text-sm text-subtle">Efficiency</dt><dd class="tnum mt-1 text-4xl font-semibold text-fg">{{ s?.efficiency_j_th ? s.efficiency_j_th.toFixed(1) : '–' }}<span class="text-xl text-subtle"> J/TH</span></dd></div>
-            <div><dt class="text-sm text-subtle">Hottest chip</dt><dd class="tnum mt-1 text-4xl font-semibold text-fg">{{ fmt.temp(s?.temp_max_c) }}</dd></div>
+          <div class="mt-[2vmin] w-full" :style="{ height: `${chartHeight}px` }"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="chartHeight" minimal /></div>
+          <dl class="mt-[3vmin] grid w-full grid-cols-2 gap-[2.5vmin] text-center landscape:grid-cols-4">
+            <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Miners online</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ s?.devices_online ?? 0 }}<span class="text-[0.55em] text-subtle"> / {{ s?.devices_total ?? 0 }}</span></dd></div>
+            <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Power</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ fmt.formatPower(s?.power_w) }}</dd></div>
+            <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Efficiency</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ s?.efficiency_j_th ? s.efficiency_j_th.toFixed(1) : '–' }}<span class="text-[0.55em] text-subtle"> J/TH</span></dd></div>
+            <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Hottest chip</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ fmt.temp(s?.temp_max_c) }}</dd></div>
           </dl>
         </template>
 
         <template v-else-if="panel === 'miners'">
-          <div class="mx-auto grid w-full max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <MinerTile v-for="d in sorted" :key="d.id" :device="d" class="pointer-events-none" />
+          <div class="grid w-full" :style="tileGrid">
+            <KioskMinerTile v-for="(d, i) in sorted" :key="d.id" :device="d" :style="tileCell(i)" class="pointer-events-none" />
           </div>
         </template>
 
