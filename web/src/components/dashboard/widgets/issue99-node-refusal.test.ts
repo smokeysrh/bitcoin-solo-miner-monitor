@@ -66,6 +66,19 @@ describe('node card: a node that refuses the app', () => {
     expect(card.text().split(refusal.message).length - 1).toBeLessThanOrEqual(1) // the raw error is not repeated next to the explanation
   })
 
+  it('names an unreadable cookie file as a cookie problem, not as an unreachable node', async () => {
+    const cookie: NodeRefusal = {
+      reason: 'cookie_unreadable', title: "The node's cookie file can't be read",
+      message: 'The node was not contacted: cannot read the RPC cookie file (FileNotFoundError).',
+      next_step: 'Start the node: Bitcoin Core only keeps its cookie file while it runs.',
+      hints: [], ask_user_for: [], api_steps: [],
+    }
+    const card = await show(refusedNode(cookie, cookie.message))
+    expect(card.get('[data-testid="node-refusal"]').text()).toContain(cookie.next_step)
+    expect(card.text()).toContain('Cookie unreadable')
+    expect(card.text()).not.toContain('Unreachable')
+  })
+
   it('does not rely on colour alone: a text heading labels the group and the icon is hidden from screen readers', async () => {
     const card = await show(refusedNode(REFUSALS.computer_not_allowed, REFUSALS.computer_not_allowed.message))
     const block = card.get('[data-testid="node-refusal"]')

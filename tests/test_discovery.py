@@ -553,7 +553,7 @@ def test_candidate_dicts_carry_every_field():
     assert cand("10.0.0.5", "mac:A").as_dict().keys() == set(MinerCandidate.__dataclass_fields__)
     sc = SourceCandidate("bitcoin_core", "http://10.0.0.5:8332", "Bitcoin node", True, "because", False)
     assert sc.as_dict() == {"kind": "bitcoin_core", "url": "http://10.0.0.5:8332", "name": "Bitcoin node", "needs_credentials": True,
-                            "reason": "because", "verified": False}
+                            "reason": "because", "verified": False, "already_configured": False}
 
 
 # --- finding the node, the pool and the mempool ---------------------------------------------------------------------------------------

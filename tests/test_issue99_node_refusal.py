@@ -24,6 +24,7 @@ from bsmm.agent_docs import agent_guide, llms_txt
 from bsmm.mcp_server import ApiProblem, _unwrap
 from bsmm.models import Source
 from bsmm.sim.bitcoin_core import FakeBitcoinCore
+from bsmm.sources.base import NodeStatus, SourceUnreachable
 from bsmm.sources.bitcoin_core import BitcoinCoreSource
 
 OUR_ADDRESS = "10.7.7.15"
@@ -192,10 +193,90 @@ async def test_a_connection_test_names_the_reason(status, reason):
 
 
 async def test_a_missing_login_is_reported_as_missing_not_as_rejected():
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(401))) as client:
+    sent: list[str | None] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        sent.append(request.headers.get("authorization"))
+        return httpx.Response(401)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
         result = await core_source(client, url="http://192.168.9.79:8332", user=None, password=None).test()
     assert result.refusal is not None and result.refusal.reason == "needs_login"
     assert "rejected the login" not in result.message
+    assert "none was given" in result.message
+    assert sent == [None]  # the node really was asked, once, and no login went with it
+
+
+def _refuse_connection(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+@pytest.mark.parametrize(
+    ("handler", "reason"),
+    [(lambda request: httpx.Response(403), "computer_not_allowed"), (_refuse_connection, "unreachable"),
+     (lambda request: httpx.Response(404), "unreachable")],
+    ids=["node-answers-403", "nothing-answers", "not-a-node"])
+async def test_a_node_checked_without_a_login_reports_what_it_really_answered(handler, reason):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        source = core_source(client, url="http://192.168.9.79:8332", user=None, password=None)
+        result = await source.test()
+        status = await source.node()
+    assert result.refusal is not None and result.refusal.reason == reason
+    assert status is not None and status.refusal is not None and status.refusal.reason == reason
+    for text in (result.message, status.refusal.message):
+        assert "asked for a login" not in text  # the node never asked: it refused this computer or did not answer
+
+
+async def test_testing_a_node_over_the_api_without_a_login_says_what_answered(api, tcp):
+    c, _ctx, hosts = api
+    hosts["10.7.7.5"] = Refuser(403).app()
+    forbidden = await c.post("/api/v1/sources/test", json={"kind": "bitcoin_core", "url": "http://10.7.7.5:8332"})
+    silent = await c.post("/api/v1/sources/test", json={"kind": "bitcoin_core", "url": "http://10.7.7.4:8332"})
+    assert forbidden.json()["refusal"]["reason"] == "computer_not_allowed"
+    assert silent.json()["refusal"]["reason"] == "unreachable"
+
+
+async def test_the_unreachable_next_step_really_rechecks_reachability(api, tcp):
+    c, ctx, hosts = api
+    tcp.open.add(("10.7.7.5", 8332))  # the port was open a moment ago, but nothing is routed there now
+    job = await scan(ctx)
+    refusal = node_of(job.as_dict(), "10.7.7.5")["refusal"]
+    assert refusal["reason"] == "unreachable"
+    (step,) = refusal["api_steps"]
+    assert "secret" not in step["body"]  # a re-check sends no login
+
+    hosts["10.7.7.5"] = Refuser(403).app()  # the network is fixed: the node answers, and refuses this computer
+    answered = (await c.post(step["path"], json=step["body"])).json()
+    assert answered["ok"] is False and answered["refusal"]["reason"] == "computer_not_allowed"
+
+    hosts["10.7.7.6"] = FakeBitcoinCore().app()  # another node that answers with a login request
+    login_wanted = (await c.post(step["path"], json={**step["body"], "url": "http://10.7.7.6:8332"})).json()
+    assert login_wanted["refusal"]["reason"] == "needs_login"
+    test_step, add_step = login_wanted["refusal"]["api_steps"]
+    assert set(test_step["body"]["secret"]) == set(add_step["body"]["secret"]) == {"rpc_user", "rpc_password"}
+
+
+async def test_an_unreadable_cookie_is_a_cookie_problem_not_a_rejected_login(tmp_path):
+    sent: list[httpx.Request] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(401)
+
+    source_row = Source(id="s", kind="bitcoin_core", name="node", url="http://192.168.9.79:8332",
+                        options={"cookie_path": str(tmp_path / "gone.cookie")})  # Bitcoin Core deletes .cookie when it stops
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+        source = BitcoinCoreSource(source_row, {}, client)
+        status = await source.node()
+        result = await source.test()
+    assert sent == []  # the cookie could not be read, so the node was never contacted
+    assert status is not None and result.refusal is not None
+    for refusal in (status.refusal, result.refusal):
+        assert refusal is not None and refusal.reason == "cookie_unreadable"
+        text = " ".join([refusal.message, refusal.next_step, *refusal.hints])
+        assert "rejected the login" not in text and "Umbrel" not in text and "user name" not in text
+        assert "Start the node" in refusal.next_step and "cookie" in text.lower()
+        assert refusal.ask_user_for == []
 
 
 async def test_a_connection_that_works_has_no_refusal():
@@ -284,6 +365,67 @@ def test_the_agent_flow_for_a_refusing_node_is_documented_in_the_guide_and_llms_
     for line in flow:
         assert line in text
     joined = " ".join(flow)
-    for word in (*REASONS, "refusal", "ask_user_for", "POST /api/v1/sources/test", "POST /api/v1/sources", "GET /api/v1/node"):
+    for word in (*REASONS, "cookie_unreadable", "already_configured", "refusal", "ask_user_for",
+                 "POST /api/v1/sources/test", "POST /api/v1/sources", "GET /api/v1/node"):
         assert word in joined
+    # the one api_steps entry of an unreachable refusal is a re-check, and the flow says so instead of promising a second body
+    assert any("unreachable" in line and "re-check" in line for line in flow)
     assert json.dumps(guide)  # still plain JSON
+
+
+# --- a node that is already connected is not asked about again ---------------------------------------------------------------------
+
+
+async def test_discovery_does_not_report_a_connected_node_as_refusing(api, tcp):
+    c, ctx, hosts = api
+    connected = Refuser(401)  # every login-protected node answers a request without a login with 401
+    hosts["10.7.7.6"] = connected.app()
+    hosts["10.7.7.5"] = Refuser(403).app()
+    tcp.open.update({("10.7.7.5", 8332), ("10.7.7.6", 8332)})
+    await ctx.network.add_source("bitcoin_core", "My node", "http://10.7.7.6",  # no port: it means 8332
+                                 {"rpc_user": "umbrel", "rpc_password": SECRET_PASSWORD}, None)
+
+    job = await scan(ctx)
+
+    scanned = (await c.get(f"/api/v1/discovery/{job.id}")).json()
+    mine, other = node_of(scanned, "10.7.7.6"), node_of(scanned, "10.7.7.5")
+    assert mine["already_configured"] is True and "refusal" not in mine and mine["needs_credentials"] is False
+    assert connected.authorization_headers == []  # a connected node is not even asked
+    assert other["refusal"]["reason"] == "computer_not_allowed" and other.get("already_configured") is not True
+    assert SECRET_PASSWORD not in json.dumps(scanned)
+
+
+async def test_a_switched_off_node_source_does_not_count_as_connected(api, tcp):
+    _c, ctx, hosts = api
+    hosts["10.7.7.6"] = FakeBitcoinCore().app()
+    tcp.open.add(("10.7.7.6", 8332))
+    await ctx.network.add_source("bitcoin_core", "My node", "http://10.7.7.6:8332", {"rpc_user": "umbrel"}, None, enabled=False)
+
+    job = await scan(ctx)
+
+    found = node_of(job.as_dict(), "10.7.7.6")
+    assert found["refusal"]["reason"] == "needs_login" and found.get("already_configured") is not True
+
+
+async def test_the_source_health_refusal_is_cleared_when_the_node_recovers_but_the_network_read_fails(api, tcp):
+    _c, ctx, hosts = api
+    hosts["10.7.7.6"] = Refuser(403).app()
+    src = await ctx.network.add_source("bitcoin_core", "My node", "http://10.7.7.6:8332",
+                                       {"rpc_user": "umbrel", "rpc_password": SECRET_PASSWORD}, None)
+    poller = ctx.network._pollers[src.id]
+    assert poller.health is not None
+    await ctx.network._poll(poller)
+    assert poller.health.refusal is not None and poller.health.refusal.reason == "computer_not_allowed"
+
+    async def recovered() -> NodeStatus:
+        return NodeStatus(reachable=True)
+
+    async def failing_network() -> None:
+        raise SourceUnreachable("timed out")
+
+    poller.impl.node = recovered  # type: ignore[method-assign]
+    poller.impl.network = failing_network  # type: ignore[method-assign]
+    await ctx.network._poll(poller)
+
+    assert poller.health.ok is False  # the network read failed...
+    assert poller.health.refusal is None  # ...but the node no longer refuses, so the old reason must not stay

@@ -77,6 +77,25 @@ describe('discovery result: a found node that refuses the app', () => {
     expect(setup).toHaveLength(2) // still the way to enter the login
   })
 
+  it('says a node that is already connected is connected, never that it needs a login', async () => {
+    vi.mocked(api.startDiscovery).mockResolvedValue({
+      ...finished,
+      sources: [
+        { ...refusedNode('192.168.9.79', FORBIDDEN), refusal: undefined, needs_credentials: false, already_configured: true },
+        refusedNode('192.168.9.80', NEEDS_LOGIN),
+      ],
+    })
+    const panel = await scan()
+    const refusals = panel.findAll('[data-testid="source-refusal"]')
+    expect(refusals).toHaveLength(1)
+    expect(refusals[0]!.element.closest('li')!.textContent).toContain('192.168.9.80')
+    const connected = panel.findAll('li').find((li) => li.text().includes('192.168.9.79'))!
+    expect(connected.text()).toContain('Already connected')
+    expect(connected.text()).not.toContain('needs a login')
+    expect(connected.findAll('button')).toHaveLength(0) // nothing to set up a second time
+    expect(panel.findAll('button').filter((b) => b.text().startsWith('Set up'))).toHaveLength(1) // only the other node
+  })
+
   it('shows no refusal text for a node that was not asked or a pool', async () => {
     vi.mocked(api.startDiscovery).mockResolvedValue({
       ...finished,
