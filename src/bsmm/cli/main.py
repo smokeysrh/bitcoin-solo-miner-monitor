@@ -463,7 +463,7 @@ def discover(
             t.add_row(m["host"], m["model"], m.get("firmware") or "-", format_hashrate(m["hashrate_hs"]) if m.get("hashrate_hs") else "-", note)
         console.print(t)
         for s in j["sources"]:
-            extra = "needs RPC login" if s["needs_credentials"] else "no login needed"
+            extra = "already connected" if s.get("already_configured") else ("needs RPC login" if s["needs_credentials"] else "no login needed")
             console.print(f"[cyan]Node/pool:[/] {s['name']} at {s['url']} ({extra}) - {s['reason']}")
         if "adopted" in r:
             console.print(f"[green]Added {len(r['adopted']['added'])} miner(s).[/]")
@@ -565,8 +565,9 @@ def setup(
         elif verified and (yes or typer.confirm(f"Connect {verified[0]['name']} ({verified[0]['url']}) for pool stats?", default=True)):
             added_sources.append(api.post("/sources", {"kind": "public_pool", "url": verified[0]["url"], "name": verified[0]["name"]})["source"]["name"])
         core = [s for s in job["sources"] if s["kind"] == "bitcoin_core"]
-        if core and not node_url:
-            log(f"[yellow]A Bitcoin node answers at {core[0]['url']}.[/] Re-run with --node-url {core[0]['url']} --rpc-user ... --rpc-password ... to connect it.")
+        unconnected = [s for s in core if not s.get("already_configured")]
+        if unconnected and not node_url:
+            log(f"[yellow]A Bitcoin node answers at {unconnected[0]['url']}.[/] Re-run with --node-url {unconnected[0]['url']} --rpc-user ... --rpc-password ... to connect it.")
         step("sources", added=added_sources, node_candidates=[s["url"] for s in core])
 
         patch: dict[str, Any] = {"general": {"onboarding_done": True}}

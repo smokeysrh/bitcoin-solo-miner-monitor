@@ -26,6 +26,7 @@ from bsmm.sources.base import (
     ConnectionTest,
     DataSource,
     NetworkSnapshot,
+    NodeRefusal,
     NodeStatus,
     SourceAuthError,
     SourceBadResponse,
@@ -70,6 +71,10 @@ class RpcError(SourceError):
         self.rpc_code = rpc_code
 
 
+class CookieFileError(SourceAuthError):
+    """The RPC cookie file could not be used. Raised before anything is sent, so the node has not answered at all."""
+
+
 def normalise_url(raw: str) -> str:
     text = (raw or "").strip()
     if not text:
@@ -97,19 +102,19 @@ def read_cookie_file(path: str) -> str:
         fd = os.open(Path(path).expanduser(), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
         with os.fdopen(fd, "rb") as f:
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                raise SourceAuthError("the RPC cookie path is not a regular file")
+                raise CookieFileError("the RPC cookie path is not a regular file")
             data = f.read(COOKIE_MAX_BYTES + 1)
     except (OSError, ValueError, TypeError) as e:
-        raise SourceAuthError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
+        raise CookieFileError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
     if len(data) > COOKIE_MAX_BYTES:
-        raise SourceAuthError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
+        raise CookieFileError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
     try:
         text = data.decode().strip()
     except UnicodeDecodeError as e:
-        raise SourceAuthError("the RPC cookie file is not text") from e
+        raise CookieFileError("the RPC cookie file is not text") from e
     if not _COOKIE_LINE.fullmatch(text):
         # never echo the content: it may be some other secret file
-        raise SourceAuthError("the file is not a Bitcoin Core cookie file")
+        raise CookieFileError("the file is not a Bitcoin Core cookie file")
     return text
 
 
@@ -118,6 +123,131 @@ async def check_cookie_option(options: dict[str, Any]) -> None:
     path = options.get("cookie_path")
     if path:
         await asyncio.to_thread(read_cookie_file, path)
+
+
+# -- why a node refuses the app, in words -----------------------------------------------------------------------------------------
+# One copy of this wording. The connection test, the discovery result, the dashboard node card, the sources API and the
+# add-node form help all read it from here.
+
+REASON_NEEDS_LOGIN = "needs_login"
+REASON_NOT_ALLOWED = "computer_not_allowed"
+REASON_UNREACHABLE = "unreachable"
+REASON_COOKIE_UNREADABLE = "cookie_unreadable"  # the app could not read the cookie file, so the node was never contacted
+LOGIN_FIELDS = ["rpc_user", "rpc_password"]
+LOGIN_PLACEHOLDER = "<ask the user>"  # stands in for a login in request templates: a real one is never stored here
+PROBE_TIMEOUT_S = 3.0
+SOURCES_TEST_PATH = "/api/v1/sources/test"
+SOURCES_ADD_PATH = "/api/v1/sources"
+
+LOGIN_RECIPE = (
+    "Umbrel: open the Bitcoin Node app, choose Connect, then RPC; it lists the user name and password.",
+    "Start9 / RaspiBlitz / myNode: the RPC user and password are shown in the node's own Connect or Credentials page.",
+    "Running Bitcoin Core yourself on this computer? Use the cookie file instead (Advanced: cookie path).",
+)
+
+
+def failure_reason(error: SourceError) -> str:
+    """Which refusal a failed node call is. SourceForbidden is a SourceAuthError, so it is checked first."""
+    if isinstance(error, SourceForbidden):
+        return REASON_NOT_ALLOWED
+    if isinstance(error, CookieFileError):
+        return REASON_COOKIE_UNREADABLE
+    if isinstance(error, SourceAuthError):
+        return REASON_NEEDS_LOGIN
+    return REASON_UNREACHABLE
+
+
+def _request_template(path: str, node_url: str, *, with_login: bool) -> dict[str, Any]:
+    body: dict[str, Any] = {"kind": "bitcoin_core", "url": node_url}
+    if with_login:
+        body["secret"] = dict.fromkeys(LOGIN_FIELDS, LOGIN_PLACEHOLDER)
+    return {"method": "POST", "path": path, "body": body}
+
+
+def explain_refusal(reason: str, url: str | None, *, detail: str | None = None) -> NodeRefusal:
+    """What a refusing node needs, in plain words. ``detail`` is the node's own error text; ``None`` means no login was tried.
+
+    Blocking for ``computer_not_allowed`` (it asks the operating system which address of ours reaches the node): call it
+    off the event loop.
+    """
+    try:
+        node_url = normalise_url(url or "")
+    except ValueError:
+        node_url = ""
+    login_steps = [_request_template(SOURCES_TEST_PATH, node_url, with_login=True),
+                   _request_template(SOURCES_ADD_PATH, node_url, with_login=True)]
+    if reason == REASON_NOT_ALLOWED:
+        host = node_host(url) or ""
+        me = local_address_towards(host) if host else None
+        subnet = f"{me.rsplit('.', 1)[0]}.0/24" if me and me.count(".") == 3 else "your network, e.g. 192.168.1.0/24"
+        hints = [
+            f"Add rpcallowip={subnet} to the node's bitcoin.conf (on Umbrel, look in the Bitcoin Node app's advanced settings; elsewhere edit bitcoin.conf) and restart the node.",
+            "Your user name and password can only be checked once the node accepts this computer.",
+            "No need for the node's RPC at all? Public Pool or mempool.space already supply block height, fees and difficulty.",
+        ]
+        return NodeRefusal(
+            reason=reason, title="This node does not allow this computer",
+            message=f"The node refused this computer{f' ({me})' if me else ''} before it even looked at the login. "
+                    "This is the node's allow-list (rpcallowip), not your user name or password.",
+            next_step=hints[0], hints=hints, ask_user_for=list(LOGIN_FIELDS), api_steps=login_steps)
+    if reason == REASON_NEEDS_LOGIN:
+        message = (f"The node rejected the login: {detail}" if detail
+                   else "The node asked for a login (RPC user name and password) and none was given.")
+        return NodeRefusal(
+            reason=reason, title="This node needs a login", message=message,
+            next_step=" ".join(LOGIN_RECIPE[:2]), hints=list(LOGIN_RECIPE), ask_user_for=list(LOGIN_FIELDS), api_steps=login_steps)
+    if reason == REASON_COOKIE_UNREADABLE:
+        hints = [
+            "Start the node: Bitcoin Core creates its cookie file when it starts and deletes it when it stops, so a stopped node leaves nothing to read.",
+            "Check that the cookie path (Advanced: cookie path) is the node's own .cookie file and that this app is allowed to read it.",
+            "A cookie file only works for a node on this computer. For a node on another computer use its RPC login instead.",
+        ]
+        return NodeRefusal(
+            reason=reason, title="Can't read this node's cookie file",
+            message=f"The node was not contacted: {detail}." if detail else "The node was not contacted: its cookie file could not be read.",
+            next_step=hints[0], hints=hints)
+    hints = [
+        "Check the address and that RPC port 8332 is reachable from this computer.",
+        "In bitcoin.conf you need server=1 and an rpcallowip line that covers this computer's network.",
+    ]
+    return NodeRefusal(
+        reason=REASON_UNREACHABLE, title="Can't reach this node",
+        message=f"Could not reach the node: {detail}" if detail else "Could not reach the node.",
+        next_step=hints[0], hints=hints, api_steps=[_request_template(SOURCES_TEST_PATH, node_url, with_login=False)])
+
+
+def _transport_detail(error: httpx.HTTPError) -> str:
+    return "connection refused" if "refused" in str(error).lower() else (str(error) or "connection failed")[:120]
+
+
+async def probe_node_access(client: httpx.AsyncClient, url: str, *, timeout: float = PROBE_TIMEOUT_S) -> NodeRefusal | None:
+    """Ask a found node whether it will talk to this computer, sending NO login. ``None`` means it answered without refusing.
+
+    Bitcoin Core answers 403 before it looks at any login when ``rpcallowip`` leaves this computer out, and 401 when the
+    login is missing or wrong, so one credential-free read-only request tells the two apart.
+    """
+    try:
+        target = normalise_url(url)
+    except ValueError:
+        return explain_refusal(REASON_UNREACHABLE, None, detail="that is not a valid address")
+    reason = REASON_UNREACHABLE
+    detail: str | None = None
+    try:
+        resp = await client.post(target, json={"jsonrpc": "1.0", "id": 0, "method": "getblockcount", "params": []}, timeout=timeout)
+    except httpx.TimeoutException:
+        detail = f"timed out after {timeout:g}s"
+    except httpx.HTTPError as e:
+        detail = _transport_detail(e)
+    else:
+        if resp.status_code == 200:
+            return None
+        if resp.status_code == 401:
+            reason = REASON_NEEDS_LOGIN
+        elif resp.status_code == 403:
+            reason = REASON_NOT_ALLOWED
+        else:
+            detail = f"HTTP {resp.status_code}: this is not a Bitcoin Core RPC endpoint"
+    return await asyncio.to_thread(explain_refusal, reason, target, detail=detail)
 
 
 class BitcoinRPC:
@@ -151,8 +281,7 @@ class BitcoinRPC:
         except httpx.TimeoutException as e:
             raise SourceUnreachable(f"timed out after {self.timeout:g}s") from e
         except httpx.TransportError as e:
-            msg = str(e).lower()
-            raise SourceUnreachable("connection refused" if "refused" in msg else (str(e) or "connection failed")[:120]) from e
+            raise SourceUnreachable(_transport_detail(e)) from e
         if resp.status_code == 401:
             raise SourceAuthError("wrong RPC user name or password")
         if resp.status_code == 403:
@@ -236,6 +365,19 @@ class BitcoinCoreSource(DataSource):
 
     # -- node health ----------------------------------------------------------------------------
 
+    def _login_given(self) -> bool:
+        return bool(self.secret.get("rpc_user") or self.source.options.get("rpc_user") or self.source.options.get("cookie_path"))
+
+    async def _refusal(self, error: SourceError) -> NodeRefusal | None:
+        """Explain a failed call from what the node actually answered, never from a failure before anything was sent.
+
+        With no login configured nothing could be sent, so the node is asked once without one (``probe_node_access``); ``None``
+        means it answered without refusing. A cookie file that cannot be read is its own reason: the node was never contacted.
+        """
+        if not self._login_given():
+            return await probe_node_access(self.client, self.source.url or "")
+        return await asyncio.to_thread(explain_refusal, failure_reason(error), self.source.url, detail=str(error))
+
     async def _fetch_core(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], int | None]:
         results = await self.rpc.batch(
             [("getblockchaininfo", []), ("getnetworkinfo", []), ("getmininginfo", []), ("getmempoolinfo", []), ("uptime", [])]
@@ -259,7 +401,7 @@ class BitcoinCoreSource(DataSource):
             self._last_status = st
             return st
         except SourceError as e:
-            st = NodeStatus(reachable=False, error=str(e))
+            st = NodeStatus(reachable=False, error=str(e), refusal=await self._refusal(e))
             self._last_status = st
             return st
         warnings: list[str] = []
@@ -382,42 +524,14 @@ class BitcoinCoreSource(DataSource):
     async def test(self) -> ConnectionTest:
         try:
             chain, net, _mining, _mempool, _up = await self._fetch_core()
-        except SourceForbidden:
-            host = str(urlsplit(str(self.source.url)).hostname or "")
-            me = local_address_towards(host) if host else None
-            subnet = f"{me.rsplit('.', 1)[0]}.0/24" if me and me.count(".") == 3 else "your network, e.g. 192.168.1.0/24"
-            return ConnectionTest(
-                ok=False,
-                message=f"The node refused this computer{f' ({me})' if me else ''} before it even looked at the login. "
-                        "This is the node's allow-list (rpcallowip), not your user name or password.",
-                hints=[
-                    f"Add rpcallowip={subnet} to the node's bitcoin.conf (on Umbrel, look in the Bitcoin Node app's advanced settings; elsewhere edit bitcoin.conf) and restart the node.",
-                    "Your user name and password can only be checked once the node accepts this computer.",
-                    "No need for the node's RPC at all? Public Pool or mempool.space already supply block height, fees and difficulty.",
-                ],
-            )
-        except SourceAuthError as e:
-            return ConnectionTest(
-                ok=False,
-                message=f"The node rejected the login: {e}",
-                hints=[
-                    "Umbrel: open the Bitcoin Node app, choose Connect, then RPC; it lists the user name and password.",
-                    "Start9 / RaspiBlitz / myNode: the RPC user and password are shown in the node's own Connect or Credentials page.",
-                    "Running Bitcoin Core yourself on this computer? Use the cookie file instead (Advanced: cookie path).",
-                ],
-            )
         except RpcError as e:
             hint = ["Wait a minute and test again."] if e.rpc_code == -28 else []
             return ConnectionTest(ok=False, message=f"The node answered with an error: {e}", hints=hint)
         except SourceError as e:
-            return ConnectionTest(
-                ok=False,
-                message=f"Could not reach the node: {e}",
-                hints=[
-                    "Check the address and that RPC port 8332 is reachable from this computer.",
-                    "In bitcoin.conf you need server=1 and an rpcallowip line that covers this computer's network.",
-                ],
-            )
+            refusal = await self._refusal(e)
+            if refusal is None:  # a login-free request was answered: there is no refusal to explain
+                return ConnectionTest(ok=False, message=str(e))
+            return ConnectionTest(ok=False, message=refusal.message, hints=refusal.hints, refusal=refusal)
         except ValueError as e:
             return ConnectionTest(ok=False, message=str(e))
         blocks = to_int(chain.get("blocks")) or 0

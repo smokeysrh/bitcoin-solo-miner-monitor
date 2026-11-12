@@ -16,7 +16,7 @@ from bsmm.engine.odds import build_odds
 from bsmm.engine.solo_blocks import SOLO_BLOCKS_LIMIT
 from bsmm.models import Source
 from bsmm.sources.base import ConnectionTest, SourceError
-from bsmm.sources.bitcoin_core import check_cookie_option, node_host
+from bsmm.sources.bitcoin_core import LOGIN_RECIPE, check_cookie_option, node_host
 from bsmm.sources.mempool_space import SOLO_POOLS
 
 router = APIRouter()
@@ -129,7 +129,7 @@ SOURCE_HELP: dict[str, dict[str, Any]] = {
         "secret_fields": [{"name": "rpc_user", "label": "RPC user name"}, {"name": "rpc_password", "label": "RPC password", "secret": True}],
         "option_fields": [{"name": "cookie_path", "label": "Cookie file (alternative to user/password, same computer only)"}],
         "gives": ["sync status", "peers", "mempool", "your own difficulty and height", "recognising a block you find"],
-        "where_to_find_login": "Umbrel: Bitcoin Node app > Connect > RPC. Start9/RaspiBlitz/myNode: the node's Connect or Credentials page.",
+        "where_to_find_login": " ".join(LOGIN_RECIPE[:2]),
     },
     "public_pool": {
         "title": "Public Pool (Umbrel / Start9 / self-hosted solo pool)",
@@ -175,7 +175,9 @@ async def list_sources(ctx: AppContext = Depends(get_ctx), _: Principal = Depend
     return {"sources": items, "implicit": implicit}
 
 
-@router.post("/sources/test", tags=["sources"], operation_id="testSource", summary="Try a source without saving it (the wizard's Test button)")
+@router.post("/sources/test", tags=["sources"], operation_id="testSource", summary="Try a source without saving it (the wizard's Test button)",
+             description="When a Bitcoin node refuses or does not answer, `refusal` says why (`needs_login`, `computer_not_allowed`, `unreachable` or `cookie_unreadable`) "
+             "and what to change; it never contains a login.")
 async def test_source(body: SourceBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> ConnectionTest:
     return await ctx.network.test_source(body.kind, body.url, body.secret, body.options)
 
@@ -183,7 +185,8 @@ async def test_source(body: SourceBody, ctx: AppContext = Depends(get_ctx), _: P
 @router.post("/sources", tags=["sources"], operation_id="addSource", summary="Add a node, pool or data source (admin)",
              description="The connection is tested first and the source is saved only if it works, unless `?force=true`. "
              "With `enabled: false` the source is saved switched off without any network contact (`test` is null); "
-             "use `POST /sources/test` to try it, then enable it with `PATCH /sources/{id}`.")
+             "use `POST /sources/test` to try it, then enable it with `PATCH /sources/{id}`. "
+             "A refused connection returns 422 `connection_failed` with the same `refusal` under `error.details`.")
 async def add_source(body: SourceBody, force: bool = False, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     if body.kind not in SOURCE_CLASSES or body.kind == "demo":
         raise bad_request(f"Unknown source type {body.kind!r}.", "Valid: " + ", ".join(k for k in SOURCE_CLASSES if k != "demo"))

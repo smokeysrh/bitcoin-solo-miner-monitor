@@ -71,10 +71,27 @@ class NetworkSnapshot(_M):
     warnings: list[str] = Field(default_factory=list)
 
 
+class NodeRefusal(_M):
+    """Why a Bitcoin node will not talk to this app and what to change: plain words for people, stable codes for agents.
+
+    ``reason`` is ``needs_login`` | ``computer_not_allowed`` | ``unreachable`` | ``cookie_unreadable``. ``api_steps`` are request templates an agent can
+    send once the user has supplied ``ask_user_for``; secret values in them are placeholders, never a real login.
+    """
+
+    reason: str
+    title: str
+    message: str
+    next_step: str
+    hints: list[str] = Field(default_factory=list)
+    ask_user_for: list[str] = Field(default_factory=list)
+    api_steps: list[dict[str, Any]] = Field(default_factory=list)
+
+
 class NodeStatus(_M):
     kind: str = "bitcoin_core"
     reachable: bool = False
     error: str | None = None
+    refusal: NodeRefusal | None = None
     version: str | None = None
     subversion: str | None = None
     chain: str | None = None
@@ -143,6 +160,7 @@ class ConnectionTest(_M):
     message: str
     details: dict[str, Any] = Field(default_factory=dict)
     hints: list[str] = Field(default_factory=list)
+    refusal: NodeRefusal | None = None
 
 
 class DataSource(ABC):

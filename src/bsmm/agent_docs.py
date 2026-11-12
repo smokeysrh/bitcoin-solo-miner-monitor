@@ -37,7 +37,8 @@ SETUP_RECIPE: list[dict[str, Any]] = [
     {"step": 5, "goal": "Connect the user's Bitcoin node or solo pool (optional but recommended)",
      "request": {"method": "POST", "path": "/api/v1/sources", "body": {"kind": "public_pool", "url": "http://umbrel.local:2019"}},
      "notes": "The discovery result lists likely candidates under 'sources'. kinds: bitcoin_core (needs rpc_user/rpc_password in 'secret'), public_pool, ckpool, mempool_space. "
-              "Connect only the approved source. Ask for missing node credentials through secure app fields; never guess or expose them in chat."},
+              "Connect only the approved source. Ask for missing node credentials through secure app fields; never guess or expose them in chat. "
+              "A found node that refuses the app carries 'refusal' in the discovery result: follow the refusal flow below."},
     {"step": 6, "goal": "Set the electricity price so costs are right",
      "request": {"method": "PATCH", "path": "/api/v1/settings", "body": {"energy": {"price_per_kwh": 0.12}}}, "notes": "Example only: preserve an existing tariff or ask for the missing price. Currency units are the user's local currency."},
     {"step": 7, "goal": "Set up an alert channel",
@@ -47,6 +48,16 @@ SETUP_RECIPE: list[dict[str, Any]] = [
      "request": {"method": "POST", "path": "/api/v1/auth/password", "body": {"new_password": "<enter securely>"}}, "notes": "Do this before exposing the server to an untrusted network. Preserve existing authentication; enter the password through secure app fields. Use a read-scoped token for monitoring after setup."},
     {"step": 9, "goal": "Verify",
      "request": {"method": "GET", "path": "/api/v1/overview"}, "notes": "One call with fleet totals, odds, network, alerts, events. Also check the dashboard, GET /api/v1/health and GET /api/v1/system/diagnostics. Return the dashboard URL and a plain-English report; identify anything unavailable."},
+]
+
+#: Discover -> see the reason -> add with the user's login -> test -> done, for a found node that refuses the app.
+NODE_REFUSAL_FLOW: list[str] = [
+    "Discover: POST /api/v1/discovery, then GET /api/v1/discovery/{id} until status is 'finished'. Each bitcoin_core entry under 'sources' that refused the app or did not answer carries 'refusal' with reason, title, message, next_step, hints, ask_user_for and api_steps. An entry with already_configured true is a node the app already uses: it has no refusal, so do not ask for its login again; read GET /api/v1/node or the source health for its state.",
+    "Read refusal.reason. needs_login: the node answered 401, so it wants a correct RPC user name and password. computer_not_allowed: the node's rpcallowip setting leaves this computer out, so no login can help until the user changes it. unreachable: nothing usable answered at that address. cookie_unreadable: the app could not read the node's cookie file and never contacted the node; Bitcoin Core deletes that file when it stops, so start the node first.",
+    "Tell the user refusal.next_step in plain words. Only the user can change the node's settings or read its login; wait until they say it is done. Never guess logins.",
+    "Ask for each field in refusal.ask_user_for (rpc_user, rpc_password; the list is empty for unreachable and cookie_unreadable) through secure app fields. The login is write-only: it is never returned, echoed or logged, and the placeholders in api_steps are not a login.",
+    "Test without saving: POST /api/v1/sources/test (MCP: configure_source with test_only=true). needs_login and computer_not_allowed have two api_steps: send the first body with the placeholders replaced by the user's login. unreachable has one api_step, a re-check with no login: after the user says the network or node is fixed, send it unchanged; the reply is what the node answers now, so continue from that reply's refusal.reason. cookie_unreadable has none: after the node runs or the cookie path is fixed, read GET /api/v1/node. A failed test returns a new refusal: repeat from its reason.",
+    "Add after the user approves, once a test with their login succeeds: POST /api/v1/sources with the second api_steps body (a refused add returns 422 connection_failed with the same refusal under error.details). Then GET /api/v1/node should show reachable true and refusal null. Report the result in plain English.",
 ]
 
 #: The MCP tools, in the order the server registers them. tests/test_agent_docs.py fails if this drifts from the real server.
@@ -68,6 +79,7 @@ TASKS: dict[str, str] = {
         "`available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)",
     "Restart a miner": "POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)",
     "Point miners at my own pool/node": "POST /api/v1/devices/actions {\"action\":\"set_pool\",\"all\":true,\"params\":{...}} previews by default; send dry_run=false to apply",
+    "A found node refuses the app (401/403)": "Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable, cookie_unreadable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step",
     "History / charts": "GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w",
     "Live updates": "GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)",
     "Prometheus / Grafana": "GET /metrics",
@@ -103,6 +115,7 @@ def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> di
         },
         "setup_preflight": SETUP_PREFLIGHT,
         "setup_recipe": SETUP_RECIPE,
+        "node_refusal_flow": NODE_REFUSAL_FLOW,
         "common_tasks": TASKS,
         "safety": SAFETY,
         "errors": 'Every error is {"error": {"code", "message", "hint", "status"}}. Switch on code; show message to the user; follow hint.',
@@ -127,6 +140,7 @@ def llms_txt(base: str = "http://localhost:8420") -> str:
         for s in SETUP_RECIPE
     )
     tasks = "\n".join(f"- {k} -> {v}" for k, v in TASKS.items())
+    node_flow = "\n".join(f"{i}. {s}" for i, s in enumerate(NODE_REFUSAL_FLOW, 1))
     preflight = "\n".join(f"- {s}" for s in SETUP_PREFLIGHT)
     safety = "\n".join(f"- {s}" for s in SAFETY)
     return f"""# Bitcoin Solo Miner Monitor
@@ -143,6 +157,10 @@ Everything below is also available as JSON at {base}/api/v1/agent/guide.
 ## Set it up for a user
 
 {recipe}
+
+## When a found node refuses the app
+
+{node_flow}
 
 ## Authentication
 
