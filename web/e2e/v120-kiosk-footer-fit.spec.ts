@@ -12,8 +12,8 @@ const SIZES = [
   { label: '3840x2160', width: 3840, height: 2160 },
   { label: 'portrait 1080x1920', width: 1080, height: 1920 },
 ] as const
-// Miners and Chart are the panels sized from the page's vertical budget; the other three centre content that has no height of its own.
-const PANELS = ['miners', 'chart'] as const
+// Overview, Miners and Chart are the panels sized from the page's vertical budget; the other two centre content that has no height of its own.
+const PANELS = ['overview', 'miners', 'chart'] as const
 type PanelName = (typeof PANELS)[number]
 
 const EDGE_PX = 1 // sub-pixel tolerance for edges that touch
@@ -43,7 +43,7 @@ async function openPanel(page: Page, size: { width: number; height: number }, pa
   await expect(footer).toHaveCSS('opacity', '1') // the controls are showing, not faded out
 }
 
-/** The footer and the panel's main block (the miners grid, or the chart container) in one evaluation, so the panel cannot rotate away. */
+/** The footer and the panel's main block (the overview figures, the miners grid, or the chart container) in one evaluation, so the panel cannot rotate away. */
 async function measure(page: Page, panel: PanelName): Promise<Fit> {
   return page.evaluate((panelName) => {
     const rect = (el: Element): Rect => {
@@ -54,8 +54,13 @@ async function measure(page: Page, panel: PanelName): Promise<Fit> {
     if (!section) throw new Error(`no ${panelName} section`)
     const footer = document.querySelector('[data-testid="kiosk"] > footer')
     if (!footer) throw new Error('no wall display footer')
-    // miners: the grid that holds the tiles; chart: the container that gives the chart its height
-    const content = panelName === 'miners' ? section.querySelector('[data-testid^="miner-tile-"]')?.parentElement : section.querySelector(':scope > div')
+    // overview: the figures row, the last block on the panel; miners: the grid that holds the tiles; chart: the container that gives the chart its height
+    const content =
+      panelName === 'overview'
+        ? section.querySelector(':scope > dl')
+        : panelName === 'miners'
+          ? section.querySelector('[data-testid^="miner-tile-"]')?.parentElement
+          : section.querySelector(':scope > div')
     if (!content) throw new Error(`no ${panelName} content block`)
     return {
       viewportHeight: window.innerHeight,
