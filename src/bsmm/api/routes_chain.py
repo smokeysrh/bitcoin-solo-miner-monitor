@@ -156,7 +156,7 @@ async def list_sources(ctx: AppContext = Depends(get_ctx), _: Principal = Depend
 
 
 @router.post("/sources/test", tags=["sources"], operation_id="testSource", summary="Try a source without saving it (the wizard's Test button)",
-             description="When a Bitcoin node refuses or does not answer, `refusal` says why (`needs_login`, `computer_not_allowed` or `unreachable`) "
+             description="When a Bitcoin node refuses or does not answer, `refusal` says why (`needs_login`, `computer_not_allowed`, `unreachable` or `cookie_unreadable`) "
              "and what to change; it never contains a login.")
 async def test_source(body: SourceBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> ConnectionTest:
     return await ctx.network.test_source(body.kind, body.url, body.secret, body.options)

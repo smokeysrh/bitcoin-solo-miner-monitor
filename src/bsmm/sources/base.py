@@ -74,7 +74,7 @@ class NetworkSnapshot(_M):
 class NodeRefusal(_M):
     """Why a Bitcoin node will not talk to this app and what to change: plain words for people, stable codes for agents.
 
-    ``reason`` is ``needs_login`` | ``computer_not_allowed`` | ``unreachable``. ``api_steps`` are request templates an agent can
+    ``reason`` is ``needs_login`` | ``computer_not_allowed`` | ``unreachable`` | ``cookie_unreadable``. ``api_steps`` are request templates an agent can
     send once the user has supplied ``ask_user_for``; secret values in them are placeholders, never a real login.
     """
 

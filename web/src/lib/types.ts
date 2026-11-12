@@ -200,7 +200,7 @@ export interface HalvingInfo {
   progress: number
 }
 
-export type NodeRefusalReason = 'needs_login' | 'computer_not_allowed' | 'unreachable'
+export type NodeRefusalReason = 'needs_login' | 'computer_not_allowed' | 'unreachable' | 'cookie_unreadable'
 
 /** Why a node refuses the app and what to change. Never contains a login. */
 export interface NodeRefusal {
@@ -551,6 +551,7 @@ export interface SourceCandidate {
   reason: string
   verified: boolean
   refusal?: NodeRefusal | null
+  already_configured?: boolean
 }
 
 export interface DiscoveryJob {

@@ -52,12 +52,12 @@ SETUP_RECIPE: list[dict[str, Any]] = [
 
 #: Discover -> see the reason -> add with the user's login -> test -> done, for a found node that refuses the app.
 NODE_REFUSAL_FLOW: list[str] = [
-    "Discover: POST /api/v1/discovery, then GET /api/v1/discovery/{id} until status is 'finished'. Each bitcoin_core entry under 'sources' that refused the app or did not answer carries 'refusal' with reason, title, message, next_step, hints, ask_user_for and api_steps.",
-    "Read refusal.reason. needs_login: the node wants an RPC user name and password. computer_not_allowed: the node's rpcallowip setting leaves this computer out, so no login can help until the user changes it. unreachable: nothing usable answered at that address.",
+    "Discover: POST /api/v1/discovery, then GET /api/v1/discovery/{id} until status is 'finished'. Each bitcoin_core entry under 'sources' that refused the app or did not answer carries 'refusal' with reason, title, message, next_step, hints, ask_user_for and api_steps. An entry with already_configured true is a node the app already uses: it has no refusal, so do not ask for its login again; read GET /api/v1/node or the source health for its state.",
+    "Read refusal.reason. needs_login: the node answered 401, so it wants a correct RPC user name and password. computer_not_allowed: the node's rpcallowip setting leaves this computer out, so no login can help until the user changes it. unreachable: nothing usable answered at that address. cookie_unreadable: the app could not read the node's cookie file and never contacted the node; Bitcoin Core deletes that file when it stops, so start the node first.",
     "Tell the user refusal.next_step in plain words. Only the user can change the node's settings or read its login; wait until they say it is done. Never guess logins.",
-    "Ask for each field in refusal.ask_user_for (rpc_user, rpc_password) through secure app fields. The login is write-only: it is never returned, echoed or logged, and the placeholders in api_steps are not a login.",
-    "Test without saving: POST /api/v1/sources/test with the first api_steps body, the placeholders replaced by the user's login (MCP: configure_source with test_only=true). A failed test returns a new refusal: repeat from its reason.",
-    "Add after the user approves: POST /api/v1/sources with the second api_steps body (a refused add returns 422 connection_failed with the same refusal under error.details). Then GET /api/v1/node should show reachable true and refusal null. Report the result in plain English.",
+    "Ask for each field in refusal.ask_user_for (rpc_user, rpc_password; the list is empty for unreachable and cookie_unreadable) through secure app fields. The login is write-only: it is never returned, echoed or logged, and the placeholders in api_steps are not a login.",
+    "Test without saving: POST /api/v1/sources/test (MCP: configure_source with test_only=true). needs_login and computer_not_allowed have two api_steps: send the first body with the placeholders replaced by the user's login. unreachable has one api_step, a re-check with no login: after the user says the network or node is fixed, send it unchanged; the reply is what the node answers now, so continue from that reply's refusal.reason. cookie_unreadable has none: after the node runs or the cookie path is fixed, read GET /api/v1/node. A failed test returns a new refusal: repeat from its reason.",
+    "Add after the user approves, once a test with their login succeeds: POST /api/v1/sources with the second api_steps body (a refused add returns 422 connection_failed with the same refusal under error.details). Then GET /api/v1/node should show reachable true and refusal null. Report the result in plain English.",
 ]
 
 #: The MCP tools, in the order the server registers them. tests/test_agent_docs.py fails if this drifts from the real server.
@@ -77,7 +77,7 @@ TASKS: dict[str, str] = {
     "Is anything wrong?": "GET /api/v1/alerts/active and GET /api/v1/insights",
     "Restart a miner": "POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)",
     "Point miners at my own pool/node": "POST /api/v1/devices/actions {\"action\":\"set_pool\",\"all\":true,\"params\":{...}} previews by default; send dry_run=false to apply",
-    "A found node refuses the app (401/403)": "Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step",
+    "A found node refuses the app (401/403)": "Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable, cookie_unreadable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step",
     "History / charts": "GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w",
     "Live updates": "GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)",
     "Prometheus / Grafana": "GET /metrics",

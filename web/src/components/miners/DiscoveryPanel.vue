@@ -294,7 +294,8 @@ const kindLabel: Record<string, string> = { bitcoin_core: 'Bitcoin Core node', p
                 <span class="block truncate text-sm font-medium text-fg">{{ s.name || kindLabel[s.kind] || s.kind }}</span>
                 <span class="block truncate text-xs text-subtle"><span class="font-mono">{{ s.url }}</span> · {{ s.reason }}</span>
               </span>
-              <Button size="sm" :variant="s.needs_credentials ? 'secondary' : 'soft'" :loading="addingSource === s.url" @click="addSource(s)">
+              <Badge v-if="s.already_configured" size="sm" tone="ok">Already connected</Badge>
+              <Button v-else size="sm" :variant="s.needs_credentials ? 'secondary' : 'soft'" :loading="addingSource === s.url" @click="addSource(s)">
                 {{ s.needs_credentials ? 'Set up…' : 'Connect' }}
               </Button>
             </div>

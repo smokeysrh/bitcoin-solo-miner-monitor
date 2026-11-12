@@ -71,6 +71,10 @@ class RpcError(SourceError):
         self.rpc_code = rpc_code
 
 
+class CookieFileError(SourceAuthError):
+    """The RPC cookie file could not be used. Raised before anything is sent, so the node has not answered at all."""
+
+
 def normalise_url(raw: str) -> str:
     text = (raw or "").strip()
     if not text:
@@ -98,19 +102,19 @@ def read_cookie_file(path: str) -> str:
         fd = os.open(Path(path).expanduser(), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
         with os.fdopen(fd, "rb") as f:
             if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
-                raise SourceAuthError("the RPC cookie path is not a regular file")
+                raise CookieFileError("the RPC cookie path is not a regular file")
             data = f.read(COOKIE_MAX_BYTES + 1)
     except (OSError, ValueError, TypeError) as e:
-        raise SourceAuthError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
+        raise CookieFileError(f"cannot read the RPC cookie file ({e.__class__.__name__})") from e
     if len(data) > COOKIE_MAX_BYTES:
-        raise SourceAuthError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
+        raise CookieFileError(f"the RPC cookie file is too large (the limit is {COOKIE_MAX_BYTES} bytes)")
     try:
         text = data.decode().strip()
     except UnicodeDecodeError as e:
-        raise SourceAuthError("the RPC cookie file is not text") from e
+        raise CookieFileError("the RPC cookie file is not text") from e
     if not _COOKIE_LINE.fullmatch(text):
         # never echo the content: it may be some other secret file
-        raise SourceAuthError("the file is not a Bitcoin Core cookie file")
+        raise CookieFileError("the file is not a Bitcoin Core cookie file")
     return text
 
 
@@ -128,6 +132,7 @@ async def check_cookie_option(options: dict[str, Any]) -> None:
 REASON_NEEDS_LOGIN = "needs_login"
 REASON_NOT_ALLOWED = "computer_not_allowed"
 REASON_UNREACHABLE = "unreachable"
+REASON_COOKIE_UNREADABLE = "cookie_unreadable"  # the app could not read the cookie file, so the node was never contacted
 LOGIN_FIELDS = ["rpc_user", "rpc_password"]
 LOGIN_PLACEHOLDER = "<ask the user>"  # stands in for a login in request templates: a real one is never stored here
 PROBE_TIMEOUT_S = 3.0
@@ -145,6 +150,8 @@ def failure_reason(error: SourceError) -> str:
     """Which refusal a failed node call is. SourceForbidden is a SourceAuthError, so it is checked first."""
     if isinstance(error, SourceForbidden):
         return REASON_NOT_ALLOWED
+    if isinstance(error, CookieFileError):
+        return REASON_COOKIE_UNREADABLE
     if isinstance(error, SourceAuthError):
         return REASON_NEEDS_LOGIN
     return REASON_UNREACHABLE
@@ -189,6 +196,16 @@ def explain_refusal(reason: str, url: str | None, *, detail: str | None = None) 
         return NodeRefusal(
             reason=reason, title="This node needs a login", message=message,
             next_step=" ".join(LOGIN_RECIPE[:2]), hints=list(LOGIN_RECIPE), ask_user_for=list(LOGIN_FIELDS), api_steps=login_steps)
+    if reason == REASON_COOKIE_UNREADABLE:
+        hints = [
+            "Start the node: Bitcoin Core creates its cookie file when it starts and deletes it when it stops, so a stopped node leaves nothing to read.",
+            "Check that the cookie path (Advanced: cookie path) is the node's own .cookie file and that this app is allowed to read it.",
+            "A cookie file only works for a node on this computer. For a node on another computer use its RPC login instead.",
+        ]
+        return NodeRefusal(
+            reason=reason, title="Can't read this node's cookie file",
+            message=f"The node was not contacted: {detail}." if detail else "The node was not contacted: its cookie file could not be read.",
+            next_step=hints[0], hints=hints)
     hints = [
         "Check the address and that RPC port 8332 is reachable from this computer.",
         "In bitcoin.conf you need server=1 and an rpcallowip line that covers this computer's network.",
@@ -351,11 +368,15 @@ class BitcoinCoreSource(DataSource):
     def _login_given(self) -> bool:
         return bool(self.secret.get("rpc_user") or self.source.options.get("rpc_user") or self.source.options.get("cookie_path"))
 
-    async def _refusal(self, error: SourceError) -> NodeRefusal:
-        """Explain a failed call. With no login configured a 401 means 'needs one', not 'rejected'."""
-        reason = failure_reason(error)
-        detail = None if reason == REASON_NEEDS_LOGIN and not self._login_given() else str(error)
-        return await asyncio.to_thread(explain_refusal, reason, self.source.url, detail=detail)
+    async def _refusal(self, error: SourceError) -> NodeRefusal | None:
+        """Explain a failed call from what the node actually answered, never from a failure before anything was sent.
+
+        With no login configured nothing could be sent, so the node is asked once without one (``probe_node_access``); ``None``
+        means it answered without refusing. A cookie file that cannot be read is its own reason: the node was never contacted.
+        """
+        if not self._login_given():
+            return await probe_node_access(self.client, self.source.url or "")
+        return await asyncio.to_thread(explain_refusal, failure_reason(error), self.source.url, detail=str(error))
 
     async def _fetch_core(self) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any], int | None]:
         results = await self.rpc.batch(
@@ -508,6 +529,8 @@ class BitcoinCoreSource(DataSource):
             return ConnectionTest(ok=False, message=f"The node answered with an error: {e}", hints=hint)
         except SourceError as e:
             refusal = await self._refusal(e)
+            if refusal is None:  # a login-free request was answered: there is no refusal to explain
+                return ConnectionTest(ok=False, message=str(e))
             return ConnectionTest(ok=False, message=refusal.message, hints=refusal.hints, refusal=refusal)
         except ValueError as e:
             return ConnectionTest(ok=False, message=str(e))

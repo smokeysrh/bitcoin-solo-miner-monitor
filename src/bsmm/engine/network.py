@@ -259,6 +259,7 @@ class NetworkService:
         assert h is not None
         was_failing = h.ok is False
         h.last_poll = time.time()
+        h.refusal = None  # set again below only if this poll's node read refuses; never carried over from an older poll
         try:
             addresses = list(self.watch_addresses())
             if kind == "demo":

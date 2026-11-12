@@ -31,6 +31,7 @@ const REFUSAL_BADGES: Record<NodeRefusalReason, string> = {
   needs_login: 'Needs login',
   computer_not_allowed: 'Not allowed',
   unreachable: 'Unreachable',
+  cookie_unreadable: 'Cookie unreadable',
 }
 export function refusalBadge(reason: NodeRefusalReason): string {
   return REFUSAL_BADGES[reason] ?? 'Unreachable'
