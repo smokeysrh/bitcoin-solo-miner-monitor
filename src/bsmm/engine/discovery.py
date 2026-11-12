@@ -15,6 +15,7 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -25,7 +26,14 @@ from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
 from bsmm.models import Device, ProbeResult, Severity, Source
-from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
+from bsmm.net import (
+    is_private_host,
+    iter_hosts,
+    local_ipv4_networks,
+    own_ipv4_addresses,
+    resolve_ipv4,
+    tcp_open,
+)
 from bsmm.sources.base import NodeRefusal, SourceError
 from bsmm.sources.bitcoin_core import normalise_url, probe_node_access
 from bsmm.sources.public_pool import PublicPoolSource
@@ -36,6 +44,7 @@ log = logging.getLogger(__name__)
 MINER_PORTS = (80, 4028)
 NODE_PORTS = (8332, 2019, 3334, 3006)
 SWEEP_PORTS = MINER_PORTS + NODE_PORTS
+RESOLVE_TIMEOUT_S = 2.0  # a saved node name that does not resolve within this is not matched to a found address
 
 
 @dataclass(slots=True)
@@ -274,16 +283,41 @@ class DiscoveryService:
         return SourceCandidate("bitcoin_core", url, name, True, reason, False, refusal)
 
     async def _configured_node_urls(self) -> set[str]:
-        """Normalised addresses of the enabled Bitcoin node sources already saved (a storage error propagates: the scan fails)."""
+        """Normalised addresses of the enabled Bitcoin node sources already saved (a storage error propagates: the scan fails).
+
+        A source saved by host name also contributes the addresses that name resolves to, looked up once per scan: the scan
+        finds the same node by its IP. A name that does not resolve in time contributes nothing, so it matches nothing.
+        """
         urls: set[str] = set()
+        named: dict[str, set[tuple[str, int | None]]] = {}
         for src in await self.store.list_sources():
             if src.kind != "bitcoin_core" or not src.enabled or not src.url:
                 continue
             try:
-                urls.add(normalise_url(src.url).lower())
+                url = normalise_url(src.url).lower()
             except ValueError:
                 log.warning("saved source %s has an address that is not valid; it cannot match a found node", src.name)
+                continue
+            urls.add(url)
+            try:
+                parts = urlsplit(url)
+                host, port = parts.hostname, parts.port
+            except ValueError:  # e.g. a port above 65535: it keeps its literal match and has no name to look up
+                continue
+            if host and not _is_ip(host):
+                named.setdefault(host, set()).add((parts.scheme, port))
+        answers = await asyncio.gather(*(self._resolve_saved_name(name) for name in named))
+        for endpoints, addresses in zip(named.values(), answers, strict=True):
+            urls.update(f"{scheme}://{ip}:{port}" for ip in addresses for scheme, port in endpoints)
         return urls
+
+    @staticmethod
+    async def _resolve_saved_name(name: str) -> set[str]:
+        try:
+            return await asyncio.wait_for(resolve_ipv4(name), RESOLVE_TIMEOUT_S)
+        except (OSError, TimeoutError):
+            log.info("could not look up the saved node address %s; a node found by its IP cannot be matched to it", name)
+            return set()
 
     async def _find_sources(self, job: DiscoveryJob, open_ports: dict[str, set[int]]) -> None:
         configured = await self._configured_node_urls()
