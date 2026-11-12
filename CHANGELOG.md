@@ -5,9 +5,24 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.3] - Unreleased
+## [1.2.0] - 2026-11-12
 
-This patch release collects 32 bug fixes made since v1.1.2. The release date is set when the tag is approved.
+This minor release adds wall display and Customize features since v1.1.3. They were developed as separate pull requests and merged together as one change (PR #95).
+
+### Added
+- **Wall display:**
+  - A visible **Wall display** button in the top bar and in the phone navigation, so the wall display no longer hides in the three-dot menu (#76, PR #84).
+  - Large, labelled panel buttons with previous and next controls, plus a lock button that keeps the display on the current panel (#77, PR #85).
+  - You can choose the time frame of the big headline on the Odds panel. The 10-minute window is shown as "Next block". Only an admin can change this in Settings (#78, PR #86).
+  - The network panel leads with the next halving, followed by the next difficulty change (#79, PR #87).
+  - The chart is large and labelled, so it can be read from a distance (#80, PR #88).
+  - Panels fill the screen at any size, including portrait. An incomplete last row of miners is centred, and the panels leave room for the controls (#81, PR #86, PR #87, PR #89).
+- **Customize:**
+  - The Bitcoin and Odds & costs pages have a Customize button, like the Dashboard (#82, PR #90).
+
+## [1.1.3] - 2026-11-11
+
+This patch release collects 32 bug fixes made since v1.1.2.
 
 ### Fixed
 - **Alerts and blocks:**
