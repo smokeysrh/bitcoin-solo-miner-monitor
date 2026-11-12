@@ -1,0 +1,159 @@
+{
+  "solock": [
+    {
+      "id": "0000000000000000000095f6370e308c664b2bca98537af6fae7de06011e9458",
+      "height": 959001,
+      "timestamp": 1784316000,
+      "tx_count": 3120,
+      "stale": 0,
+      "extras": {
+        "reward": 313000001,
+        "totalFees": 1000001,
+        "pool": {
+          "id": 50,
+          "name": "Solo CK",
+          "slug": "solock",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        "coinbaseAddresses": [
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        ]
+      }
+    },
+    {
+      "id": "0000000000000000000018011eedcd90b87f499956bf86c5a5cbf7207adaee19",
+      "height": 950210,
+      "timestamp": 1779500000,
+      "tx_count": 2788,
+      "stale": 0,
+      "extras": {
+        "reward": 313000210,
+        "totalFees": 1000210,
+        "pool": {
+          "id": 50,
+          "name": "Solo CK",
+          "slug": "solock",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        "coinbaseAddresses": [
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        ]
+      }
+    }
+  ],
+  "publicpool": [
+    {
+      "id": "000000000000000000002b08316812ac29710daad0895e68ece3b2360da3fd80",
+      "height": 957382,
+      "timestamp": 1783654234,
+      "tx_count": 4900,
+      "stale": 0,
+      "extras": {
+        "reward": 313000382,
+        "totalFees": 1000382,
+        "pool": {
+          "id": 161,
+          "name": "Public Pool",
+          "slug": "publicpool",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+        "coinbaseAddresses": [
+          "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+        ]
+      }
+    },
+    {
+      "id": "000000000000000000009fed94c61e613fe699375b3a7b05d812400ece95c1f1",
+      "height": 948146,
+      "timestamp": 1778059715,
+      "tx_count": 2768,
+      "stale": 0,
+      "extras": {
+        "reward": 313000146,
+        "totalFees": 1000146,
+        "pool": {
+          "id": 161,
+          "name": "Public Pool",
+          "slug": "publicpool",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq",
+        "coinbaseAddresses": [
+          "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
+        ]
+      }
+    }
+  ],
+  "braiinssolo": [
+    {
+      "id": "0000000000000000000069b57e43a55e968366031133b12cd0f9fe5b6addce7a",
+      "height": 958100,
+      "timestamp": 1783930000,
+      "tx_count": 3555,
+      "stale": 0,
+      "extras": {
+        "reward": 313000100,
+        "totalFees": 1000100,
+        "pool": {
+          "id": 169,
+          "name": "Braiins Solo",
+          "slug": "braiinssolo",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        "coinbaseAddresses": [
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        ]
+      }
+    }
+  ],
+  "futurebitapollosolo": [
+    {
+      "id": "00000000000000000000a22ab00d773fe98d6b740f89e20fd3a8833af7bcfc04",
+      "height": 952000,
+      "timestamp": 1780500000,
+      "tx_count": 2210,
+      "stale": 0,
+      "extras": {
+        "reward": 313000000,
+        "totalFees": 1000000,
+        "pool": {
+          "id": 149,
+          "name": "FutureBit Apollo Solo",
+          "slug": "futurebitapollosolo",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        "coinbaseAddresses": [
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        ]
+      }
+    }
+  ],
+  "solopoolcom": [
+    {
+      "id": "000000000000000000001ad3a3177d24d9dbe25482ffe5887a6ac8077e9e7d72",
+      "height": 954321,
+      "timestamp": 1781700000,
+      "tx_count": 4012,
+      "stale": 0,
+      "extras": {
+        "reward": 313000321,
+        "totalFees": 1000321,
+        "pool": {
+          "id": 170,
+          "name": "SoloPool.com",
+          "slug": "solopoolcom",
+          "minerNames": null
+        },
+        "coinbaseAddress": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+        "coinbaseAddresses": [
+          "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh"
+        ]
+      }
+    }
+  ]
+}
