@@ -10,7 +10,7 @@ export interface GlossaryEntry {
 export const GLOSSARY: Record<string, GlossaryEntry> = {
   solo: {
     title: 'Solo mining',
-    body: 'You mine on your own instead of sharing work with a pool. Every hash is a lottery ticket, and if one of yours lands a block, the whole block reward is yours.',
+    body: 'You mine on your own instead of sharing work with a pool. Every hash is a lottery ticket, and if one of yours lands a block, that block is all yours.',
   },
   hashrate: {
     title: 'Hashrate',

@@ -52,7 +52,7 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 
 `mining.HORIZONS.ten_minutes` is 600 seconds. `/api/v1/odds`, overview odds, `bsmm odds`, and MCP `get_odds` expose `horizons.ten_minutes` for live fleet data and what-if overrides. The dashboard widget and Odds page label it **Next 10 minutes**. The wall display labels it **Next block** (the owner's choice) and its headline line reads "Chance of a block in the next 10 minutes"; the value is the same fixed 600-second window, not a different calculation. There is no dedicated per-device odds endpoint; agents can supply a device's observed TH/s as the existing `hashrate_ths` what-if parameter.
 
-At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of winning the very next network block. A miner has no memory, so nobody is ever due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
+At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of the very next network block. A miner has no memory, so nobody is ever due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
 
 ## Frontend (`web`)
 

@@ -21,7 +21,7 @@ Set authentication for this network and use the least access scope needed. Keep 
 
 Start monitoring only. Verify the dashboard, health check and fleet overview. Ask before restarting a miner, changing a pool or payout address, tuning, changing firmware, deleting data or doing another destructive action.
 
-Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as the chance across one fixed window, not a countdown: the next network block arrives whenever it likes.
+Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as the chance across one fixed window. It is not a countdown. The next network block arrives whenever it likes.
 ```
 
 ## Install it

@@ -76,7 +76,7 @@ def build_odds(
         out["plain_english"].append(cost_note)
     out["plain_english"].append(
         "Next 10 minutes is a fixed 600-second window for finding at least one block, not the very next network block. "
-        "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due, which also means you are always in the running."
+        "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due, and every ticket you hold stays in the draw."
     )
     return out
 

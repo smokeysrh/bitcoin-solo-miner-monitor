@@ -148,7 +148,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             </li>
           </ul>
           <p class="mt-4 text-xs text-subtle">Bars use a log scale so very small chances stay visible.</p>
-          <p class="mt-3 text-sm text-muted">Next 10 minutes is the chance of at least one block in a fixed 600-second window, not of the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. Your miner has no memory, so you are never due, and always in the running.</p>
+          <p class="mt-3 text-sm text-muted">Next 10 minutes is the chance of at least one block in a fixed 600-second window, not of the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. Your miner has no memory, so you are never due, and every ticket it holds stays in the draw.</p>
         </MetricCard>
     </template>
 
