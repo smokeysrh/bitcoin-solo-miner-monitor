@@ -222,6 +222,13 @@ class NetworkService:
         for p in self._pollers.values():
             p.next_due = 0.0
 
+    def mempool_source(self) -> MempoolSpaceSource | None:
+        """The mempool.space source in use (your own, or the public one when outside lookups are on), if any."""
+        for p in self._pollers.values():
+            if isinstance(p.impl, MempoolSpaceSource):
+                return p.impl
+        return None
+
     def difficulty(self) -> float | None:
         return self.state.difficulty
 

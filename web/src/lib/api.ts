@@ -36,6 +36,7 @@ import type {
   Settings,
   Source,
   SourceKind,
+  SoloBlocksResult,
   SystemInfo,
   TuningInfo,
   UpdateStatus,
@@ -275,6 +276,7 @@ export const api = {
   pool: () => get<{ pools: PoolStatus[] }>('/pool'),
   recentBlocks: () => get<{ blocks: BlockInfo[] }>('/blocks/recent').then((r) => r.blocks),
   blocksFound: () => get<{ count: number; total_reward_sats: number; blocks: FoundBlock[] }>('/blocks/found'),
+  soloBlocks: (signal?: AbortSignal) => get<SoloBlocksResult>('/blocks/solo', undefined, signal),
   odds: (q: { hashrate_ths?: number; difficulty?: number; power_w?: number; growth?: number } = {}, signal?: AbortSignal) =>
     get<Odds>('/odds', q, signal),
 

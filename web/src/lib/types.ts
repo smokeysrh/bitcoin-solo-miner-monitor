@@ -283,6 +283,13 @@ export interface SourceHealth {
   implicit: boolean
 }
 
+/** Where one network field came from, when it was observed and whether it has gone stale (see engine/network.py). */
+export interface FieldSource {
+  source: string
+  ts: number
+  stale: boolean
+}
+
 export interface NetworkState {
   updated_at: number
   available: boolean
@@ -308,6 +315,8 @@ export interface NetworkState {
   sources: SourceHealth[]
   warnings: string[]
   stale: boolean
+  /** Per-field source and freshness; the server always sends it, fixtures may omit it. */
+  field_sources?: Record<string, FieldSource>
   node_behind_by: number | null
 }
 
@@ -379,6 +388,34 @@ export interface FoundBlock {
   reward_sats: number | null
   source: string
   data: Record<string, unknown>
+}
+
+/** A block mempool.space attributes to a solo pool (GET /blocks/solo). `yours` is the same rule as BlockInfo.yours. */
+export interface SoloBlock {
+  hash: string
+  height: number
+  ts: number
+  pool_slug: string
+  pool_name: string
+  tx_count: number | null
+  url: string
+  yours: boolean
+}
+
+export interface SoloBlocksResult {
+  /** false when outside lookups are off: `message` explains it and `blocks` is not a finding */
+  available: boolean
+  message: string | null
+  blocks: SoloBlock[]
+  source: string | null
+  fetched_at: number | null
+  /** a refresh failed and `blocks` is the last good list; `error` says why */
+  stale: boolean
+  error: string | null
+  /** pools that could not be read, so the list may be missing some of their blocks */
+  failed_pools: string[]
+  pools: { slug: string; name: string }[]
+  limit: number
 }
 
 // ----------------------------------------------------------------------------------- events & alerts
