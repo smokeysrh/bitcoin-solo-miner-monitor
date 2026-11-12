@@ -12,6 +12,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 from bsmm.models import Source
+from bsmm.net import ResponseTooLarge, request_bounded
 
 
 class SourceError(Exception):
@@ -226,11 +227,13 @@ async def fetch_json(
     accept_text: bool = False,
 ) -> Any:
     try:
-        resp = await client.request(method, url, json=json_body, auth=auth, headers=headers, timeout=timeout)
+        resp = await request_bounded(client, method, url, json_body=json_body, auth=auth, headers=headers, timeout=timeout)
     except httpx.TimeoutException as e:
         raise SourceUnreachable(f"timed out after {timeout:g}s") from e
     except httpx.TransportError as e:
         raise SourceUnreachable(_describe(e)) from e
+    except ResponseTooLarge as e:
+        raise SourceBadResponse("the server's reply is too large to read") from e
     if resp.status_code == 401:
         raise SourceAuthError("authentication failed (wrong user or password)")
     if resp.status_code == 403:

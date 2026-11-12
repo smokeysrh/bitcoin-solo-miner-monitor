@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from bsmm.drivers.base import AuthRequired, BadResponse, Unreachable
+from bsmm.net import ResponseTooLarge, request_bounded
 
 # Some embedded firmwares print C floats that are not valid JSON (nan / inf). Make them null.
 _BAD_TOKENS = re.compile(r"(?<![\"\w])-?(?:nan|inf|infinity)(?![\"\w])", re.IGNORECASE)
@@ -41,7 +42,7 @@ async def request_json(
     last: Exception | None = None
     for _ in range(attempts):
         try:
-            resp = await client.request(method, url, json=json_body, headers=headers, timeout=timeout)
+            resp = await request_bounded(client, method, url, json_body=json_body, headers=headers, timeout=timeout)
         except httpx.TimeoutException as e:
             last = Unreachable(f"timed out after {timeout:g}s")
             last.__cause__ = e
@@ -50,6 +51,8 @@ async def request_json(
             last = Unreachable(_short_transport_error(e))
             last.__cause__ = e
             continue
+        except ResponseTooLarge as e:
+            raise BadResponse(f"{method} {_path(url)} sent a reply that is too large to read") from e
         if resp.status_code in (401, 403):
             raise AuthRequired(f"HTTP {resp.status_code} (the device refused access)")
         if resp.status_code >= 400:
