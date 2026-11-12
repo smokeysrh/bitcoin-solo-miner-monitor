@@ -403,6 +403,90 @@ async def test_the_largest_allowed_range_is_accepted(ctx, stuck):
     ctx.discovery.cancel(job.id)
 
 
+# --- one total budget per scan -----------------------------------------------------------------------------------------------
+
+
+async def test_ranges_that_are_each_allowed_but_together_too_big_are_refused(ctx, tcp):
+    ranges = ["10.30.0.0/21", "10.30.8.0/21", "10.30.16.0/22"]  # 2046 + 2046 + 1022 addresses: each fine, 5114 together
+    for cidr in ranges:
+        assert len(list(iter_hosts(cidr))) <= 4096
+    with pytest.raises(ValueError, match=r"scanning more than 4096 at once is not allowed"):
+        ctx.discovery.start(ranges, include_sources=False)
+    assert ctx.discovery.jobs == {}  # refused up front: nothing started, nothing swept
+    assert tcp.calls == []
+
+
+async def test_a_range_given_again_or_inside_another_is_counted_once(ctx, stuck):
+    job = ctx.discovery.start(["10.40.0.0/20"] * 5 + ["10.40.0.0/21", "10.40.7.5"], include_sources=False)
+    assert job.total_hosts == 4094 and job.status == "running"  # the same 4094 addresses however often they are listed
+    ctx.discovery.cancel(job.id)
+
+
+async def test_ranges_that_add_up_to_exactly_the_budget_are_accepted(ctx, stuck):
+    job = ctx.discovery.start(["10.50.0.0/21", "10.50.8.0/21", "10.50.16.0/31", "10.50.16.4/31"], include_sources=False)
+    assert job.total_hosts == 2046 + 2046 + 2 + 2 and job.status == "running"
+    ctx.discovery.cancel(job.id)
+
+
+async def test_a_scan_with_too_many_ranges_is_refused_before_any_range_is_expanded(ctx, stuck, monkeypatch):
+    expanded: list[str] = []
+    real_iter_hosts = discovery_mod.iter_hosts
+
+    def counting_iter_hosts(cidr: str, *args: Any, **kwargs: Any):
+        expanded.append(cidr)
+        return real_iter_hosts(cidr, *args, **kwargs)
+
+    monkeypatch.setattr(discovery_mod, "iter_hosts", counting_iter_hosts)
+    ranges = [f"10.70.0.{i}/32" for i in range(17)]  # 17 different single addresses: tiny, but one range too many
+    with pytest.raises(ValueError, match=r"Scan at most 16 ranges at a time"):
+        ctx.discovery.start(ranges, include_sources=False)
+    assert expanded == []  # the count is checked first, so no range was ever turned into addresses
+    assert ctx.discovery.jobs == {}  # nothing started
+
+
+async def test_the_same_range_repeated_beyond_the_cap_is_refused_too(ctx, stuck, monkeypatch):
+    expanded: list[str] = []
+    real_iter_hosts = discovery_mod.iter_hosts
+
+    def counting_iter_hosts(cidr: str, *args: Any, **kwargs: Any):
+        expanded.append(cidr)
+        return real_iter_hosts(cidr, *args, **kwargs)
+
+    monkeypatch.setattr(discovery_mod, "iter_hosts", counting_iter_hosts)
+    # the unique address total stays at 254, so only a cap on the number of ranges can stop this
+    with pytest.raises(ValueError, match=r"Scan at most 16 ranges at a time"):
+        ctx.discovery.start(["10.71.0.0/24"] * 5000, include_sources=False)
+    assert expanded == []
+    assert ctx.discovery.jobs == {}
+
+
+async def test_exactly_the_maximum_number_of_ranges_is_accepted(ctx, stuck):
+    ranges = [f"10.72.0.{i}/32" for i in range(16)]
+    job = ctx.discovery.start(ranges, include_sources=False)
+    assert job.total_hosts == 16 and job.status == "running"
+    ctx.discovery.cancel(job.id)
+
+
+async def test_a_large_scan_keeps_the_number_of_live_probe_tasks_bounded(ctx, tcp, monkeypatch):
+    """Every address is still swept and counted, but only a bounded number of tasks exist at any moment."""
+    peak = 0
+    baseline = len(asyncio.all_tasks())
+    original = tcp.__class__.__call__
+
+    async def watched(host: str, port: int, timeout: float = 1.0) -> bool:
+        nonlocal peak
+        peak = max(peak, len(asyncio.all_tasks()) - baseline)
+        await asyncio.sleep(0)  # let other probes pile up, if the scan lets them
+        return await original(tcp, host, port, timeout)
+
+    monkeypatch.setattr(discovery_mod, "tcp_open", watched)
+    job = ctx.discovery.start(["10.60.0.0/20"], include_sources=False)
+    await finish(job, timeout=60)
+    assert job.status == "finished" and job.total_hosts == 4094 and job.scanned_hosts == 4094
+    assert len(tcp.calls) == 4094 * len(SWEEP_PORTS)
+    assert 0 < peak <= 1000, f"{peak} scan tasks alive at once"
+
+
 async def test_extra_ports_are_cleaned_up_and_capped(ctx, tcp):
     job = ctx.discovery.start(["10.7.7.5/32"], ports=[0, -5, 70000, 80, 4028, 8080, 8080, 9000, "9001"], include_sources=False)  # type: ignore[list-item]
     await finish(job)

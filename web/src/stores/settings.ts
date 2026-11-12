@@ -30,6 +30,12 @@ function localAppearance(): Partial<Settings['ui']> {
 
 const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v)
 
+/** PATCH /settings is admin-only, so any other signed-in session (read or control) keeps its look on this device. */
+function keepsLookOnDevice(): boolean {
+  const session = useSession()
+  return session.state === 'ready' && !session.canAdmin
+}
+
 /** Same merge rules as the server: nested objects merge, the layouts, `kiosk` and `quiet_hours` are replaced whole. */
 export function mergeSettings<T>(base: T, patch: Json): T {
   const opaque = new Set(['dashboard', 'bitcoin_page', 'odds_page', 'kiosk', 'quiet_hours'])
@@ -44,7 +50,7 @@ export function mergeSettings<T>(base: T, patch: Json): T {
 export const useSettings = defineStore('settings', () => {
   const data = ref<Settings | null>(null)
   const saving = ref(false)
-  /** true when a change could only be kept on this device (read-only session) */
+  /** true when a change could only be kept on this device (session without admin rights) */
   const localOnly = ref(false)
   let epoch = 0
   /** Saves not yet answered, oldest first. They go to the server one at a time. */
@@ -70,7 +76,7 @@ export const useSettings = defineStore('settings', () => {
     const started = epoch
     const result = await api.settings()
     if (started !== epoch) throw new DOMException('Session ended', 'AbortError')
-    const local = useSession().readOnly ? localAppearance() : {}
+    const local = keepsLookOnDevice() ? localAppearance() : {}
     localOnly.value = Object.keys(local).length > 0
     const loaded = mergeSettings(result, { ui: local })
     confirmed = loaded
@@ -103,7 +109,7 @@ export const useSettings = defineStore('settings', () => {
   /**
    * Optimistic update: the UI changes instantly and the server confirms. Saves are sent one at a time, so an older
    * answer can never replace a newer one. A failure removes only that save's change; other saves stay.
-   * Appearance settings fall back to "this device only" when the session is read-only.
+   * Appearance settings fall back to "this device only" when the session is not an admin.
    */
   async function patch(submitted: SettingsPatch): Promise<void> {
     if (!data.value) return
@@ -113,8 +119,8 @@ export const useSettings = defineStore('settings', () => {
     const change = JSON.parse(JSON.stringify(submitted)) as SettingsPatch
     const appearanceOnly = Object.keys(change).every((key) => key === 'ui') &&
       Object.keys(change.ui ?? {}).every((key) => LOCAL_FIELDS.some((field) => field === key))
-    if (useSession().readOnly && appearanceOnly) {
-      // Public principals receive 401 on writes: do not attempt a forbidden request just to save a local look.
+    if (keepsLookOnDevice() && appearanceOnly) {
+      // Public principals get 401 and read or control tokens get 403 on settings writes: do not attempt a forbidden request just to save a local look.
       localStorage.setItem(LOCAL_UI_KEY, JSON.stringify({ ...localAppearance(), ...change.ui }))
       if (confirmed) confirmed = mergeSettings(confirmed, change as Json)
       data.value = mergeSettings(data.value, change as Json)

@@ -164,6 +164,13 @@ async def tcp_open(host: str, port: int, timeout: float = 1.0) -> bool:
     return True
 
 
+async def resolve_ipv4(host: str) -> set[str]:
+    """The IPv4 addresses ``host`` resolves to, from the event loop's resolver. Raises OSError when the name does not resolve."""
+    import socket
+    infos = await asyncio.get_running_loop().getaddrinfo(host, None, family=socket.AF_INET, type=socket.SOCK_STREAM)
+    return {str(info[4][0]) for info in infos}
+
+
 def redact_url(url: str) -> str:
     """Strip credentials / query secrets from a URL before it goes into a log line."""
     try:
