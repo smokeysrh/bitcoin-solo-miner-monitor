@@ -14,6 +14,7 @@ vi.mock('@vueuse/core', async (importOriginal) => ({
 
 const TRACKS_PER_CARD = 2
 const MAX_TILES = 12 // the wall display shows at most 12 miners
+const FOOTER_PX = 112 // a measured footer height (about its size at 1920x1080); the column counts do not depend on it
 const SCREENS = [
   { name: '1080p landscape', width: 1920, height: 1080 },
   { name: '720p landscape', width: 1280, height: 720 },
@@ -86,8 +87,8 @@ describe('issue 89: incomplete last row is centred', () => {
       screenSize.width.value = screen.width
       screenSize.height.value = screen.height
       for (let count = 1; count <= MAX_TILES; count++) {
-        const layout = useKioskLayout(() => count)
-        const { cols } = tileLayout(count, screen.width, screen.height)
+        const layout = useKioskLayout(() => count, () => FOOTER_PX)
+        const { cols } = tileLayout(count, screen.width, screen.height, FOOTER_PX)
         const style = layout.tileGrid.value
         expect(style.gridTemplateColumns, `${screen.name}, ${count} tiles`).toBe(`repeat(${cols * TRACKS_PER_CARD}, minmax(0, 1fr))`)
         expect(style.gridTemplateRows).toBe(`repeat(${Math.ceil(count / cols)}, minmax(min-content, 1fr))`) // #81 sizing kept

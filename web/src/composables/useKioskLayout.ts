@@ -7,7 +7,7 @@ const MIN_CHART_PX = 160 // the overview chart's height before issue #81; never 
 const CHART_PER_PX = 0.16 // chart height as a share of the average of screen width and height
 const EDGE_MIN_PX = 16 // outer margin floor; the page uses max(1rem, 2vmin)
 const EDGE_VMIN = 0.02
-const CHROME_PX = 48 // header buttons (2.5rem) plus the footer dots (0.5rem)
+const HEADER_PX = 40 // the header's buttons (2.5rem). The footer is not a constant: it wraps on narrow screens, so its real height is passed in.
 const EDGES_VERTICAL = 4 // main padding and section padding, top and bottom
 const TILE_GAP_VMIN = 0.015
 const TILE_STACK_VMIN = 0.42 // tallest tile (two-line name plus a degraded note) in vmin at scale 1
@@ -17,20 +17,32 @@ const HALF_COLUMNS = 2 // the grid has two tracks per card column so an incomple
 export interface KioskLayout {
   /** Height in px for the Overview history chart. */
   chartHeight: ComputedRef<number>
+  /** Height in px left for a panel's main block (the Chart panel's container) once the page chrome and the footer are taken out. */
+  panelHeight: ComputedRef<number>
   /** Inline style for the Miners grid: column/row counts that follow the screen shape, its minimum height, and the tile text scale `--k`. */
   tileGrid: ComputedRef<Record<string, string>>
   /** Inline style for the tile at `index`: one card column wide, placed so an incomplete last row is centred. */
   tileCell: (index: number) => Record<string, string>
 }
 
-export function tileLayout(count: number, width: number, height: number): { cols: number; rows: number; scale: number; gridHeight: number } {
+/** Pixels a panel's main block may use: the screen minus the page and section padding, the header and the footer (`footerPx`, as rendered). */
+export function freeHeight(width: number, height: number, footerPx: number): number {
+  const edge = Math.max(EDGE_MIN_PX, EDGE_VMIN * Math.min(width, height))
+  return Math.max(0, height - EDGES_VERTICAL * edge - HEADER_PX - footerPx)
+}
+
+export function tileLayout(
+  count: number,
+  width: number,
+  height: number,
+  footerPx: number,
+): { cols: number; rows: number; scale: number; gridHeight: number } {
   const n = Math.max(1, count)
   const short = Math.min(width, height)
   const cols = Math.max(1, Math.min(n, Math.round(Math.sqrt((n * width) / height))))
   const rows = Math.ceil(n / cols)
-  const edge = Math.max(EDGE_MIN_PX, EDGE_VMIN * short)
   const gap = TILE_GAP_VMIN * short
-  const gridHeight = Math.max(0, height - EDGES_VERTICAL * edge - CHROME_PX)
+  const gridHeight = freeHeight(width, height, footerPx)
   const rowHeight = (gridHeight - (rows - 1) * gap) / rows
   const scale = Math.min(MAX_TILE_SCALE, Math.max(0, rowHeight / (TILE_STACK_VMIN * short)))
   return { cols, rows, scale, gridHeight }
@@ -49,10 +61,12 @@ export function tileColumn(index: number, count: number, cols: number): string {
   return `${start} / span ${HALF_COLUMNS}`
 }
 
-export function useKioskLayout(count: () => number): KioskLayout {
+/** `footerPx` is the footer's rendered height (border box), so a footer that wraps to more rows shrinks the panel above it. */
+export function useKioskLayout(count: () => number, footerPx: () => number): KioskLayout {
   const { width, height } = useWindowSize()
   const chartHeight = computed(() => Math.max(MIN_CHART_PX, Math.round(((width.value + height.value) / 2) * CHART_PER_PX)))
-  const layout = computed(() => tileLayout(count(), width.value, height.value))
+  const panelHeight = computed(() => Math.floor(freeHeight(width.value, height.value, footerPx())))
+  const layout = computed(() => tileLayout(count(), width.value, height.value, footerPx()))
   const tileGrid = computed(() => {
     const { cols, rows, scale, gridHeight } = layout.value
     return {
@@ -64,5 +78,5 @@ export function useKioskLayout(count: () => number): KioskLayout {
     }
   })
   const tileCell = (index: number): Record<string, string> => ({ gridColumn: tileColumn(index, count(), layout.value.cols) })
-  return { chartHeight, tileGrid, tileCell }
+  return { chartHeight, panelHeight, tileGrid, tileCell }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useEventListener } from '@vueuse/core'
+import { useElementSize, useEventListener } from '@vueuse/core'
 import { ChevronLeft, ChevronRight, Lock, LockOpen, Maximize, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -122,7 +122,10 @@ const sorted = computed(() => [...live.devices].sort((a, b) => a.name.localeComp
 const oddsChoice = useOddsHeadline()
 const oddsHeadline = oddsChoice.current
 const oddsOthers = computed(() => ODDS_HEADLINES.filter((h) => h.key !== oddsHeadline.value.key))
-const { chartHeight, tileGrid, tileCell } = useKioskLayout(() => sorted.value.length)
+// The footer's real height (padding included; it wraps to more rows on a narrow screen) comes out of both panels' vertical budget.
+const footerEl = ref<HTMLElement | null>(null)
+const { height: footerHeight } = useElementSize(footerEl, undefined, { box: 'border-box' })
+const { chartHeight, panelHeight, tileGrid, tileCell } = useKioskLayout(() => sorted.value.length, () => footerHeight.value)
 
 /** Tapping a time frame on the panel saves it as the wall display's headline, the same setting as Settings → Appearance. */
 async function chooseHeadline(key: OddsHeadline): Promise<void> {
@@ -209,14 +212,14 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
         </template>
 
         <template v-else>
-          <!-- fills the screen: 12rem is the page padding, header, section padding and footer around this panel -->
-          <div class="flex h-[calc(100dvh_-_12rem)] w-full flex-col"><HistoryChart class="min-h-0 flex-1" :metrics="['hashrate_hs', 'power_w']" range="24h" :height="240" kiosk /></div>
+          <!-- fills the screen: the height is what is left after the page padding, header, section padding and the measured footer -->
+          <div class="flex w-full flex-col" :style="{ height: `${panelHeight}px` }"><HistoryChart class="min-h-0 flex-1" :metrics="['hashrate_hs', 'power_w']" range="24h" :height="240" kiosk /></div>
         </template>
       </section>
     </Transition>
 
     <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
-    <footer class="sticky bottom-0 z-10 flex flex-wrap items-center justify-center gap-[clamp(0.5rem,1vw,1.5rem)] bg-bg/90 pt-4 pb-[clamp(0.5rem,1vw,2rem)] transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'" @focusin="poke">
+    <footer ref="footerEl" class="sticky bottom-0 z-10 flex flex-wrap items-center justify-center gap-[clamp(0.5rem,1vw,1.5rem)] bg-bg/90 pt-4 pb-[clamp(0.5rem,1vw,2rem)] transition-opacity duration-500" :class="chrome ? 'opacity-100' : 'opacity-0'" @focusin="poke">
       <button type="button" :class="BUTTON_IDLE" aria-label="Previous panel" @click="jump(idx - 1)"><ChevronLeft class="size-[1.25em]" aria-hidden="true" />Previous</button>
       <button v-for="(p, n) in panels" :key="p" type="button" :class="n === idx % panels.length ? BUTTON_CURRENT : BUTTON_IDLE" :aria-current="n === idx % panels.length ? 'true' : undefined" :aria-label="`Show ${p}`" @click="jump(n)">{{ PANEL_LABEL[p] }}</button>
       <button type="button" :class="BUTTON_IDLE" aria-label="Next panel" @click="jump(idx + 1)">Next<ChevronRight class="size-[1.25em]" aria-hidden="true" /></button>
