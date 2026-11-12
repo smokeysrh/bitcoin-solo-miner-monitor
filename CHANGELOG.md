@@ -26,11 +26,11 @@ This minor release adds a Solo blocks list and guidance for a Bitcoin node that 
   - Appearance changes made with a control token are now kept on this device. Before, the app tried to save them on the server, which refuses anyone but an admin (PR #108).
 - **Discovery:**
   - A Bitcoin node you saved by its host name is now recognized as already added when a scan finds it by its IP address. A name that cannot be looked up in time is treated as no match and does not stop the scan (PR #113).
-  - A scan now has one limit of 4096 different addresses and 16 ranges in total, and it refuses a larger request with a plain message. Addresses are checked a few at a time instead of all at once (PR #114).
+  - A scan now has one limit of 4096 different addresses and 16 ranges in total, and it refuses a larger request with a plain message. Addresses are checked a limited number at a time instead of all at once (PR #114).
 - **Security hardening:**
   - Raw miner diagnostics now hide passwords, tokens, keys and logins inside web addresses at any depth. Model, hostname and MAC address are still shown (PR #110).
-  - A source address can no longer contain a user name or password, including in the short `//user:pass@host` form. A login saved that way earlier is hidden in the source list and in the config export (PR #111).
-  - Replies from miners, pools, explorers and Bitcoin nodes are now read with a size limit. A reply over the limit counts as one failed poll (PR #115).
+  - A source address can no longer contain a user name or password. A login saved that way earlier is hidden in the source list and in the config export (PR #111).
+  - Replies from miners, pools, explorers and Bitcoin nodes are now read with a size limit. A reply over the limit is refused instead of being read in full (PR #115).
 
 ## [1.2.0] - 2026-11-12
 
