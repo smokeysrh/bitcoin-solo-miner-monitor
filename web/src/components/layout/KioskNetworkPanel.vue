@@ -24,9 +24,9 @@ const height = computed(() => fresh.value?.height ?? null)
 const difficulty = computed(() => fresh.value?.difficulty ?? null)
 const price = computed(() => props.net?.btc_price || null)
 
-/** A price the source stopped refreshing keeps showing; say so in words, with its age. A price typed in by the user never goes stale. */
+/** A price the source stopped refreshing keeps showing; say so in words, with its age. A price typed in by the user never goes stale, and until settings load we cannot tell which kind it is, so no note shows yet. */
 const priceStaleNote = computed(() => {
-  if (price.value === null || settings.data?.network?.price_source === 'manual') return null
+  if (price.value === null || !settings.data || settings.data.network?.price_source === 'manual') return null
   const source = props.net?.field_sources?.prices
   return source?.stale ? `Price not updating (last updated ${fmt.formatAgo(source.ts)})` : null
 })
