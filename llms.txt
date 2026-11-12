@@ -1,6 +1,6 @@
 # Bitcoin Solo Miner Monitor
 
-> Self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version 1.1.3.
+> Self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version 1.2.0.
 
 This server: http://YOUR-SERVER:8420
 Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/agent/guide.
