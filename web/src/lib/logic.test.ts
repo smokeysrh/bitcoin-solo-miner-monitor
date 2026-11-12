@@ -37,7 +37,7 @@ describe('fuzzy search', () => {
 
 describe('theme', () => {
   it('chooses readable text for any accent colour', () => {
-    expect(accentForeground('#F7931A')).toBe('#1b1203') // bright orange gets dark text
+    expect(accentForeground('#F7931A')).toBe('#0a0a0a') // bright orange gets the kit's jet text
     expect(accentForeground('#1d4ed8')).toBe('#ffffff') // deep blue gets white text
     for (const c of ['#F7931A', '#84CC16', '#06B6D4', '#A78BFA', '#F472B6', '#10B981']) {
       expect(contrast(c, accentForeground(c))).toBeGreaterThanOrEqual(4.5)
