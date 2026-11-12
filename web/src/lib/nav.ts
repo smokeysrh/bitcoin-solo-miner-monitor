@@ -1,4 +1,4 @@
-import { Bell, Bitcoin, Bot, ChartLine, Cpu, Dices, LayoutDashboard, Settings } from 'lucide-vue-next'
+import { Bell, Bitcoin, Blocks, Bot, ChartLine, Cpu, Dices, LayoutDashboard, Settings } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
 export interface NavItem {
@@ -15,6 +15,7 @@ export const NAV: NavItem[] = [
   { to: '/', name: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'monitor', keywords: 'home overview' },
   { to: '/miners', name: 'miners', label: 'Miners', icon: Cpu, group: 'monitor', keywords: 'devices bitaxe nerdqaxe avalon asic' },
   { to: '/bitcoin', name: 'bitcoin', label: 'Bitcoin', icon: Bitcoin, group: 'monitor', keywords: 'node pool network difficulty blocks mempool halving' },
+  { to: '/solo-blocks', name: 'solo-blocks', label: 'Solo blocks', icon: Blocks, group: 'monitor', keywords: 'found blocks solo pool ckpool public pool braiins mempool' },
   { to: '/odds', name: 'odds', label: 'Odds & costs', icon: Dices, group: 'monitor', keywords: 'chance probability lottery electricity profit calculator' },
   { to: '/analytics', name: 'analytics', label: 'Analytics', icon: ChartLine, group: 'monitor', keywords: 'charts history graphs export csv' },
   { to: '/alerts', name: 'alerts', label: 'Alerts & activity', icon: Bell, group: 'manage', keywords: 'notifications events log rules' },

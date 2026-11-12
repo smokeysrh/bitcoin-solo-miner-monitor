@@ -4,19 +4,35 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NamedTuple
 
 from bsmm.sources.base import (
     BlockInfo,
     ConnectionTest,
     DataSource,
     NetworkSnapshot,
+    SourceBadResponse,
     SourceError,
     fetch_json,
 )
 from bsmm.units import to_float, to_int
 
 DEFAULT_URL = "https://mempool.space"
+
+
+class SoloPool(NamedTuple):
+    slug: str  # mempool.space's pool slug, as in /api/v1/mining/pool/{slug}/blocks
+    name: str
+
+
+#: The solo pools mempool.space labels on blocks today. The one place to add another.
+SOLO_POOLS: tuple[SoloPool, ...] = (
+    SoloPool("solock", "Solo CK"),
+    SoloPool("publicpool", "Public Pool"),
+    SoloPool("braiinssolo", "Braiins Solo"),
+    SoloPool("futurebitapollosolo", "FutureBit Apollo Solo"),
+    SoloPool("solopoolcom", "SoloPool.com"),
+)
 
 
 class MempoolSpaceSource(DataSource):
@@ -70,6 +86,16 @@ class MempoolSpaceSource(DataSource):
         # A looked-up block with an empty address list is a verified result, not a missing one.
         block.coinbase_complete = isinstance((data.get("extras") or {}).get("coinbaseAddresses"), list)
         return block
+
+    async def pool_blocks(self, slug: str) -> list[BlockInfo]:
+        """The newest blocks mempool.space attributes to one pool (one request). Raises SourceError if unreadable."""
+        data = await self._get(f"/api/v1/mining/pool/{slug}/blocks")
+        if not isinstance(data, list) or not all(isinstance(b, dict) for b in data):
+            raise SourceBadResponse(f"the block list for pool {slug!r} was not a list of blocks")
+        try:
+            return [self.parse_block(b) for b in data]
+        except (ValueError, TypeError) as e:
+            raise SourceBadResponse(f"a block in the list for pool {slug!r} could not be read ({e})") from e
 
     async def _network_hashrate(self) -> float | None:
         """3-day network hashrate; the payload is large so it is cached for 30 minutes."""

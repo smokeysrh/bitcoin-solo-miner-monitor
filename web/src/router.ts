@@ -16,6 +16,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/miners', name: 'miners', component: () => import('@/pages/MinersPage.vue'), meta: { title: 'Miners' } },
   { path: '/miners/:id', name: 'miner', component: () => import('@/pages/MinerDetailPage.vue'), meta: { title: 'Miner' }, props: true },
   { path: '/bitcoin', name: 'bitcoin', component: () => import('@/pages/BitcoinPage.vue'), meta: { title: 'Bitcoin network' } },
+  { path: '/solo-blocks', name: 'solo-blocks', component: () => import('@/pages/SoloBlocksPage.vue'), meta: { title: 'Solo blocks' } },
   { path: '/odds', name: 'odds', component: () => import('@/pages/OddsPage.vue'), meta: { title: 'Odds & costs' } },
   { path: '/analytics', name: 'analytics', component: () => import('@/pages/AnalyticsPage.vue'), meta: { title: 'Analytics' } },
   { path: '/alerts', name: 'alerts', component: () => import('@/pages/AlertsPage.vue'), meta: { title: 'Alerts & activity' } },

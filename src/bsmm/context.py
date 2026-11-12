@@ -19,6 +19,7 @@ from bsmm.engine.discovery import DiscoveryService
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import Fleet
 from bsmm.engine.network import NetworkService
+from bsmm.engine.solo_blocks import SoloBlocksService
 from bsmm.net import make_http_client
 from bsmm.notify.dispatcher import Notifier
 from bsmm.settings import SettingsService
@@ -42,6 +43,7 @@ class AppContext:
     alerts: AlertEngine
     discovery: DiscoveryService
     auth: AuthService
+    solo_blocks: SoloBlocksService
     started_at: float = field(default_factory=time.time)
     _bg: list[asyncio.Task[None]] = field(default_factory=list)
 
@@ -60,7 +62,7 @@ class AppContext:
         alerts = AlertEngine(store, settings, bus, fleet, network, notifier)
         discovery = DiscoveryService(store, bus, events, fleet, http)
         auth = AuthService(store)
-        ctx = cls(config, store, settings, bus, events, http, fleet, network, notifier, alerts, discovery, auth)
+        ctx = cls(config, store, settings, bus, events, http, fleet, network, notifier, alerts, discovery, auth, SoloBlocksService(network))
         fleet.difficulty_provider = network.difficulty
         network.watch_addresses = fleet.all_addresses
         return ctx

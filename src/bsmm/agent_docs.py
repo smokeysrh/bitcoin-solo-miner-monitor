@@ -64,6 +64,8 @@ TASKS: dict[str, str] = {
         "This is a fixed-window Poisson chance of at least one block, not the chance of winning the very next network block. "
         "Bitcoin targets 10-minute blocks; the exact future block time is unknown. Past work never makes a miner due.",
     "Is anything wrong?": "GET /api/v1/alerts/active and GET /api/v1/insights",
+    "Which blocks did solo pools find lately?": "GET /api/v1/blocks/solo (the latest 20 from mempool.space, newest first; `yours` marks a block that paid one of the user's addresses; "
+        "`available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)",
     "Restart a miner": "POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)",
     "Point miners at my own pool/node": "POST /api/v1/devices/actions {\"action\":\"set_pool\",\"all\":true,\"params\":{...}} previews by default; send dry_run=false to apply",
     "History / charts": "GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w",
