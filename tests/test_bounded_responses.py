@@ -2,6 +2,7 @@
 
 Every reader here gets a reply that is too big (streamed without end, declared too long, or small on the wire and large once
 unpacked). Each must give up with its usual "bad response" error, read only a bounded part of the body and close the reply.
+Requests ask for an unencoded body, and a reply that is encoded anyway is refused before its body is read.
 Normal replies, large or small, must still parse. The HTTP layer is ``httpx.MockTransport`` with streamed bodies, so the
 test can see how much of a body was actually pulled.
 """
@@ -9,6 +10,7 @@ test can see how much of a body was actually pulled.
 from __future__ import annotations
 
 import gzip
+import zlib
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator
 
 import httpx
@@ -18,6 +20,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from bsmm.drivers.base import BadResponse
 from bsmm.drivers.http import request_json
 from bsmm.models import DeviceStatus, Source
+from bsmm.net import request_bounded
 from bsmm.sim.axeos import AxeOSSim
 from bsmm.sources.base import SourceBadResponse, fetch_json
 from bsmm.sources.bitcoin_core import BitcoinCoreSource, BitcoinRPC, probe_node_access
@@ -29,6 +32,8 @@ PULL_CEILING = 10 * MIB
 RUNAWAY_BODY = 40 * MIB  # more than any budget: the body a reader must not follow to the end
 DECLARED_LENGTH = 64 * MIB
 UNPACKED_SIZE = 16 * MIB  # larger than any budget once unpacked
+CHUNK_LIMIT = 64 * 1024  # a packed reply of this size or less arrives as one network chunk
+PACKERS = {"gzip": gzip.compress, "deflate": zlib.compress}
 JSON_HEADERS = {"content-type": "application/json"}
 
 
@@ -63,10 +68,21 @@ def normal_json(pad: int = 0) -> bytes:
     return b'{"result": 7, "pad": "' + b"x" * pad + b'"}'
 
 
-def client_for(body: Body, *, status: int = 200, headers: dict[str, str] | None = None) -> httpx.AsyncClient:
+def client_for(
+    body: Body,
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+    requests: list[httpx.Request] | None = None,
+) -> httpx.AsyncClient:
     reply_headers = {**JSON_HEADERS, **(headers or {})}
-    transport = httpx.MockTransport(lambda request: httpx.Response(status, headers=reply_headers, stream=body))
-    return httpx.AsyncClient(transport=transport, timeout=5.0)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if requests is not None:
+            requests.append(request)
+        return httpx.Response(status, headers=reply_headers, stream=body)
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler), timeout=5.0)
 
 
 # Each reader makes one request through one of the three call paths and returns the value of ``result``.
@@ -125,12 +141,62 @@ async def test_a_small_compressed_reply_that_unpacks_past_the_budget_is_refused(
     assert body.closed
 
 
-@pytest.mark.parametrize("encoding", [None, "gzip"])
+@pytest.mark.parametrize("reader", [pytest.param(r.values[0], id=r.id) for r in READERS])
+async def test_requests_ask_for_an_unencoded_body(reader: Reader):
+    requests: list[httpx.Request] = []
+    async with client_for(Body([normal_json()]), requests=requests) as client:
+        assert await reader(client) == 7
+    assert [r.headers["accept-encoding"] for r in requests] == ["identity"]
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+@pytest.mark.parametrize(("reader", "error"), READERS)
+async def test_an_encoded_reply_is_refused_before_its_body_is_read(
+    reader: Reader, error: type[Exception], encoding: str, monkeypatch: pytest.MonkeyPatch
+):
+    packed = PACKERS[encoding](b"\0" * UNPACKED_SIZE)  # one small chunk on the wire, far over the budget once unpacked
+    assert len(packed) < CHUNK_LIMIT
+    body = Body([packed])
+    unpacked_reads: list[int] = []
+    unpack = httpx.Response.aiter_bytes
+
+    def counting_aiter_bytes(self: httpx.Response, chunk_size: int | None = None) -> AsyncIterator[bytes]:
+        unpacked_reads.append(1)
+        return unpack(self, chunk_size)
+
+    monkeypatch.setattr(httpx.Response, "aiter_bytes", counting_aiter_bytes)
+    async with client_for(body, headers={"content-encoding": encoding}) as client:
+        with pytest.raises(error):
+            await reader(client)
+    assert body.pulled == 0
+    assert unpacked_reads == []  # the unpacking path is never entered
+    assert body.closed
+
+
+async def test_a_reply_labelled_identity_is_read_normally():
+    body = Body([normal_json()])
+    async with client_for(body, headers={"content-encoding": "identity"}) as client:
+        assert await read_as_driver(client) == 7
+
+
+async def test_client_level_credentials_still_apply_when_the_caller_passes_none():
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=normal_json())
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, auth=("placeholder-user", "placeholder-pass")) as client:
+        await request_bounded(client, "GET", "http://pool.test/api/pool", timeout=2.0)
+    assert requests[0].headers["authorization"].startswith("Basic ")
+
+
+@pytest.mark.parametrize("encoding", [None, "identity"])
 @pytest.mark.parametrize("pad", [0, MIB])
 @pytest.mark.parametrize("reader", [pytest.param(r.values[0], id=r.id) for r in READERS])
 async def test_replies_inside_the_budget_still_parse(reader: Reader, pad: int, encoding: str | None):
-    raw = normal_json(pad)
-    wire = gzip.compress(raw) if encoding else raw
+    wire = normal_json(pad)
     body = Body([wire[i : i + 65536] for i in range(0, len(wire), 65536)])
     async with client_for(body, headers={"content-encoding": encoding} if encoding else None) as client:
         assert await reader(client) == 7
