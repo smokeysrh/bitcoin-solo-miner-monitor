@@ -647,6 +647,38 @@ async def test_a_port_that_is_open_but_not_a_mempool_explorer_is_ignored(lan, tc
     assert job.status == "finished" and job.sources == []
 
 
+async def test_a_mempool_check_does_not_read_an_endless_reply(lan, tcp):
+    import httpx
+
+    ctx, _ = lan
+    pulled = 0
+    chunk = b"1" * 65536
+    runaway_chunks = 640  # 40 MiB, far beyond any reply budget
+
+    async def endless() -> AsyncIterator[bytes]:
+        nonlocal pulled
+        for _ in range(runaway_chunks):
+            pulled += len(chunk)
+            yield chunk
+
+    class Body(httpx.AsyncByteStream):
+        async def __aiter__(self) -> AsyncIterator[bytes]:
+            async for part in endless():
+                yield part
+
+    probe_http = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, stream=Body())))
+    ctx.discovery.http = probe_http
+    tcp.open.add(("10.7.7.4", 3006))
+    try:
+        job = ctx.discovery.start(["10.7.7.0/29"])
+        await finish(job)
+        assert job.status == "finished" and job.sources == []
+        assert 0 < pulled <= 10 * 1024 * 1024  # stopped near the budget instead of following the body to its end
+    finally:
+        await probe_http.aclose()
+        await _cancel_jobs(ctx)
+
+
 async def test_a_host_answering_on_both_standard_ports_is_listed_once_as_its_best_match(lan, tcp, monkeypatch):
     from bsmm.models import DeviceInfo, ProbeResult
 
