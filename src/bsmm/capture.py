@@ -17,8 +17,8 @@ import httpx
 
 from bsmm.drivers.cgminer import CgminerDriver, cgminer_call
 from bsmm.drivers.registry import probe_host
+from bsmm.redaction import REDACTED, redact_tree
 
-REDACTED = "<redacted>"
 HTTP_PATHS = ("/api/system/info", "/api/system/asic", "/api/system/statistics")
 CGMINER_COMMANDS = ("version", "summary", "stats", "devdetails", "pools", "estats")  # all read-only
 HTTP_PORTS = (80,)
@@ -46,13 +46,7 @@ def _scrub_text(text: str) -> str:
 
 def redact(value: Any) -> Any:
     """A copy of ``value`` with personal data replaced."""
-    if isinstance(value, dict):
-        return {k: (REDACTED if str(k).lower() in SENSITIVE_KEYS else redact(v)) for k, v in value.items()}
-    if isinstance(value, list):
-        return [redact(v) for v in value]
-    if isinstance(value, str):
-        return _scrub_text(value)
-    return value
+    return redact_tree(value, hide_key=lambda key: key.lower() in SENSITIVE_KEYS, scrub_text=_scrub_text)
 
 
 async def _get(client: httpx.AsyncClient, host: str, port: int, path: str) -> dict[str, Any]:
