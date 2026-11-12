@@ -315,7 +315,7 @@ class DiscoveryService:
     async def _resolve_saved_name(name: str) -> set[str]:
         try:
             return await asyncio.wait_for(resolve_ipv4(name), RESOLVE_TIMEOUT_S)
-        except (OSError, TimeoutError):
+        except (OSError, TimeoutError, UnicodeError):  # UnicodeError: the resolver refuses some names before any lookup
             log.info("could not look up the saved node address %s; a node found by its IP cannot be matched to it", name)
             return set()
 
