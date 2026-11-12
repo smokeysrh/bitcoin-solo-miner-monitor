@@ -75,8 +75,8 @@ def build_odds(
     if cost_note:
         out["plain_english"].append(cost_note)
     out["plain_english"].append(
-        "Next 10 minutes is a fixed 600-second window for finding at least one block, not your chance of winning the very next network block. "
-        "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due."
+        "Next 10 minutes is a fixed 600-second window for finding at least one block, not the very next network block. "
+        "Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due, and every ticket you hold stays in the draw."
     )
     return out
 
@@ -99,7 +99,7 @@ def _sentences(hr: float, rep: mining.OddsReport, p_year: float, p_day: float, e
         f"At {format_hashrate(hr)} you hold about {format_percent(rep.share_of_network, 7)} of the network's hashrate.",
         f"Your chance of finding a block in a year is {format_odds(p_year)} ({format_percent(p_year, 4)}); "
         f"on average you would wait {format_duration(rep.expected_seconds)}.",
-        "Every hash is an independent ticket: it doesn't matter how long you have been mining, the next one is just as likely to win as the first.",
+        "Every hash is a fresh ticket. Your miner has no memory, and neither does the lottery, so the next hash is as good as the first.",
     ]
     if best.get("progress_to_block"):
         lines.append(f"Your best share so far ({format_si(best['difficulty'])}) reached {format_percent(best['progress_to_block'], 4)} of the way to a block.")
@@ -107,6 +107,6 @@ def _sentences(hr: float, rep: mining.OddsReport, p_year: float, p_day: float, e
         cur = settings.units.currency
         lines.append(
             f"Electricity costs about {eco.cost_per_year:,.0f} {cur} a year; the expected value of the block lottery is about "
-            f"{eco.expected_value_per_year:,.0f} {cur} a year (it pays out rarely and in one huge lump: treat it as a lottery ticket, not income)."
+            f"{eco.expected_value_per_year:,.0f} {cur} a year. That is lottery maths: a block lands in one big lump, never a trickle."
         )
     return lines

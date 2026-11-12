@@ -8,7 +8,7 @@ from bsmm.engine.odds import build_odds
 from bsmm.models import Device, DeviceStatus, FleetSummary, Telemetry
 from bsmm.settings import Settings
 
-COST_FIELDS = ("cost_per_day", "cost_per_month", "cost_per_year", "ev_to_cost_ratio", "break_even_btc_price")
+COST_FIELDS = ("cost_per_day", "cost_per_month", "cost_per_year", "ev_to_cost_ratio")
 NET = NetworkState(difficulty=1e14, btc_price=80_000.0)
 
 
@@ -91,3 +91,13 @@ async def test_odds_api_returns_null_cost_when_power_unknown(api):
     assert eco["power_w"] is None and eco["cost_per_day"] is None
     zero = (await client.get("/api/v1/odds", params={"power_w": 0})).json()["economics"]
     assert zero["cost_per_day"] == 0
+
+
+async def test_odds_api_has_no_break_even_price(api):
+    client, ctx, _ = api
+    ctx.network.state = NET
+    for params in ({}, {"power_w": 100}):
+        eco = (await client.get("/api/v1/odds", params=params)).json()["economics"]
+        assert "break_even_btc_price" not in eco
+        assert "ev_to_cost_ratio" in eco
+    assert "break_even_btc_price" not in build_odds(FleetSummary(hashrate_hs=1e12), NET, Settings(), power_w=100.0)["economics"]

@@ -341,7 +341,6 @@ export interface Economics {
   expected_value_per_day: number | null
   expected_value_per_year: number | null
   ev_to_cost_ratio: number | null
-  break_even_btc_price: number | null
   power_w: number | null
   power_complete: boolean
   /** plain-language reason the cost is unknown or partial */
