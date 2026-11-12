@@ -63,11 +63,21 @@ async def request_bounded(
 ) -> httpx.Response:
     """Send a request and return the reply with its whole body loaded, refusing any body over ``max_bytes``.
 
-    A declared length over the budget is refused before the body is read. Otherwise the (decoded) body is counted as it
-    arrives; over the budget the reply is closed and :class:`ResponseTooLarge` is raised. Transport errors propagate
-    exactly as from ``client.request``.
+    The request asks for an unencoded body (``Accept-Encoding: identity``) and a reply that is encoded anyway is refused
+    before its body is read, so the byte count below is the size held in memory. A declared length over the budget is also
+    refused before the body is read. Otherwise the raw body is counted as it arrives; over the budget the reply is closed
+    and :class:`ResponseTooLarge` is raised. Transport errors propagate exactly as from ``client.request``.
     """
-    async with client.stream(method, url, json=json_body, auth=auth, headers=headers, timeout=timeout) as resp:
+    request_headers = httpx.Headers(headers)
+    request_headers["Accept-Encoding"] = "identity"
+    # A caller without its own credentials keeps the client's (passing ``auth=None`` would switch them off).
+    request_auth = auth if auth is not None else httpx.USE_CLIENT_DEFAULT
+    async with client.stream(
+        method, url, json=json_body, auth=request_auth, headers=request_headers, timeout=timeout
+    ) as resp:
+        encodings = [token.strip().lower() for token in resp.headers.get("content-encoding", "").split(",")]
+        if any(token not in ("", "identity") for token in encodings):
+            raise ResponseTooLarge("the reply is encoded, so its unpacked size cannot be bounded")
         try:
             declared = int(resp.headers.get("content-length", ""))
         except ValueError:
@@ -75,7 +85,7 @@ async def request_bounded(
         if declared > max_bytes:
             raise ResponseTooLarge(f"the reply is larger than {max_bytes} bytes")
         body = bytearray()
-        async for chunk in resp.aiter_bytes():
+        async for chunk in resp.aiter_raw():
             body += chunk
             if len(body) > max_bytes:
                 raise ResponseTooLarge(f"the reply is larger than {max_bytes} bytes")
