@@ -3,6 +3,7 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import HistoryChart from '@/components/charts/HistoryChart.vue'
+import KioskNetworkPanel from '@/components/layout/KioskNetworkPanel.vue'
 import KioskPage from '@/pages/KioskPage.vue'
 import { api } from '@/lib/api'
 import type { NetworkState, Settings } from '@/lib/types'
@@ -69,13 +70,17 @@ afterEach(() => {
   vi.restoreAllMocks(); vi.unstubAllGlobals()
 })
 
-/** Mounts the real wall display on its network panel with the given live network state. */
-async function networkPanel(net: NetworkState | null, priceSource: PriceSource = 'mempool') {
-  useSettings().data = {
+function settingsFixture(priceSource: PriceSource): Settings {
+  return {
     ui: { theme: 'dark', accent: '#F7931A', density: 'comfortable', reduce_motion: false, kiosk: { rotate_s: 600, panels: ['network'], show_clock: false } },
     units: { temperature: 'c', hashrate: 'auto', currency: 'USD' },
     network: { price_source: priceSource },
   } as unknown as Settings
+}
+
+/** Mounts the real wall display on its network panel with the given live network state. */
+async function networkPanel(net: NetworkState | null, priceSource: PriceSource = 'mempool') {
+  useSettings().data = settingsFixture(priceSource)
   useLive().network = net
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:rest(.*)*', component: { template: '<div />' } }] })
   await router.push('/kiosk')
@@ -158,6 +163,48 @@ describe('issue 2366: wall display price freshness', () => {
     const section = await networkPanel(network({ field_sources: priceField(true) }), 'manual')
     expect(section.find(`[data-testid="${STALE_NOTE_ID}"]`).exists()).toBe(false)
     expect(section.get('[data-testid="kiosk-price-value"]').text()).toContain('82,000')
+  })
+})
+
+describe('issue 2366: stale price note waits for settings', () => {
+  const noteSelector = `[data-testid="${STALE_NOTE_ID}"]`
+
+  /** Mounts the network panel while the settings request is still unanswered; `finish` answers it with the saved settings. */
+  async function panelWhileSettingsLoad(net: NetworkState) {
+    let answer!: (saved: Settings) => void
+    const pending = new Promise<Settings>((resolve) => { answer = resolve })
+    vi.spyOn(api, 'settings').mockReturnValue(pending)
+    const settings = useSettings()
+    expect(settings.data).toBeNull()
+    const wrapper = mount(KioskNetworkPanel, { props: { net }, global: { plugins: [pinia] } })
+    wrappers.push(wrapper)
+    const loading = settings.load()
+    await flushPromises()
+    const finish = async (saved: Settings): Promise<void> => {
+      answer(saved)
+      await loading
+      await flushPromises()
+    }
+    return { wrapper, settings, finish }
+  }
+
+  it('shows no stale note while settings are loading, and none once they say the price is typed in', async () => {
+    const { wrapper, settings, finish } = await panelWhileSettingsLoad(network({ field_sources: priceField(true) }))
+    expect(settings.data).toBeNull()
+    expect(wrapper.find(noteSelector).exists()).toBe(false)
+    // the price itself is still shown while settings load
+    expect(wrapper.get('[data-testid="kiosk-price-value"]').text()).toContain('82,000')
+    await finish(settingsFixture('manual'))
+    expect(settings.data).not.toBeNull()
+    expect(wrapper.find(noteSelector).exists()).toBe(false)
+    expect(wrapper.get('[data-testid="kiosk-price-value"]').text()).toContain('82,000')
+  })
+
+  it('shows the stale note once settings have loaded and the price comes from mempool.space', async () => {
+    const { wrapper, finish } = await panelWhileSettingsLoad(network({ field_sources: priceField(true) }))
+    expect(wrapper.find(noteSelector).exists()).toBe(false)
+    await finish(settingsFixture('mempool'))
+    expect(wrapper.get(noteSelector).text()).toBe('Price not updating (last updated 2h ago)')
   })
 })
 
