@@ -116,10 +116,11 @@ const accent = (): string => settings.data?.ui.accent ?? '#F7931A'
 
   <SettingsCard title="Dashboard &amp; wall display" description="Rearrange the dashboard from the dashboard itself. The wall display turns it into a full-screen screen for a TV or spare tablet.">
     <div class="flex flex-wrap gap-2">
-      <Button to="/" variant="secondary">Customize the dashboard</Button>
+      <Button v-if="admin" to="/" variant="secondary">Customize the dashboard</Button>
       <Button to="/kiosk" variant="secondary"><template #icon><Tv class="size-4" /></template>Open the wall display</Button>
-      <Button variant="ghost" @click="patch({ ui: { dashboard: null } })">Reset dashboard layout</Button>
+      <Button v-if="admin" variant="ghost" @click="patch({ ui: { dashboard: null } })">Reset dashboard layout</Button>
     </div>
+    <p v-if="!admin" class="mt-3 text-xs text-subtle">Only an admin can rearrange or reset the dashboard layout. It is shared with everyone who views this app.</p>
     <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
       <div>
         <label for="kiosk-odds-headline" class="text-sm font-medium text-fg">Odds headline on the wall display</label>
