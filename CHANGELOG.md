@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0] - 2026-11-12
 
-This minor release gives HashHurdr, the Bitcoin Solo Miner Monitor, its new name and a Night Shift look, Built for Plebs, By Plebs, with every hash still a fresh ticket.
+This minor release gives the Bitcoin Solo Miner Monitor its new name, HashHurdr, and a Night Shift look, Built for Plebs, By Plebs, with every hash still a fresh ticket.
 
 ### Changed
 - **Name, logo and icons:**
@@ -16,7 +16,7 @@ This minor release gives HashHurdr, the Bitcoin Solo Miner Monitor, its new name
   - Notifications carry the new name. The email subject prefix is now `[HashHurdr]` (it was `[Solo Miner Monitor]`), and the email sign-off, the Discord webhook sender name and footer, and the ntfy fallback title say HashHurdr too. If you have an email filter on the old subject, update it (PR #122).
   - Nothing technical was renamed: the package `bitcoin-solo-miner-monitor`, the `bsmm` command and service, data and key folders, API paths and fields (apart from the removal below), the Docker image, the Umbrel app id, the Windows install folder and the Start Menu group all stay as they were. An upgrade installs over the existing app in the same place (PR #122).
 - **Night Shift look:**
-  - New HashHurdr Night Shift colours in all three themes: dark (the default), Black (also used by the wall display) and light. Your chosen theme and accent colour are kept (PR #128).
+  - New HashHurdr Night Shift colours in all three themes: dark (the default), Black and light. The wall display uses whichever theme you have chosen. Your chosen theme and accent colour are kept (PR #128).
   - Fonts are bundled with the app, with their licences: Saira for headings, Inter for the interface and JetBrains Mono for numbers. The app does not download fonts from the internet (PR #128).
   - Status colours keep their shapes, icons and labels (PR #128).
 - **Wording:**
@@ -25,12 +25,12 @@ This minor release gives HashHurdr, the Bitcoin Solo Miner Monitor, its new name
 ### Removed
 - **Break-even Bitcoin price:**
   - The break-even Bitcoin price is gone from the Odds & costs page and the Electricity & value widget. Expected value and electricity cost figures are unchanged (PR #120).
-  - The field `economics.break_even_btc_price` is removed from the `/api/v1/odds` response, and so from the MCP tools. Anything reading that field must stop using it (PR #120).
+  - The field `economics.break_even_btc_price` is removed from the `/api/v1/odds` response and from the `odds` section of the `/api/v1/overview` response, and so from the MCP tools. Anything reading that field must stop using it (PR #120).
 
 ### Fixed
 - **Contrast:**
-  - The alert badge no longer uses white text on red, which was hard to read. It now meets the contrast standard (WCAG AA) in dark and light (PR #128).
-  - In the light theme, the focus ring and accent text are darker so they are readable on white (PR #128).
+  - In the dark and Black themes, the alert badge had white text on red, which was hard to read. It now has dark text on red and meets the contrast standard (WCAG AA). The light theme badge keeps its white text, which already met the standard (PR #128).
+  - In the light theme, the focus ring (the outline around the control you have selected with the keyboard) is darker so it is readable on white (PR #128).
 
 ## [1.3.0] - 2026-11-12
 
