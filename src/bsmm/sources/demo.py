@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 from typing import ClassVar
 
@@ -14,16 +15,35 @@ from bsmm.sources.base import (
     PoolStatus,
     PoolWorker,
 )
+from bsmm.sources.mempool_space import SOLO_POOLS, SoloPool
 
 BASE_HEIGHT = 972_175
 DIFFICULTY = 140_577_680_051_919.6
 NET_HASHRATE = 1.0325e21
 EX_ADDR = "bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq"
 _T0 = time.time()
+SECONDS_PER_DAY = 86_400
+BLOCKS_PER_DAY = 144
+#: (days ago, index into SOLO_POOLS), newest first. Fixed, so the demo list is the same on every start.
+DEMO_SOLO_BLOCKS: tuple[tuple[float, int], ...] = (
+    (2.4, 0), (7.9, 1), (15.3, 0), (21.6, 2), (29.1, 1), (36.8, 0), (44.2, 3), (53.0, 0), (61.5, 1), (70.9, 4),
+    (79.4, 0), (88.7, 2), (97.3, 1), (108.2, 0), (119.6, 1), (131.0, 3), (142.8, 0), (155.4, 2), (168.9, 1), (183.5, 0),
+)
 
 
 def _height(now: float) -> int:
     return BASE_HEIGHT + int((now - _T0) // 600)
+
+
+def demo_solo_blocks(now: float) -> dict[SoloPool, list[BlockInfo]]:
+    """Synthetic blocks per solo pool, shaped like mempool.space's pool lists. Same heights, hashes and pools every time."""
+    by_pool: dict[SoloPool, list[BlockInfo]] = {pool: [] for pool in SOLO_POOLS}
+    for days_ago, pool_index in DEMO_SOLO_BLOCKS:
+        height = BASE_HEIGHT - round(days_ago * BLOCKS_PER_DAY)
+        digest = hashlib.sha256(f"bsmm-demo-solo-block-{height}".encode()).hexdigest()
+        by_pool[SOLO_POOLS[pool_index]].append(
+            BlockInfo(hash=digest, height=height, ts=now - days_ago * SECONDS_PER_DAY, tx_count=2000 + height % 2500))
+    return by_pool
 
 
 class DemoSource(DataSource):

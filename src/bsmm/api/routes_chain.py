@@ -13,11 +13,18 @@ from bsmm.auth import Principal
 from bsmm.context import AppContext
 from bsmm.engine.network import PUBLIC_SOURCE_ID, SOURCE_CLASSES
 from bsmm.engine.odds import build_odds
+from bsmm.engine.solo_blocks import SOLO_BLOCKS_LIMIT
 from bsmm.models import Source
 from bsmm.sources.base import ConnectionTest, SourceError
 from bsmm.sources.bitcoin_core import check_cookie_option, node_host
+from bsmm.sources.mempool_space import SOLO_POOLS
 
 router = APIRouter()
+
+
+async def _my_block_hashes(ctx: AppContext) -> set[str]:
+    """Hashes of blocks that paid one of the user's addresses (replaced blocks excluded): what "yours" means in block lists."""
+    return {b["hash"] for b in await ctx.store.list_blocks_found()}
 
 
 @router.get("/network", tags=["bitcoin"], operation_id="getNetwork",
@@ -40,8 +47,21 @@ async def pool(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(requir
 
 @router.get("/blocks/recent", tags=["bitcoin"], operation_id="getRecentBlocks", summary="The latest blocks on the chain")
 async def recent_blocks(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
-    mine = {b["hash"] for b in await ctx.store.list_blocks_found()}
+    mine = await _my_block_hashes(ctx)
     return {"blocks": [{**b.model_dump(mode="json"), "yours": b.hash in mine} for b in ctx.network.state.recent_blocks]}
+
+
+@router.get("/blocks/solo", tags=["bitcoin"], operation_id="getSoloBlocks", summary="The latest blocks found by solo pools, newest first",
+            description=f"Up to {SOLO_BLOCKS_LIMIT} blocks mempool.space attributes to {', '.join(p.name for p in SOLO_POOLS)}, "
+            "with height, time, pool and a mempool.space link. `yours` marks a block that paid one of your addresses (the same rule as "
+            "`/blocks/recent`). `available: false` means outside lookups are off (`message` says so); that is not an error and not an empty list. "
+            "`failed_pools` names pools that could not be read, and `stale: true` means a refresh failed and `blocks` is the last good list. "
+            "If nothing could be read at all the answer is a 502 error. The list is cached for 30 minutes. Demo mode returns synthetic blocks.")
+async def solo_blocks(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
+    result = await ctx.solo_blocks.get()
+    mine = await _my_block_hashes(ctx)
+    flagged = result.model_copy(update={"blocks": [b.model_copy(update={"yours": b.hash in mine}) for b in result.blocks]})
+    return {**flagged.model_dump(mode="json"), "pools": [{"slug": p.slug, "name": p.name} for p in SOLO_POOLS], "limit": SOLO_BLOCKS_LIMIT}
 
 
 @router.get("/blocks/found", tags=["bitcoin"], operation_id="getBlocksFound", summary="Blocks that paid one of your addresses (hopefully a long list)")

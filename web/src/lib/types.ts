@@ -367,6 +367,34 @@ export interface FoundBlock {
   data: Record<string, unknown>
 }
 
+/** A block mempool.space attributes to a solo pool (GET /blocks/solo). `yours` is the same rule as BlockInfo.yours. */
+export interface SoloBlock {
+  hash: string
+  height: number
+  ts: number
+  pool_slug: string
+  pool_name: string
+  tx_count: number | null
+  url: string
+  yours: boolean
+}
+
+export interface SoloBlocksResult {
+  /** false when outside lookups are off: `message` explains it and `blocks` is not a finding */
+  available: boolean
+  message: string | null
+  blocks: SoloBlock[]
+  source: string | null
+  fetched_at: number | null
+  /** a refresh failed and `blocks` is the last good list; `error` says why */
+  stale: boolean
+  error: string | null
+  /** pools that could not be read, so the list may be missing some of their blocks */
+  failed_pools: string[]
+  pools: { slug: string; name: string }[]
+  limit: number
+}
+
 // ----------------------------------------------------------------------------------- events & alerts
 
 export interface AppEvent {
