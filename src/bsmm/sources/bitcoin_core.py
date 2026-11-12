@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from bsmm.net import local_address_towards
+from bsmm.net import MAX_RPC_RESPONSE_BYTES, ResponseTooLarge, local_address_towards, request_bounded
 from bsmm.sources.base import (
     BlockInfo,
     ConnectionTest,
@@ -233,20 +233,23 @@ async def probe_node_access(client: httpx.AsyncClient, url: str, *, timeout: flo
     reason = REASON_UNREACHABLE
     detail: str | None = None
     try:
-        resp = await client.post(target, json={"jsonrpc": "1.0", "id": 0, "method": "getblockcount", "params": []}, timeout=timeout)
+        # Only the status matters here, so the body is never read: leaving the block closes the reply.
+        async with client.stream("POST", target, json={"jsonrpc": "1.0", "id": 0, "method": "getblockcount", "params": []},
+                                 timeout=timeout) as resp:
+            status = resp.status_code
     except httpx.TimeoutException:
         detail = f"timed out after {timeout:g}s"
     except httpx.HTTPError as e:
         detail = _transport_detail(e)
     else:
-        if resp.status_code == 200:
+        if status == 200:
             return None
-        if resp.status_code == 401:
+        if status == 401:
             reason = REASON_NEEDS_LOGIN
-        elif resp.status_code == 403:
+        elif status == 403:
             reason = REASON_NOT_ALLOWED
         else:
-            detail = f"HTTP {resp.status_code}: this is not a Bitcoin Core RPC endpoint"
+            detail = f"HTTP {status}: this is not a Bitcoin Core RPC endpoint"
     return await asyncio.to_thread(explain_refusal, reason, target, detail=detail)
 
 
@@ -277,11 +280,15 @@ class BitcoinRPC:
                 raise RpcError(f"RPC method {item['method']!r} is not allowed (read-only client)")
         headers = await self._auth_header()
         try:
-            resp = await self.client.post(self.url, json=payload, headers=headers, timeout=self.timeout)
+            resp = await request_bounded(
+                self.client, "POST", self.url, json_body=payload, headers=headers, timeout=self.timeout,
+                max_bytes=MAX_RPC_RESPONSE_BYTES)
         except httpx.TimeoutException as e:
             raise SourceUnreachable(f"timed out after {self.timeout:g}s") from e
         except httpx.TransportError as e:
             raise SourceUnreachable(_transport_detail(e)) from e
+        except ResponseTooLarge as e:
+            raise SourceBadResponse("the node's reply is too large to read") from e
         if resp.status_code == 401:
             raise SourceAuthError("wrong RPC user name or password")
         if resp.status_code == 403:

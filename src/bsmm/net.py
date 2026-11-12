@@ -7,6 +7,7 @@ import contextlib
 import ipaddress
 import re
 from collections.abc import Iterator
+from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
@@ -34,6 +35,52 @@ def make_http_client(timeout: httpx.Timeout | float | None = None, *, verify: bo
         follow_redirects=False,
         verify=verify,
     )
+
+
+#: Largest reply body read from a miner, pool or explorer; real replies are a few KB, at most a few hundred KB.
+MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+#: Bitcoin Core replies (a block's transaction list, a coinbase paying many outputs) can reach a few MB, so they get more room.
+MAX_RPC_RESPONSE_BYTES = 8 * 1024 * 1024
+
+# Headers that describe the body as it was on the wire; ``request_bounded`` hands back the decoded body.
+_WIRE_BODY_HEADERS = frozenset({"content-encoding", "content-length", "transfer-encoding"})
+
+
+class ResponseTooLarge(Exception):
+    """A reply body went over its size budget and was not read to the end."""
+
+
+async def request_bounded(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    *,
+    timeout: float,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+    json_body: Any = None,
+    auth: tuple[str, str] | None = None,
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    """Send a request and return the reply with its whole body loaded, refusing any body over ``max_bytes``.
+
+    A declared length over the budget is refused before the body is read. Otherwise the (decoded) body is counted as it
+    arrives; over the budget the reply is closed and :class:`ResponseTooLarge` is raised. Transport errors propagate
+    exactly as from ``client.request``.
+    """
+    async with client.stream(method, url, json=json_body, auth=auth, headers=headers, timeout=timeout) as resp:
+        try:
+            declared = int(resp.headers.get("content-length", ""))
+        except ValueError:
+            declared = 0  # absent or malformed: the count below still applies
+        if declared > max_bytes:
+            raise ResponseTooLarge(f"the reply is larger than {max_bytes} bytes")
+        body = bytearray()
+        async for chunk in resp.aiter_bytes():
+            body += chunk
+            if len(body) > max_bytes:
+                raise ResponseTooLarge(f"the reply is larger than {max_bytes} bytes")
+        kept = [(k, v) for k, v in resp.headers.multi_items() if k.lower() not in _WIRE_BODY_HEADERS]
+        return httpx.Response(resp.status_code, headers=kept, content=bytes(body), request=resp.request)
 
 
 _HOST_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9\-\.]{0,251}[A-Za-z0-9])?$")

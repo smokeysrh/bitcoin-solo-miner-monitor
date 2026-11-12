@@ -25,7 +25,7 @@ from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
 from bsmm.models import Device, ProbeResult, Severity, Source
-from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
+from bsmm.net import ResponseTooLarge, is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, request_bounded, tcp_open
 from bsmm.sources.base import NodeRefusal, SourceError
 from bsmm.sources.bitcoin_core import normalise_url, probe_node_access
 from bsmm.sources.public_pool import PublicPoolSource
@@ -334,10 +334,10 @@ class DiscoveryService:
             if 3006 in ports:
                 url = f"http://{host}:3006"
                 try:
-                    r = await self.http.get(f"{url}/api/blocks/tip/height", timeout=3.0)
+                    r = await request_bounded(self.http, "GET", f"{url}/api/blocks/tip/height", timeout=3.0)
                     if r.status_code == 200 and r.text.strip().isdigit():
                         job.sources.append(SourceCandidate("mempool_space", url, f"mempool on {host}", False, "A mempool explorer answers here", True))
-                except httpx.HTTPError:
+                except (httpx.HTTPError, ResponseTooLarge):
                     pass
         self._publish(job)
 
