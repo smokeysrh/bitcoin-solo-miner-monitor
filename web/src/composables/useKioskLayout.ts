@@ -58,7 +58,9 @@ function overviewFixedHeight(width: number, height: number): number {
   const label = Math.max(OVERVIEW_LABEL_MIN_PX, OVERVIEW_LABEL_VMIN * short)
   const hash = Math.min(OVERVIEW_HASH_MAX_PX, Math.max(OVERVIEW_HASH_MIN_PX, Math.min(OVERVIEW_HASH_VW * width, OVERVIEW_HASH_VMIN * short)))
   const value = Math.max(OVERVIEW_VALUE_MIN_PX, OVERVIEW_VALUE_VMIN * short)
-  const columns = width >= height ? OVERVIEW_FIGURE_COLUMNS_LANDSCAPE : OVERVIEW_FIGURE_COLUMNS_PORTRAIT
+  // Same rule as CSS `(orientation: landscape)`, which KioskPage.vue's `landscape:grid-cols-4` uses: a square screen is portrait.
+  // Change the figures' grid classes and this budget together.
+  const columns = width > height ? OVERVIEW_FIGURE_COLUMNS_LANDSCAPE : OVERVIEW_FIGURE_COLUMNS_PORTRAIT
   const figureRows = OVERVIEW_FIGURE_COUNT / columns
   const figureRow = (label + value) * BODY_LINE_HEIGHT + OVERVIEW_CAPTION_GAP_PX
   return (
