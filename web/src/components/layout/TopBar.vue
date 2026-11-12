@@ -49,7 +49,7 @@ const userItems = computed<MenuItem[]>(() => [
 <template>
   <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-line bg-bg/75 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
     <RouterLink to="/" class="flex items-center gap-2.5 lg:hidden" aria-label="Dashboard"><LogoMark :size="32" alt="" /></RouterLink>
-    <h1 class="min-w-0 truncate text-lg font-semibold tracking-tight text-fg" data-testid="page-title">{{ title }}</h1>
+    <h1 class="min-w-0 truncate text-lg font-bold tracking-tight text-fg" data-testid="page-title">{{ title }}</h1>
 
     <div class="ml-auto flex items-center gap-2">
       <div class="hidden sm:block"><LiveBadge /></div>

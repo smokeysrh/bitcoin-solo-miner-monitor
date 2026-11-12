@@ -133,13 +133,13 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
       </div>
 
       <div v-else-if="step.id === 'miners'" class="animate-fade-up space-y-5">
-        <div><h2 class="text-xl font-semibold text-fg">Find your miners</h2><p class="mt-1 text-sm text-muted">Make sure they are powered on and on the same network as this computer.</p></div>
+        <div><h2 class="text-xl font-bold text-fg">Find your miners</h2><p class="mt-1 text-sm text-muted">Make sure they are powered on and on the same network as this computer.</p></div>
         <DiscoveryPanel @adopted="(n) => n > 0 && go(2)" />
         <p v-if="live.deviceCount" class="text-sm text-ok">{{ live.deviceCount }} miner{{ live.deviceCount === 1 ? '' : 's' }} now being monitored.</p>
       </div>
 
       <form v-else-if="step.id === 'energy'" class="animate-fade-up space-y-5" @submit.prevent="saveEnergy">
-        <div><h2 class="text-xl font-semibold text-fg">What does electricity cost you?</h2><p class="mt-1 text-sm text-muted">Mining is a power bill first. This lets the app show your real costs. Look for “per kWh” on your bill.</p></div>
+        <div><h2 class="text-xl font-bold text-fg">What does electricity cost you?</h2><p class="mt-1 text-sm text-muted">Mining is a power bill first. This lets the app show your real costs. Look for “per kWh” on your bill.</p></div>
         <div class="grid gap-4 sm:grid-cols-[1fr_9rem]">
           <Field label="Price per kWh" required hint="Example: 0.14"><template #default="{ id, describedBy }"><Input :id="id" v-model="price" type="number" :min="0" :step="0.01" :described-by="describedBy" data-testid="setup-price" /></template></Field>
           <Field label="Currency"><template #default="{ id }"><Select :id="id" v-model="currency" :options="currencies" /></template></Field>
@@ -149,7 +149,7 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
       </form>
 
       <div v-else-if="step.id === 'alerts'" class="animate-fade-up space-y-5">
-        <div><h2 class="text-xl font-semibold text-fg">Alerts on your phone <span class="text-sm font-normal text-subtle">(optional)</span></h2><p class="mt-1 text-sm text-muted">The free ntfy app buzzes your phone when a miner overheats, drops offline, or finds a block.</p></div>
+        <div><h2 class="text-xl font-bold text-fg">Alerts on your phone <span class="text-sm font-normal text-subtle">(optional)</span></h2><p class="mt-1 text-sm text-muted">The free ntfy app buzzes your phone when a miner overheats, drops offline, or finds a block.</p></div>
         <ol class="list-decimal space-y-1.5 pl-5 text-sm text-muted"><li>Install <b class="text-fg">ntfy</b> from your app store.</li><li>In the app, subscribe to the topic below.</li><li>Press the button here to send a test.</li></ol>
         <Field label="Your private topic" hint="Anyone who knows the name can read the alerts, so keep the random part."><template #default="{ id, describedBy }"><Input :id="id" v-model="topic" mono :disabled="busy" :described-by="describedBy" data-testid="setup-topic" /></template></Field>
         <p v-if="ntfyChannel" class="text-sm text-muted">This channel is saved. Sending again reuses it; changing the topic updates the same channel.</p>

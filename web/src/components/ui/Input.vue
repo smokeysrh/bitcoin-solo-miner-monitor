@@ -48,7 +48,7 @@ function onInput(e: Event): void {
     :class="
       cn(
         'group flex w-full items-center rounded-xl border bg-surface-2 transition-colors',
-        'focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25',
+        'focus-within:border-focus focus-within:ring-2 focus-within:ring-focus/25',
         invalid ? 'border-bad' : 'border-line hover:border-line-strong',
         disabled && 'opacity-55',
         size === 'sm' ? 'h-8' : 'h-10',

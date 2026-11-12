@@ -26,8 +26,10 @@ const OVERVIEW_HASH_MAX_PX = 768
 const OVERVIEW_HASH_LINE_HEIGHT = 1.2
 const OVERVIEW_VALUE_VMIN = 0.06 // figure values, at least 2.25rem
 const OVERVIEW_VALUE_MIN_PX = 36
-const OVERVIEW_HASH_GAP_VMIN = 0.015 // margin above the hashrate line
-const OVERVIEW_CHART_GAP_VMIN = 0.02 // margin above the chart
+// JetBrains Mono's text box is 1.32em tall against the headline's 1.2em line, so it reaches 0.06em (up to 1.7vmin) above the
+// line. The gap above the headline carries that, and the gap above the chart gives the same amount back: the sum is unchanged.
+const OVERVIEW_HASH_GAP_VMIN = 0.02 // margin above the hashrate line
+const OVERVIEW_CHART_GAP_VMIN = 0.015 // margin above the chart
 const OVERVIEW_FIGURES_GAP_VMIN = 0.03 // margin above the figures
 const OVERVIEW_FIGURE_GRID_GAP_VMIN = 0.025 // row gap between figures when they stack two by two (portrait)
 const OVERVIEW_CAPTION_GAP_PX = 4 // `mt-1` between a caption and its value

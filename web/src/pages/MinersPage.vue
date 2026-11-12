@@ -162,7 +162,7 @@ const hashShown = computed(() => fmt.hashrate(filtered.value.reduce((a, d) => a 
   <div class="space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-fg">Miners</h2>
+        <h2 class="text-2xl font-bold tracking-tight text-fg">Miners</h2>
         <p class="mt-1 text-sm text-muted" data-testid="miners-summary">
           <template v-if="live.deviceCount">{{ filtered.length }} shown · {{ hashShown }} together</template>
           <template v-else>None added yet</template>
@@ -261,7 +261,7 @@ const hashShown = computed(() => fmt.hashrate(filtered.value.reduce((a, d) => a 
 
       <template v-else>
         <div v-for="s in sections" :key="s.label" class="space-y-3">
-          <h3 v-if="s.label" class="flex items-center gap-2 text-sm font-semibold text-fg">
+          <h3 v-if="s.label" class="flex items-center gap-2 text-sm font-bold text-fg">
             {{ s.label }} <span class="rounded-full bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">{{ s.devices.length }}</span>
           </h3>
           <div v-if="view === 'grid'" class="grid gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-testid="miner-grid">

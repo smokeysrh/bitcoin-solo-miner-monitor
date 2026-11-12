@@ -180,7 +180,7 @@ const channelNames = (r: AlertRule): string => (r.channel_ids.length ? r.channel
   <div class="space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-fg">Alerts &amp; activity</h2>
+        <h2 class="text-2xl font-bold tracking-tight text-fg">Alerts &amp; activity</h2>
         <p class="mt-1 text-sm text-muted">What is wrong now, what happened, and the rules that decide what pings you.</p>
       </div>
       <Button v-if="tab === 'activity' && unseen && session.canControl" variant="secondary" size="sm" @click="ackAll"><template #icon><CheckCheck class="size-4" /></template>Mark all seen</Button>

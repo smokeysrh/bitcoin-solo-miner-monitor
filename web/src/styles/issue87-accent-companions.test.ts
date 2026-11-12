@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-// The wall display's blue and violet series (network bars, chart power line) sit at the same depth as the brand orange:
-// the same OKLCH lightness and, as far as sRGB allows, the same chroma, with only the hue changed. These tests read
-// the real stylesheet and convert its hex values, so a token edited out of range fails here.
+// The wall display's blue and violet series (network bars, chart power line) are the Night Shift kit's sky and plum chart
+// colours. They sit close to the brand orange's depth (OKLCH lightness) and are clearly coloured, with only the hue
+// changed. These tests read the real stylesheet and convert its hex values, so a token edited out of range fails here.
 
 const css = readFileSync(fileURLToPath(new URL('./main.css', import.meta.url)), 'utf8')
-const MAX_LIGHTNESS_GAP = 0.01
-const MIN_CHROMA_SHARE = 0.85 // sRGB cannot reach the orange's chroma at this lightness for any blue hue (about 0.15 of 0.166)
-const MIN_HUE_GAP_DEG = 90
+const MAX_LIGHTNESS_GAP = 0.03 // the kit's sky and plum sit at lightness 0.735 and 0.741, the orange at 0.752
+const MIN_CHROMA = 0.1 // clearly coloured, not grey; the kit's chart colours are calmer than the orange (about 0.12 of 0.166)
+const MIN_HUE_GAP_DEG = 60
 
 function srgbToLinear(channel: number): number {
   const c = channel / 255
@@ -42,19 +42,19 @@ describe('accent companion colours (wall display blue and violet)', () => {
   const blue = token(darkBlock, '--accent-blue')
   const violet = token(darkBlock, '--accent-violet')
 
-  it('defines both as named tokens for the dark and black themes', () => {
-    expect(blue).toMatch(/^#[0-9a-f]{6}$/)
-    expect(violet).toMatch(/^#[0-9a-f]{6}$/)
+  it('defines both as named tokens for the dark and black themes, at the kit sky and plum', () => {
+    expect(blue).toBe('#56b4e9')
+    expect(violet).toBe('#e08bc1')
     expect(css).not.toMatch(/\[data-theme='amoled'\] \{[^}]*--accent-(blue|violet)/) // black inherits the dark values
   })
 
   it.each([
     ['blue', blue],
     ['violet', violet],
-  ])('keeps the %s at the orange\'s lightness and close to its chroma, with a different hue', (_name, hex) => {
+  ])('keeps the %s near the orange\'s lightness, clearly coloured, with a different hue', (_name, hex) => {
     const own = oklch(hex ?? '#000000')
     expect(Math.abs(own.l - orange.l)).toBeLessThan(MAX_LIGHTNESS_GAP)
-    expect(own.c).toBeGreaterThan(orange.c * MIN_CHROMA_SHARE)
+    expect(own.c).toBeGreaterThan(MIN_CHROMA)
     expect(own.c).toBeLessThan(orange.c * 1.02)
     expect(hueGap(own.h, orange.h)).toBeGreaterThan(MIN_HUE_GAP_DEG)
   })

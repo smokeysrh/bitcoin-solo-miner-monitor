@@ -146,11 +146,11 @@ const rows = computed(() =>
 
 const option = computed<EChartsOption>(() => {
   void tick.value // recompute colours when the theme changes
-  const text = cssVar('--fg', '#eceef4')
-  const axis = cssVar('--chart-axis', '#7b8599')
-  const grid = cssVar('--chart-grid', 'rgba(255,255,255,.06)')
-  const surface = cssVar('--surface-2', '#151922')
-  const line = cssVar('--line-strong', 'rgba(255,255,255,.15)')
+  const text = cssVar('--fg', '#f4f1ea')
+  const axis = cssVar('--chart-axis', '#958e84')
+  const grid = cssVar('--chart-grid', '#2e2c29')
+  const surface = cssVar('--surface-2', '#1d1c1a')
+  const line = cssVar('--line-strong', '#7c766c')
   const motion = !settings.data?.ui.reduce_motion
 
   const axisKinds: [MetricKind | null, MetricKind | null] = [null, null]
@@ -292,11 +292,11 @@ const option = computed<EChartsOption>(() => {
     </div>
     <p :id="descriptionId" class="sr-only">{{ description }}</p>
     <details v-if="!minimal" class="mt-2 text-sm">
-      <summary class="w-fit cursor-pointer rounded-sm text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent">
+      <summary class="w-fit cursor-pointer rounded-sm text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-focus">
         View data ({{ fmt.formatNumber(t.length) }} points)
       </summary>
       <p v-if="shownFrom > 0" class="mt-2 text-xs text-subtle">Showing the latest {{ fmt.formatNumber(rows.length) }} of {{ fmt.formatNumber(t.length) }} points.</p>
-      <div class="mt-2 max-h-64 overflow-auto rounded-md border border-line outline-none focus-visible:ring-2 focus-visible:ring-accent" role="region" tabindex="0" :aria-label="`${label}: data table`">
+      <div class="mt-2 max-h-64 overflow-auto rounded-md border border-line outline-none focus-visible:ring-2 focus-visible:ring-focus" role="region" tabindex="0" :aria-label="`${label}: data table`">
         <table class="w-full border-collapse text-left">
           <caption class="px-2 py-1 text-left text-xs text-subtle">{{ label }}. Times are in {{ timeZone }}.</caption>
           <thead class="sticky top-0 bg-surface-2 text-xs text-muted">

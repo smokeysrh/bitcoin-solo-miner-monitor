@@ -149,7 +149,7 @@ async function remove(): Promise<void> {
         </Field>
 
         <div class="border-t border-line pt-5">
-          <h3 class="mb-1 text-sm font-semibold text-fg">Connection</h3>
+          <h3 class="mb-1 text-sm font-bold text-fg">Connection</h3>
           <div class="grid gap-4 sm:grid-cols-[1fr_7rem]">
             <Field label="Address" hint="Change this if the miner got a new IP address.">
               <template #default="{ id, describedBy }"><Input :id="id" v-model="form.host" mono :described-by="describedBy" :disabled="!editable" /></template>

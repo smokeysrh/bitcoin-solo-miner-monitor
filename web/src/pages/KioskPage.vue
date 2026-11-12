@@ -156,11 +156,11 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
       <section :key="panel" class="relative flex flex-1 flex-col justify-center py-[max(1rem,2vmin)]" :aria-label="panel">
         <template v-if="panel === 'overview'">
           <p class="eyebrow text-center text-[length:max(0.875rem,2.4vmin)] leading-[1.25]">Fleet hashrate</p>
-          <p class="mt-[1.5vmin] flex items-baseline justify-center gap-[2vmin]">
+          <p class="mt-[2vmin] flex items-baseline justify-center gap-[2vmin]">
             <span class="text-gradient-accent tnum text-[length:clamp(4rem,min(18vw,28vmin),48rem)] leading-[1.2] font-bold tracking-tight">{{ hash.value }}</span>
             <span class="text-[length:clamp(1.5rem,min(5vw,8vmin),12rem)] font-medium text-subtle">{{ hash.unit }}</span>
           </p>
-          <div class="mt-[2vmin] w-full" :style="{ height: `${chartHeight}px` }"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="chartHeight" minimal /></div>
+          <div class="mt-[1.5vmin] w-full" :style="{ height: `${chartHeight}px` }"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="chartHeight" minimal /></div>
           <dl class="mt-[3vmin] grid w-full grid-cols-2 gap-[2.5vmin] text-center landscape:grid-cols-4">
             <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Miners online</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ s?.devices_online ?? 0 }}<span class="text-[0.55em] text-subtle"> / {{ s?.devices_total ?? 0 }}</span></dd></div>
             <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Power</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ fmt.formatPower(s?.power_w) }}</dd></div>
@@ -196,7 +196,7 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
                 v-for="h in ODDS_HEADLINES"
                 :key="h.key"
                 type="button"
-                class="min-h-11 rounded-full border px-[clamp(0.75rem,1.6vw,3rem)] py-[clamp(0.25rem,0.5vw,1rem)] text-[clamp(0.875rem,1.3vw,4rem)] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+                class="min-h-11 rounded-full border px-[clamp(0.75rem,1.6vw,3rem)] py-[clamp(0.25rem,0.5vw,1rem)] text-[clamp(0.875rem,1.3vw,4rem)] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus"
                 :class="h.key === oddsHeadline.key ? 'border-accent bg-accent/15 text-accent-text' : 'border-line text-muted hover:text-fg'"
                 :aria-pressed="h.key === oddsHeadline.key"
                 :data-testid="`kiosk-odds-choice-${h.key}`"

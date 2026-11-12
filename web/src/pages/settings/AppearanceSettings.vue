@@ -39,11 +39,11 @@ async function setOddsHeadline(value: OddsHeadline | null | undefined): Promise<
   }
 }
 
-// miniature previews, drawn with each theme's real colours
+// miniature previews, drawn with each theme's real colours (the Night Shift kit: dark, black, light)
 const PREVIEW: Record<Exclude<ThemePref, 'system'>, { bg: string; card: string; line: string; fg: string; muted: string }> = {
-  dark: { bg: '#090b10', card: '#0f1219', line: '#242833', fg: '#eceef4', muted: '#4b5365' },
-  amoled: { bg: '#000000', card: '#07080b', line: '#1f2229', fg: '#eceef4', muted: '#3f4655' },
-  light: { bg: '#f4f5f8', card: '#ffffff', line: '#dfe2e9', fg: '#12151c', muted: '#b7bdcb' },
+  dark: { bg: '#0a0a0a', card: '#151413', line: '#2e2c29', fg: '#f4f1ea', muted: '#4f4a43' },
+  amoled: { bg: '#000000', card: '#0d0d0c', line: '#272522', fg: '#f4f1ea', muted: '#4f4a43' },
+  light: { bg: '#faf8f4', card: '#ffffff', line: '#e2ddd4', fg: '#0a0a0a', muted: '#b9b2a7' },
 }
 const swatch = (t: ThemePref) => PREVIEW[t === 'system' ? 'dark' : t]
 const accent = (): string => settings.data?.ui.accent ?? '#F7931A'

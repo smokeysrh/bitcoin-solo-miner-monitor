@@ -35,7 +35,7 @@ const cli = `bsmm agent-guide      # the full instructions, as text\nbsmm status
 <template>
   <div class="space-y-5">
     <header class="max-w-3xl">
-      <h2 class="text-2xl font-semibold tracking-tight text-fg">Agents &amp; API</h2>
+      <h2 class="text-2xl font-bold tracking-tight text-fg">Agents &amp; API</h2>
       <p class="mt-1 text-sm leading-relaxed text-muted">Everything you can do in this app, an AI agent or a script can do too. Hand your agent one link and it can find your miners, connect your node and set up alerts.</p>
     </header>
 
@@ -43,7 +43,7 @@ const cli = `bsmm agent-guide      # the full instructions, as text\nbsmm status
       <div class="pointer-events-none absolute -top-24 -right-10 size-72 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
       <div class="relative">
         <p class="eyebrow flex items-center gap-2"><Sparkles class="size-3.5" aria-hidden="true" /> Quickest way</p>
-        <h3 class="mt-2 text-lg font-semibold text-fg">Paste this to your AI agent</h3>
+        <h3 class="mt-2 text-lg font-bold text-fg">Paste this to your AI agent</h3>
         <p class="mt-1 text-sm text-muted">Works with Claude, ChatGPT, Hermes and anything that can open a web link.</p>
         <CodeBlock class="mt-4" :code="prompt" />
         <div class="mt-4 flex flex-wrap gap-2">

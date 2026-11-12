@@ -171,7 +171,7 @@ async function reset(): Promise<void> {
     </p>
 
     <section v-if="editing && tray.length" class="card p-[var(--pad-card)]" aria-label="Hidden cards">
-      <h3 class="text-sm font-semibold text-fg">Hidden cards</h3>
+      <h3 class="text-sm font-bold text-fg">Hidden cards</h3>
       <ul class="mt-3 flex flex-wrap gap-2">
         <li v-for="c in tray" :key="c.id">
           <button

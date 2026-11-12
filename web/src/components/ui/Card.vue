@@ -20,7 +20,7 @@ withDefaults(
     <header v-if="title || $slots.actions || $slots.title" class="mb-3 flex items-start justify-between gap-3">
       <div class="min-w-0">
         <slot name="title">
-          <h2 class="truncate text-sm font-semibold text-fg">{{ title }}</h2>
+          <h2 class="truncate text-sm font-bold text-fg">{{ title }}</h2>
         </slot>
         <p v-if="subtitle" class="mt-0.5 text-xs text-subtle">{{ subtitle }}</p>
       </div>

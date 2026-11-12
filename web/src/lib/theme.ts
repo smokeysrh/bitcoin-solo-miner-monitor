@@ -12,8 +12,11 @@ export interface Look {
   reduceMotion: boolean
 }
 
+/** Bitcoin orange: the HashHurdr accent when nothing else is chosen. */
+export const DEFAULT_ACCENT = '#F7931A'
+
 export const ACCENT_PRESETS: { name: string; value: string }[] = [
-  { name: 'Bitcoin orange', value: '#F7931A' },
+  { name: 'Bitcoin orange', value: DEFAULT_ACCENT },
   { name: 'Amber', value: '#F5B301' },
   { name: 'Lime', value: '#84CC16' },
   { name: 'Emerald', value: '#10B981' },
@@ -49,10 +52,24 @@ export function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05)
 }
 
+/** The kit's jet: text on the orange fill. */
+const ON_ACCENT_DARK = '#0a0a0a'
+
 /** Dark text or white text, whichever reads better on the accent colour. */
 export function accentForeground(accent: string): string {
-  return contrast(accent, '#1b1203') >= contrast(accent, '#ffffff') ? '#1b1203' : '#ffffff'
+  return contrast(accent, ON_ACCENT_DARK) >= contrast(accent, '#ffffff') ? ON_ACCENT_DARK : '#ffffff'
 }
+
+/**
+ * Text-sized accent on the light theme: orange uses the kit's Ember (the fallback in main.css), so only another accent
+ * needs a value, a darkened copy of itself. Null means "use the stylesheet's Ember".
+ */
+export function accentInk(accent: string): string | null {
+  return accent.toLowerCase() === DEFAULT_ACCENT.toLowerCase() ? null : `color-mix(in oklab, ${accent} 62%, black)`
+}
+
+/** The page's theme-color (browser chrome, install splash) per resolved theme: that theme's background. */
+const THEME_COLOR: Record<ResolvedTheme, string> = { dark: '#0a0a0a', amoled: '#000000', light: '#faf8f4' }
 
 export function resolveTheme(pref: ThemePref, prefersLight: boolean): ResolvedTheme {
   if (pref === 'system') return prefersLight ? 'light' : 'dark'
@@ -69,9 +86,12 @@ export function applyLook(look: Look): void {
   const resolved = resolveTheme(look.theme, mql?.matches ?? false)
   root.setAttribute('data-theme', resolved)
 
-  const accent = HEX.test(look.accent) ? look.accent : '#F7931A'
+  const accent = HEX.test(look.accent) ? look.accent : DEFAULT_ACCENT
   root.style.setProperty('--accent-base', accent)
   root.style.setProperty('--accent-fg', accentForeground(accent))
+  const ink = accentInk(accent)
+  if (ink) root.style.setProperty('--accent-ink', ink)
+  else root.style.removeProperty('--accent-ink')
 
   if (look.density === 'compact') root.setAttribute('data-density', 'compact')
   else root.removeAttribute('data-density')
@@ -79,7 +99,7 @@ export function applyLook(look: Look): void {
   else root.removeAttribute('data-reduce-motion')
 
   const meta = document.querySelector('meta[name="theme-color"]')
-  meta?.setAttribute('content', resolved === 'light' ? '#f4f5f8' : resolved === 'amoled' ? '#000000' : '#090b10')
+  meta?.setAttribute('content', THEME_COLOR[resolved])
 
   try {
     localStorage.setItem('bsmm.theme', look.theme)

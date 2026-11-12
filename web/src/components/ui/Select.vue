@@ -47,7 +47,7 @@ function onChange(e: Event): void {
       :class="
         cn(
           'w-full appearance-none rounded-xl border bg-surface-2 pl-3 pr-9 text-sm text-fg outline-none transition-colors',
-          'focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-55',
+          'focus:border-focus focus:ring-2 focus:ring-focus/25 disabled:opacity-55',
           invalid ? 'border-bad' : 'border-line hover:border-line-strong',
           size === 'sm' ? 'h-8' : 'h-10',
         )

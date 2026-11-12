@@ -8,7 +8,7 @@ defineEmits<{ save: []; discard: [] }>()
 <template>
   <section class="card" :aria-label="title">
     <header class="border-b border-line px-[var(--pad-card)] py-4">
-      <h3 class="text-base font-semibold text-fg">{{ title }}</h3>
+      <h3 class="text-base font-bold text-fg">{{ title }}</h3>
       <p v-if="description" class="mt-1 max-w-2xl text-sm leading-relaxed text-muted">{{ description }}</p>
     </header>
     <div class="p-[var(--pad-card)]"><slot /></div>

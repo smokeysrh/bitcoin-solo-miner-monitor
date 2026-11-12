@@ -109,7 +109,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
     wrap-class="grid gap-[var(--gap-grid)] xl:grid-cols-[minmax(0,1fr)_22rem]"
   >
     <template #heading>
-      <h2 class="text-2xl font-semibold tracking-tight text-fg">Odds &amp; costs</h2>
+      <h2 class="text-2xl font-bold tracking-tight text-fg">Odds &amp; costs</h2>
       <p class="mt-1 max-w-2xl text-sm text-muted">The lottery maths: how likely a block is, what the electricity costs, and what changes if you add hardware.</p>
     </template>
     <template #actions>
