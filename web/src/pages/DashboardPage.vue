@@ -92,7 +92,8 @@ const subtitle = computed(() => {
         <h2 class="truncate text-2xl font-semibold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Dashboard' }}</h2>
         <p class="mt-1 text-sm text-muted" data-testid="dash-subtitle">{{ subtitle }}</p>
       </div>
-      <div v-if="session.canAdmin || session.canControl" class="flex items-center gap-2">
+      <!-- The layout is saved with PATCH /settings, which needs admin rights; a control token would only get a 403. -->
+      <div v-if="session.canAdmin" class="flex items-center gap-2">
         <template v-if="!editing">
           <Button variant="ghost" size="sm" data-testid="customize" @click="startEdit">
             <template #icon><Pencil class="size-4" /></template>
