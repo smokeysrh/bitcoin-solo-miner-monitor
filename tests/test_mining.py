@@ -140,17 +140,15 @@ def test_economics():
     assert eco.cost_per_year == pytest.approx(eco.cost_per_day * 365.25)
     assert eco.expected_value_per_day is not None and eco.expected_value_per_day > 0
     assert eco.ev_to_cost_ratio is not None
-    # break-even price is where EV == cost
-    assert eco.break_even_btc_price is not None
-    ev_at_break_even = m.block_rate(FLEET, DIFF) * m.SECONDS_PER_DAY * 3.125 * eco.break_even_btc_price
-    assert ev_at_break_even == pytest.approx(eco.cost_per_day, rel=1e-9)
+    # the break-even Bitcoin price is gone for good
+    assert not hasattr(eco, "break_even_btc_price")
+    assert "break_even_btc_price" not in eco.as_dict()
 
 
 def test_economics_without_price_or_power():
     eco = m.economics(0.0, FLEET, DIFF, 0.12, None, 3.125)
     assert eco.cost_per_day == 0
     assert eco.expected_value_per_day is None
-    assert eco.break_even_btc_price is None
 
 
 def test_odds_report_shape():

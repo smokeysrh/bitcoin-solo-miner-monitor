@@ -35,7 +35,7 @@ Start with get_overview (fleet totals, odds of finding a block, alerts). To set 
 scan_network -> add_discovered_miners -> configure_source (their node/pool) -> create_notification_channel -> update_settings (electricity price).
 Never guess a user's node credentials, wallet address or passwords: ask them. Bulk actions preview by default: show the
 preview to the user before applying with dry_run=false. Restarting a miner pauses hashing for about a minute.
-All hashrates are in H/s (fields ending _hs); the odds of finding a block are tiny and that is normal for solo mining.
+All hashrates are in H/s (fields ending _hs); the odds of finding a block are a long shot, which is the whole charm of solo mining.
 """
 
 
@@ -146,7 +146,7 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     async def get_odds(ctx: Context, hashrate_ths: float | None = None, difficulty: float | None = None, power_w: float | None = None,
                        growth: float | None = None) -> Any:
         """The user's chance of finding a block (Next 10 minutes: horizons.ten_minutes, seconds=600; also day/month/year...), expected wait, electricity cost versus expected value, and plain-English sentences
-        to quote. The 600-second Poisson window is not the chance of winning the very next network block; its exact time is unknown. Never imply being due. Pass hashrate_ths (TH/s), difficulty, power_w or growth (0.3 = difficulty +30%/yr) for a what-if."""
+        to quote. The 600-second Poisson window is a fixed window, not the chance of the very next network block; its exact timing is unknown. Every hash is a fresh ticket, so nobody is ever due: say it with a grin. Pass hashrate_ths (TH/s), difficulty, power_w or growth (0.3 = difficulty +30%/yr) for a what-if."""
         return await api(ctx, "GET", "/api/v1/odds", params={"hashrate_ths": hashrate_ths, "difficulty": difficulty, "power_w": power_w, "growth": growth})
 
     @mcp.tool(annotations=READ)
@@ -316,14 +316,14 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
             "Set up HashHurdr, the Bitcoin Solo Miner Monitor, for me. 1) call get_overview and tell me what is already configured. 2) call scan_network and show me "
             "the miners and node/pool candidates it found; add them with add_discovered_miners after I confirm. 3) If a node or pool was found, ask me for "
             "any credentials it needs and call configure_source. 4) Ask for my electricity price per kWh and apply it with update_settings. 5) Offer to set up "
-            "phone alerts with create_notification_channel (ntfy is the easiest). 6) Finish with get_odds and explain my chances honestly and kindly."
+            "phone alerts with create_notification_channel (ntfy is the easiest). 6) Finish with get_odds and explain my chances in plain words and a light touch."
         )
 
     @mcp.prompt(description="A friendly status report of the whole mining setup")
     def mining_report() -> str:
         return (
             "Give me a short mining status report: call get_overview, get_alerts and get_insights. Lead with anything that needs attention, then hashrate, "
-            "power and efficiency, then my odds in plain English (be honest that solo mining is a lottery), then one or two helpful suggestions."
+            "power and efficiency, then my odds in plain English (lottery jokes welcome), then one or two helpful suggestions."
         )
 
     return mcp

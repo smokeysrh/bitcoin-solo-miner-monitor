@@ -12,7 +12,7 @@ const eco = computed(() => (live.odds?.available ? live.odds.economics : null))
 </script>
 
 <template>
-  <WidgetFrame title="Electricity &amp; value" subtitle="What mining costs vs. the lottery payout" to="/odds" link-label="Details">
+  <WidgetFrame title="Electricity &amp; value" subtitle="Your power bill next to the lottery maths" to="/odds" link-label="Details">
     <div v-if="eco" data-testid="widget-money">
       <div class="grid grid-cols-3 gap-3">
         <div>
@@ -40,12 +40,8 @@ const eco = computed(() => (live.odds?.available ? live.odds.economics : null))
           <dt class="text-muted">Payout vs. cost</dt>
           <dd class="tnum font-medium" :class="eco.ev_to_cost_ratio >= 1 ? 'text-ok' : 'text-warn'">{{ (eco.ev_to_cost_ratio * 100).toFixed(0) }}%</dd>
         </div>
-        <div v-if="eco.break_even_btc_price" class="flex items-baseline justify-between gap-3">
-          <dt class="text-muted">Break-even Bitcoin price</dt>
-          <dd class="tnum font-medium text-fg">{{ fmt.money(eco.break_even_btc_price, 0) }}</dd>
-        </div>
       </dl>
-      <p class="mt-3 text-[11px] leading-relaxed text-subtle">The payout is a long-shot lottery that arrives in one huge lump, not income.</p>
+      <p class="mt-3 text-[11px] leading-relaxed text-subtle">Lottery maths: a block lands in one big lump, never a trickle.</p>
     </div>
     <EmptyState v-else compact :icon="Coins" title="Costs need power and difficulty" description="Once your miners report power and network data is available, costs appear here." />
   </WidgetFrame>

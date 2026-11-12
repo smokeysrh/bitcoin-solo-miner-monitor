@@ -14,7 +14,7 @@ The server explains itself. **Fetch `<server>/llms.txt` first** (default `http:/
 | The user says | Do this |
 | --- | --- |
 | "How are my miners?" / "Is anything wrong?" | `GET /api/v1/overview` and `GET /api/v1/insights`. Summarise in two or three sentences, problems first. |
-| "What are my odds?" | `GET /api/v1/odds`. Quote `plain_english`. Never imply they are "close" or "due". |
+| "What are my odds?" | `GET /api/v1/odds`. Quote `plain_english`. Every hash is a fresh ticket: nobody is "close" or "due". |
 | "Set it up" / "install it" | Setup flow below. |
 | "Restart / pause X" | Confirm the action and target, then use the matching `/actions/restart` or `/actions/pause` endpoint (`control` scope). |
 | "Change my pool / address" | Read the new address back to the user, preview with `dry_run: true`, apply only after they confirm. |
@@ -38,13 +38,13 @@ The server explains itself. **Fetch `<server>/llms.txt` first** (default `http:/
 
 ## Rules
 
-- Be honest and plain. Solo mining is a lottery; most users will never find a block. Say so kindly if asked.
+- Keep it plain, true and fun. Solo mining is a lottery, and a light ticket joke is welcome.
 - Ask before restarting a miner, changing pools or payout addresses, tuning, changing firmware, deleting data or other destructive actions. Read payout changes back through a private confirmation view. Controls are audited; downtime depends on the action and firmware, and lost hashing time reduces the chance of finding a block.
 - Prefer the least power that does the job: a `read` token to look, `control` to act, `admin` only for setup.
 - Never print or store tokens, RPC passwords, bot tokens or webhook URLs in chat history. Secrets are write-only in the API.
 - Report errors with the server's `hint`; it says what to do next.
 - Units are in the field names: `hashrate_hs` is hashes per second, `efficiency_j_th` is joules per terahash (lower is better).
-- When available, `horizons.ten_minutes` is the **Next 10 minutes** estimate: chance across a fixed 600-second window. The next network block can arrive at any time. Never promise a block or profit.
+- When available, `horizons.ten_minutes` is the **Next 10 minutes** estimate: chance across a fixed 600-second window. The next network block can arrive at any time. Never promise a block, and never say anyone is due.
 
 ## Quick reference
 

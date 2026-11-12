@@ -21,7 +21,7 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 | `engine/fleet.py` | Polls every device concurrently, backs off failing ones, keeps live state, and is the **only** path for control actions (`run_action`: permission check, safety settings, audit log). |
 | `engine/alerts.py` | Rules evaluated on every poll. State rules (offline, hot...) need to hold for a while, fire once, repeat after a cooldown and send "Resolved". Active alert state is persisted, so a restart doesn't forget one. |
 | `engine/network.py`, `sources/` | Chain state from Bitcoin Core RPC, Public Pool, ckpool, mempool.space. Sources are interchangeable behind one interface; losing one degrades gracefully. |
-| `engine/odds.py`, `mining.py` | Pure maths: block probability, expected time, economics, break-even. No I/O, fully unit-tested. |
+| `engine/odds.py`, `mining.py` | Pure maths: block probability, expected time, economics. No I/O, fully unit-tested. |
 | `engine/discovery.py` | Private-range scanner. Probes known ports, fingerprints, never writes. |
 | `engine/insights.py` | Plain-language observations and setup nudges ("your node is 3 blocks behind", "no alert channel yet"). Rules, not a model. |
 | `notify/` | Eight channel types behind one dispatcher; formatting per channel (Telegram HTML, Discord embeds...). A failed send is recorded, never swallowed. |
@@ -52,7 +52,7 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 
 `mining.HORIZONS.ten_minutes` is 600 seconds. `/api/v1/odds`, overview odds, `bsmm odds`, and MCP `get_odds` expose `horizons.ten_minutes` for live fleet data and what-if overrides. The dashboard widget and Odds page label it **Next 10 minutes**. The wall display labels it **Next block** (the owner's choice) and its headline line reads "Chance of a block in the next 10 minutes"; the value is the same fixed 600-second window, not a different calculation. There is no dedicated per-device odds endpoint; agents can supply a device's observed TH/s as the existing `hashrate_ths` what-if parameter.
 
-At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of winning the very next network block. Past work never makes a miner due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
+At constant hashrate H and difficulty D, the probability of at least one block in this window is `-expm1(-H / D / 2**32 * 600)`. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. This fixed-window probability is **not** the conditional probability of the very next network block. A miner has no memory, so nobody is ever due. Missing difficulty remains unavailable; a zero rate has zero probability. The optional growth model applies consistently to all horizons.
 
 ## Frontend (`web`)
 

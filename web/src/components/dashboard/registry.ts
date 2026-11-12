@@ -124,7 +124,7 @@ export const WIDGETS: WidgetDef[] = [
   {
     id: 'money',
     title: 'Electricity & value',
-    description: 'What mining costs and what the lottery pays on average.',
+    description: 'Your power bill next to the lottery maths.',
     icon: Coins,
     component: lazy(() => import('./widgets/MoneyWidget.vue')),
     spans: [3, 4, 6],

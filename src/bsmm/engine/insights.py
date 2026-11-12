@@ -59,7 +59,7 @@ async def build_insights(ctx: AppContext) -> list[dict[str, Any]]:
                       action={"label": "Set a password", "type": "route", "target": "/settings/security"}))
     if abs(s.energy.price_per_kwh - 0.12) < 1e-9 and views and not await ctx.store.kv_get("insight.energy_confirmed", False):
         out.append(_i("energy-default", "tip", "Set your electricity price",
-                      "Costs and break-even figures assume 0.12 per kWh until you enter your own rate.",
+                      "Costs assume 0.12 per kWh until you enter your own rate.",
                       action={"label": "Set price", "type": "route", "target": "/settings/energy"}))
 
     # per-device observations

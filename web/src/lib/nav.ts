@@ -16,7 +16,7 @@ export const NAV: NavItem[] = [
   { to: '/miners', name: 'miners', label: 'Miners', icon: Cpu, group: 'monitor', keywords: 'devices bitaxe nerdqaxe avalon asic' },
   { to: '/bitcoin', name: 'bitcoin', label: 'Bitcoin', icon: Bitcoin, group: 'monitor', keywords: 'node pool network difficulty blocks mempool halving' },
   { to: '/solo-blocks', name: 'solo-blocks', label: 'Solo blocks', icon: Blocks, group: 'monitor', keywords: 'found blocks solo pool ckpool public pool braiins mempool' },
-  { to: '/odds', name: 'odds', label: 'Odds & costs', icon: Dices, group: 'monitor', keywords: 'chance probability lottery electricity profit calculator' },
+  { to: '/odds', name: 'odds', label: 'Odds & costs', icon: Dices, group: 'monitor', keywords: 'chance probability lottery electricity calculator' },
   { to: '/analytics', name: 'analytics', label: 'Analytics', icon: ChartLine, group: 'monitor', keywords: 'charts history graphs export csv' },
   { to: '/alerts', name: 'alerts', label: 'Alerts & activity', icon: Bell, group: 'manage', keywords: 'notifications events log rules' },
   { to: '/agents', name: 'agents', label: 'Agents & API', icon: Bot, group: 'manage', keywords: 'ai mcp token api llms openapi claude' },
