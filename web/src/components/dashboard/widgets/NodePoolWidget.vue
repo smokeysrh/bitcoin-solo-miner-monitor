@@ -3,11 +3,12 @@ import { Network, Server, Unplug } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
-import { kindLabel } from '@/lib/labels'
+import { kindLabel, refusalBadge } from '@/lib/labels'
 import { useLive } from '@/stores/live'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import NodeRefusalNotice from '@/components/ui/NodeRefusalNotice.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import WidgetFrame from '../WidgetFrame.vue'
 
@@ -26,18 +27,20 @@ const behind = computed(() => live.network?.node_behind_by ?? 0)
       <section v-if="node" class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <p class="flex items-center gap-2 text-sm font-medium text-fg"><Server class="size-4 text-muted" aria-hidden="true" /> Bitcoin Core</p>
-          <Badge v-if="!node.reachable" tone="bad" dot size="sm">Unreachable</Badge>
+          <Badge v-if="node.refusal" tone="bad" dot size="sm">{{ refusalBadge(node.refusal.reason) }}</Badge>
+          <Badge v-else-if="!node.reachable" tone="bad" dot size="sm">Unreachable</Badge>
           <Badge v-else-if="node.initial_block_download || (node.headers && node.blocks && node.headers - node.blocks > 2)" tone="warn" dot size="sm">Syncing</Badge>
           <Badge v-else-if="behind > 3" tone="warn" dot size="sm">{{ behind }} behind</Badge>
           <Badge v-else tone="ok" dot size="sm">Synced</Badge>
         </div>
         <ProgressBar v-if="node.reachable && node.verification_progress != null && node.verification_progress < 0.9999" :value="node.verification_progress" tone="info" :height="5" label="Sync progress" />
-        <dl class="grid grid-cols-3 gap-2 text-xs">
+        <NodeRefusalNotice v-if="node.refusal" :refusal="node.refusal" data-testid="node-refusal" />
+        <dl v-else class="grid grid-cols-3 gap-2 text-xs">
           <div><dt class="text-subtle">Version</dt><dd class="tnum mt-0.5 truncate font-medium text-fg">{{ node.subversion?.replace(/\//g, '') ?? node.version ?? '–' }}</dd></div>
           <div><dt class="text-subtle">Peers</dt><dd class="tnum mt-0.5 font-medium text-fg">{{ node.connections ?? '–' }}</dd></div>
           <div><dt class="text-subtle">Mempool</dt><dd class="tnum mt-0.5 font-medium text-fg">{{ fmt.formatNumber(node.mempool_tx_count) }} tx</dd></div>
         </dl>
-        <p v-if="node.error" class="text-xs text-bad">{{ node.error }}</p>
+        <p v-if="node.error && !node.refusal" class="text-xs text-bad">{{ node.error }}</p>
       </section>
 
       <section v-for="p in pools" :key="p.kind + (p.address ?? '')" class="space-y-2" :class="node && 'border-t border-line pt-4'">

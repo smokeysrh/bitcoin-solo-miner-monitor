@@ -97,6 +97,10 @@ def _unwrap(resp: httpx.Response) -> Any:
         err = (data or {}).get("error", {}) if isinstance(data, dict) else {}
         msg = err.get("message") or f"HTTP {resp.status_code}"
         hint = err.get("hint")
+        details = err.get("details")
+        refusal = details.get("refusal") if isinstance(details, dict) else None
+        if isinstance(refusal, dict) and refusal.get("reason"):
+            msg = f"{msg} (reason: {refusal['reason']})"
         raise ApiProblem(f"{msg} {hint}" if hint else msg)
     return data if data is not None else resp.text
 
@@ -191,7 +195,8 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     async def scan_network(ctx: Context, cidrs: list[str] | None = None, wait_seconds: int = 60) -> Any:
         """Scan the local network for miners (Bitaxe, NerdQAxe, Avalon, Antminer...) and the user's Bitcoin node/pool. Waits until the scan finishes.
         cidrs like ['192.168.1.0/24'] (default: the server's own networks; inside Docker bridge mode pass the real LAN). Returns found miners and
-        node/pool candidates plus a scan_id for add_discovered_miners."""
+        node/pool candidates plus a scan_id for add_discovered_miners. A found Bitcoin node that refuses the app carries `refusal` (reason
+        needs_login | computer_not_allowed | unreachable, next_step, ask_user_for): tell the user the next_step, ask for the login, then configure_source."""
         job = await api(ctx, "POST", "/api/v1/discovery", body={"cidrs": cidrs})
         deadline = asyncio.get_running_loop().time() + max(5, min(wait_seconds, 180))
         while job["status"] == "running" and asyncio.get_running_loop().time() < deadline:
@@ -256,7 +261,8 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     async def configure_source(ctx: Context, kind: str, url: str, name: str | None = None, rpc_user: str | None = None,
                                rpc_password: str | None = None, test_only: bool = False) -> Any:
         """Connect the user's Bitcoin node or pool. kind: bitcoin_core (needs rpc_user + rpc_password, ask the user), public_pool (Umbrel/Start9, use the
-        API port e.g. http://umbrel.local:2019), ckpool (https://solo.ckpool.org), mempool_space. The connection is tested first; test_only=true only tests."""
+        API port e.g. http://umbrel.local:2019), ckpool (https://solo.ckpool.org), mempool_space. The connection is tested first; test_only=true only tests.
+        When a node refuses, the error (or the test result's `refusal`) names the reason: needs_login, computer_not_allowed or unreachable."""
         secret = {k: v for k, v in {"rpc_user": rpc_user, "rpc_password": rpc_password}.items() if v}
         body = {"kind": kind, "url": url, "name": name, "secret": secret}
         if test_only:

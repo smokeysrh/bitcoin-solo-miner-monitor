@@ -25,7 +25,7 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 4. Start monitoring what was found: `POST /api/v1/discovery/{id}/adopt` with body `{}`
    Show the miner and node/pool candidates and wait for confirmation before adopting. An empty body adds every new non-duplicate miner; pass keys containing only approved host:port values to select miners. Add one approved miner by hand with POST /api/v1/devices {"host": "192.168.1.50"}.
 5. Connect the user's Bitcoin node or solo pool (optional but recommended): `POST /api/v1/sources` with body `{"kind":"public_pool","url":"http://umbrel.local:2019"}`
-   The discovery result lists likely candidates under 'sources'. kinds: bitcoin_core (needs rpc_user/rpc_password in 'secret'), public_pool, ckpool, mempool_space. Connect only the approved source. Ask for missing node credentials through secure app fields; never guess or expose them in chat.
+   The discovery result lists likely candidates under 'sources'. kinds: bitcoin_core (needs rpc_user/rpc_password in 'secret'), public_pool, ckpool, mempool_space. Connect only the approved source. Ask for missing node credentials through secure app fields; never guess or expose them in chat. A found node that refuses the app carries 'refusal' in the discovery result: follow the refusal flow below.
 6. Set the electricity price so costs are right: `PATCH /api/v1/settings` with body `{"energy":{"price_per_kwh":0.12}}`
    Example only: preserve an existing tariff or ask for the missing price. Currency units are the user's local currency.
 7. Set up an alert channel: `POST /api/v1/notifications/channels` with body `{"kind":"ntfy","name":"Phone","config":{"topic":"pick-a-secret-topic"}}`
@@ -34,6 +34,15 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
    Do this before exposing the server to an untrusted network. Preserve existing authentication; enter the password through secure app fields. Use a read-scoped token for monitoring after setup.
 9. Verify: `GET /api/v1/overview`
    One call with fleet totals, odds, network, alerts, events. Also check the dashboard, GET /api/v1/health and GET /api/v1/system/diagnostics. Return the dashboard URL and a plain-English report; identify anything unavailable.
+
+## When a found node refuses the app
+
+1. Discover: POST /api/v1/discovery, then GET /api/v1/discovery/{id} until status is 'finished'. Each bitcoin_core entry under 'sources' that refused the app or did not answer carries 'refusal' with reason, title, message, next_step, hints, ask_user_for and api_steps.
+2. Read refusal.reason. needs_login: the node wants an RPC user name and password. computer_not_allowed: the node's rpcallowip setting leaves this computer out, so no login can help until the user changes it. unreachable: nothing usable answered at that address.
+3. Tell the user refusal.next_step in plain words. Only the user can change the node's settings or read its login; wait until they say it is done. Never guess logins.
+4. Ask for each field in refusal.ask_user_for (rpc_user, rpc_password) through secure app fields. The login is write-only: it is never returned, echoed or logged, and the placeholders in api_steps are not a login.
+5. Test without saving: POST /api/v1/sources/test with the first api_steps body, the placeholders replaced by the user's login (MCP: configure_source with test_only=true). A failed test returns a new refusal: repeat from its reason.
+6. Add after the user approves: POST /api/v1/sources with the second api_steps body (a refused add returns 422 connection_failed with the same refusal under error.details). Then GET /api/v1/node should show reachable true and refusal null. Report the result in plain English.
 
 ## Authentication
 
@@ -49,6 +58,7 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 - Is anything wrong? -> GET /api/v1/alerts/active and GET /api/v1/insights
 - Restart a miner -> POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)
 - Point miners at my own pool/node -> POST /api/v1/devices/actions {"action":"set_pool","all":true,"params":{...}} previews by default; send dry_run=false to apply
+- A found node refuses the app (401/403) -> Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step
 - History / charts -> GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w
 - Live updates -> GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)
 - Prometheus / Grafana -> GET /metrics

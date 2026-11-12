@@ -1,5 +1,5 @@
 /** Human names for things the API reports with machine identifiers. */
-import type { AppEvent, Severity } from './types'
+import type { AppEvent, NodeRefusalReason, Severity } from './types'
 
 const SOURCES: Record<string, string> = {
   bitcoin_core: 'your node',
@@ -24,6 +24,16 @@ const KINDS: Record<string, string> = {
 }
 export function kindLabel(kind: string): string {
   return KINDS[kind] ?? kind
+}
+
+/** Short status for a node that refuses the app (the full explanation comes from the API's `refusal`). */
+const REFUSAL_BADGES: Record<NodeRefusalReason, string> = {
+  needs_login: 'Needs login',
+  computer_not_allowed: 'Not allowed',
+  unreachable: 'Unreachable',
+}
+export function refusalBadge(reason: NodeRefusalReason): string {
+  return REFUSAL_BADGES[reason] ?? 'Unreachable'
 }
 
 const FAMILIES: Record<string, string> = {

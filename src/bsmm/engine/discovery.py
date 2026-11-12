@@ -26,7 +26,8 @@ from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
 from bsmm.models import Device, ProbeResult, Severity, Source
 from bsmm.net import is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
-from bsmm.sources.base import SourceError
+from bsmm.sources.base import NodeRefusal, SourceError
+from bsmm.sources.bitcoin_core import probe_node_access
 from bsmm.sources.public_pool import PublicPoolSource
 from bsmm.storage.store import Store, new_id
 
@@ -67,9 +68,13 @@ class SourceCandidate:
     needs_credentials: bool = False
     reason: str = ""
     verified: bool = False
+    refusal: NodeRefusal | None = None  # a found node that refused the app (or did not answer): why, and what to change
 
     def as_dict(self) -> dict[str, Any]:
-        return {f: getattr(self, f) for f in self.__dataclass_fields__}
+        out = {f: getattr(self, f) for f in self.__dataclass_fields__ if f != "refusal"}
+        if self.refusal is not None:
+            out["refusal"] = self.refusal.model_dump(mode="json")
+        return out
 
 
 @dataclass(slots=True)
@@ -254,6 +259,12 @@ class DiscoveryService:
             else:
                 first[m.identity] = m
 
+    async def _node_candidate(self, host: str, reason: str) -> SourceCandidate:
+        """A node found on port 8332, asked once without any login so the result can say what it needs."""
+        url = f"http://{host}:8332"
+        refusal = await probe_node_access(self.http, url)
+        return SourceCandidate("bitcoin_core", url, f"Bitcoin node on {host}", True, reason, False, refusal)
+
     async def _find_sources(self, job: DiscoveryJob, open_ports: dict[str, set[int]]) -> None:
         # 1. where do the miners point? (found miners + miners we already monitor)
         pool_hosts: dict[str, str] = {}
@@ -290,13 +301,12 @@ class DiscoveryService:
                 if api_port in ports or not ports:
                     await try_public_pool(host, api_port, f"Your miners are mining to {endpoint}")
             if 8332 in ports or await tcp_open(host, 8332, 0.8):
-                job.sources.append(SourceCandidate("bitcoin_core", f"http://{host}:8332", f"Bitcoin node on {host}", True,
-                                                   f"Your miners are mining to {endpoint}; a node answers on port 8332", False))
+                job.sources.append(await self._node_candidate(
+                    host, f"Your miners are mining to {endpoint}; a node answers on port 8332"))
         # 2. anything else on the LAN that looks like a node, pool or mempool
         for host, ports in open_ports.items():
             if 8332 in ports and not any(s.kind == "bitcoin_core" and s.url == f"http://{host}:8332" for s in job.sources):
-                job.sources.append(SourceCandidate("bitcoin_core", f"http://{host}:8332", f"Bitcoin node on {host}", True,
-                                                   "Port 8332 (Bitcoin RPC) is open", False))
+                job.sources.append(await self._node_candidate(host, "Port 8332 (Bitcoin RPC) is open"))
             for api_port in (2019, 3334):
                 if api_port in ports:
                     await try_public_pool(host, api_port, "Public Pool's web/API port is open")

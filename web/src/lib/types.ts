@@ -200,10 +200,24 @@ export interface HalvingInfo {
   progress: number
 }
 
+export type NodeRefusalReason = 'needs_login' | 'computer_not_allowed' | 'unreachable'
+
+/** Why a node refuses the app and what to change. Never contains a login. */
+export interface NodeRefusal {
+  reason: NodeRefusalReason
+  title: string
+  message: string
+  next_step: string
+  hints: string[]
+  ask_user_for: string[]
+  api_steps: { method: string; path: string; body: Record<string, unknown> }[]
+}
+
 export interface NodeStatus {
   kind: string
   reachable: boolean
   error: string | null
+  refusal?: NodeRefusal | null
   version: string | null
   subversion: string | null
   chain: string | null
@@ -506,6 +520,7 @@ export interface ConnectionTest {
   message: string
   details: Record<string, unknown>
   hints: string[]
+  refusal?: NodeRefusal | null
 }
 
 // ----------------------------------------------------------------------------------- discovery
@@ -535,6 +550,7 @@ export interface SourceCandidate {
   needs_credentials: boolean
   reason: string
   verified: boolean
+  refusal?: NodeRefusal | null
 }
 
 export interface DiscoveryJob {

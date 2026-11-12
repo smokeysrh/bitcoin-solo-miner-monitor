@@ -27,6 +27,7 @@ from bsmm.sources.base import (
     ConnectionTest,
     DataSource,
     NetworkSnapshot,
+    NodeRefusal,
     NodeStatus,
     PoolStatus,
     SourceError,
@@ -65,6 +66,7 @@ class SourceHealth(_M):
     name: str
     ok: bool | None = None  # None = not polled yet
     error: str | None = None
+    refusal: NodeRefusal | None = None  # a node that refuses or does not answer: the reason code and what to change
     last_ok: float | None = None
     last_poll: float | None = None
     implicit: bool = False
@@ -269,6 +271,7 @@ class NetworkService:
                 p.snapshot = await p.impl.network() if p.node and p.node.reachable and not p.node.error else None
                 h.ok = bool(p.node and p.node.reachable and not p.node.error)
                 h.error = None if h.ok else (p.node.error if p.node else "no answer")
+                h.refusal = p.node.refusal if p.node else None
             elif kind == "public_pool":
                 p.snapshot = await p.impl.network()
                 p.pools = await p.impl.pool(addresses)

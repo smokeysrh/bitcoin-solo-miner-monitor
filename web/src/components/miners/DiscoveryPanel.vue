@@ -11,6 +11,7 @@ import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
+import NodeRefusalNotice from '@/components/ui/NodeRefusalNotice.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 
 const props = withDefaults(defineProps<{ autoStart?: boolean; adoptLabel?: string }>(), { adoptLabel: 'Start monitoring' })
@@ -286,15 +287,18 @@ const kindLabel: Record<string, string> = { bitcoin_core: 'Bitcoin Core node', p
       <div v-if="job.sources.length" class="space-y-2">
         <h3 class="eyebrow">Node &amp; pool found</h3>
         <ul class="space-y-2">
-          <li v-for="s in job.sources" :key="s.url" class="flex items-center gap-3 rounded-xl border border-line bg-surface-2/60 p-3">
-            <component :is="s.kind === 'bitcoin_core' ? Server : Network" class="size-5 shrink-0 text-muted" aria-hidden="true" />
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium text-fg">{{ s.name || kindLabel[s.kind] || s.kind }}</span>
-              <span class="block truncate text-xs text-subtle"><span class="font-mono">{{ s.url }}</span> · {{ s.reason }}</span>
-            </span>
-            <Button size="sm" :variant="s.needs_credentials ? 'secondary' : 'soft'" :loading="addingSource === s.url" @click="addSource(s)">
-              {{ s.needs_credentials ? 'Set up…' : 'Connect' }}
-            </Button>
+          <li v-for="s in job.sources" :key="s.url" class="rounded-xl border border-line bg-surface-2/60 p-3">
+            <div class="flex items-center gap-3">
+              <component :is="s.kind === 'bitcoin_core' ? Server : Network" class="size-5 shrink-0 text-muted" aria-hidden="true" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium text-fg">{{ s.name || kindLabel[s.kind] || s.kind }}</span>
+                <span class="block truncate text-xs text-subtle"><span class="font-mono">{{ s.url }}</span> · {{ s.reason }}</span>
+              </span>
+              <Button size="sm" :variant="s.needs_credentials ? 'secondary' : 'soft'" :loading="addingSource === s.url" @click="addSource(s)">
+                {{ s.needs_credentials ? 'Set up…' : 'Connect' }}
+              </Button>
+            </div>
+            <NodeRefusalNotice v-if="s.refusal" :refusal="s.refusal" class="mt-3" data-testid="source-refusal" />
           </li>
         </ul>
       </div>
