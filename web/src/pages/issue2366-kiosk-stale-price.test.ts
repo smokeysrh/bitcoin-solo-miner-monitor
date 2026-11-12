@@ -20,12 +20,12 @@ const STALE_PRICE_AGE_S = 2 * SECONDS_PER_HOUR + 30 // reads as "2h ago" however
 const STALE_NOTE_ID = 'kiosk-price-stale'
 
 type PriceSource = 'mempool' | 'manual' | 'none'
-type FieldSources = Record<string, { source: string; ts: number; stale: boolean }>
+type FieldSources = NonNullable<NetworkState['field_sources']>
 
 const nowSeconds = (): number => Date.now() / 1000
 const priceField = (stale: boolean): FieldSources => ({ prices: { source: 'mempool_space', ts: nowSeconds() - STALE_PRICE_AGE_S, stale } })
 
-function network(over: Partial<NetworkState> & { field_sources?: FieldSources } = {}): NetworkState {
+function network(over: Partial<NetworkState> = {}): NetworkState {
   return {
     updated_at: 1_700_000_000,
     available: true,

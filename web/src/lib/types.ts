@@ -269,6 +269,13 @@ export interface SourceHealth {
   implicit: boolean
 }
 
+/** Where one network field came from, when it was observed and whether it has gone stale (see engine/network.py). */
+export interface FieldSource {
+  source: string
+  ts: number
+  stale: boolean
+}
+
 export interface NetworkState {
   updated_at: number
   available: boolean
@@ -294,6 +301,8 @@ export interface NetworkState {
   sources: SourceHealth[]
   warnings: string[]
   stale: boolean
+  /** Per-field source and freshness; the server always sends it, fixtures may omit it. */
+  field_sources?: Record<string, FieldSource>
   node_behind_by: number | null
 }
 
