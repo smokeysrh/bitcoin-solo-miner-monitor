@@ -45,7 +45,7 @@ const mempoolFill = computed(() => (node.value?.mempool_bytes && node.value.memp
 <template>
   <CustomizablePage page-key="bitcoin_page" :cards="CARDS" grid-class="grid gap-[var(--gap-grid)] lg:grid-cols-12">
     <template #heading>
-      <h2 class="text-2xl font-semibold tracking-tight text-fg">Bitcoin network</h2>
+      <h2 class="text-2xl font-bold tracking-tight text-fg">Bitcoin network</h2>
       <p class="mt-1 text-sm text-muted">
         <template v-if="n?.available">Data from {{ sourceLabel(n.source) }}<span v-if="n.stale" class="text-warn"> (stale)</span></template>
         <template v-else>No network data yet</template>

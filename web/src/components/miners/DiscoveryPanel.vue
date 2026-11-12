@@ -188,7 +188,7 @@ const kindLabel: Record<string, string> = { bitcoin_core: 'Bitcoin Core node', p
       <div class="flex items-start gap-4 rounded-2xl border border-line bg-surface-2/60 p-4">
         <div class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"><Radar class="size-6" aria-hidden="true" /></div>
         <div class="min-w-0">
-          <h3 class="text-sm font-semibold text-fg">Scan my network</h3>
+          <h3 class="text-sm font-bold text-fg">Scan my network</h3>
           <p class="mt-1 text-sm leading-relaxed text-muted">
             We look for Bitaxe, NerdQAxe, Avalon, Antminer and similar miners on your local network, and for a Bitcoin node or solo pool.
             It only talks to private addresses and never changes anything on your miners.

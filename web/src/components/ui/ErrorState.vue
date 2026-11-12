@@ -12,7 +12,7 @@ defineEmits<{ retry: [] }>()
     <div class="grid size-11 place-items-center rounded-2xl border border-bad/30 bg-bad-soft text-bad">
       <TriangleAlert class="size-5" aria-hidden="true" />
     </div>
-    <h3 class="text-base font-semibold text-fg">{{ title ?? 'Something went wrong' }}</h3>
+    <h3 class="text-base font-bold text-fg">{{ title ?? 'Something went wrong' }}</h3>
     <p v-if="error" class="max-w-md text-sm leading-relaxed text-muted">{{ describeError(error) }}</p>
     <Button size="sm" variant="secondary" @click="$emit('retry')">
       <template #icon><RotateCw class="size-4" /></template>

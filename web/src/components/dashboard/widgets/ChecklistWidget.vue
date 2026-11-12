@@ -85,7 +85,7 @@ const visible = computed(() => insights.loaded && !hidden.value && doneCount.val
           <span class="tnum text-sm font-semibold text-fg">{{ doneCount }}/{{ steps.length }}</span>
         </RingGauge>
         <div class="min-w-0 flex-1">
-          <h2 class="text-base font-semibold text-fg">Get set up</h2>
+          <h2 class="text-base font-bold text-fg">Get set up</h2>
           <p class="text-sm text-muted">A few quick steps make this dashboard yours. Skip any you do not need.</p>
         </div>
         <button class="text-xs font-medium text-subtle hover:text-fg" @click="hidden = true">Hide</button>

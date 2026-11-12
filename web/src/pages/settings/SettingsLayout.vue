@@ -23,7 +23,7 @@ const items = [
 <template>
   <div class="space-y-5">
     <header>
-      <h2 class="text-2xl font-semibold tracking-tight text-fg">Settings</h2>
+      <h2 class="text-2xl font-bold tracking-tight text-fg">Settings</h2>
       <p class="mt-1 text-sm text-muted">Most changes save as soon as you make them.</p>
     </header>
     <p v-if="session.state === 'ready' && !session.canAdmin" class="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-sm text-info">You are signed in without admin rights, so most settings are read-only. Appearance still works on this device.</p>

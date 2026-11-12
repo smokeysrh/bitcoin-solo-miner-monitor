@@ -89,7 +89,7 @@ const subtitle = computed(() => {
   <div ref="root" class="space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div class="min-w-0">
-        <h2 class="truncate text-2xl font-semibold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Dashboard' }}</h2>
+        <h2 class="truncate text-2xl font-bold tracking-tight text-fg">{{ session.meta?.instance_name ?? 'Dashboard' }}</h2>
         <p class="mt-1 text-sm text-muted" data-testid="dash-subtitle">{{ subtitle }}</p>
       </div>
       <!-- The layout is saved with PATCH /settings, which needs admin rights; a control token would only get a 403. -->
@@ -217,7 +217,7 @@ const subtitle = computed(() => {
       </div>
 
       <section v-if="editing && tray.length" class="card p-[var(--pad-card)]" aria-label="Hidden widgets">
-        <h3 class="text-sm font-semibold text-fg">Add a widget</h3>
+        <h3 class="text-sm font-bold text-fg">Add a widget</h3>
         <ul class="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           <li v-for="w in tray" :key="w.id">
             <button class="flex w-full items-start gap-3 rounded-xl border border-line bg-surface-2/60 p-3 text-left transition-colors hover:border-accent-line hover:bg-accent-softer" @click="add(w.id)">

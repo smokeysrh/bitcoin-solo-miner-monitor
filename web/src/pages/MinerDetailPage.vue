@@ -97,7 +97,7 @@ async function wrap(key: string, fn: () => Promise<unknown>): Promise<void> {
     <template v-else>
       <header class="flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
-          <h2 class="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight text-fg">
+          <h2 class="flex flex-wrap items-center gap-3 text-2xl font-bold tracking-tight text-fg">
             <StatusDot :status="device.status" size="lg" />
             <span class="truncate" data-testid="device-title">{{ device.name }}</span>
             <Badge :tone="statusMeta[device.status]?.tone ?? 'neutral'" data-testid="device-status">{{ statusMeta[device.status]?.label ?? device.status }}</Badge>

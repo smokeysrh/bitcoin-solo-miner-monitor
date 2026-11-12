@@ -68,7 +68,7 @@ onBeforeUnmount(() => unwatchTheme?.())
   <TooltipProvider :delay-duration="250" :skip-delay-duration="100">
     <main v-if="session.state === 'unreachable'" class="grid min-h-dvh place-items-center p-6 text-center">
       <div class="max-w-md space-y-4">
-        <h1 class="text-xl font-semibold">Can't reach HashHurdr</h1>
+        <h1 class="text-xl font-bold">Can't reach HashHurdr</h1>
         <p class="text-sm text-muted">{{ session.error ?? 'The server did not answer.' }} Check that it is still running, then try again.</p>
         <Button variant="primary" @click="session.bootstrap()">Try again</Button>
       </div>

@@ -67,7 +67,7 @@ const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
                   <span
                     v-if="badge(item.name)"
                     :class="[
-                      'grid min-w-5 place-items-center rounded-full bg-bad px-1.5 py-0.5 text-[11px] leading-none font-semibold text-white',
+                      'grid min-w-5 place-items-center rounded-full bg-bad px-1.5 py-0.5 text-[11px] leading-none font-semibold text-on-bad',
                       collapsed ? 'absolute top-1 right-1.5' : 'ml-auto',
                     ]"
                     :aria-label="`${badge(item.name)} active alerts`"

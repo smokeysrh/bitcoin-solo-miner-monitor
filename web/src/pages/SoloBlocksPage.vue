@@ -57,7 +57,7 @@ const isoDate = (ts: number): string => new Date(ts * 1000).toISOString()
 <template>
   <div class="space-y-5" data-testid="solo-blocks-page">
     <header>
-      <h2 class="text-2xl font-semibold tracking-tight text-fg">Solo blocks</h2>
+      <h2 class="text-2xl font-bold tracking-tight text-fg">Solo blocks</h2>
       <p class="mt-1 text-sm text-muted">The latest blocks found by solo pools, with the pool that found each one.</p>
     </header>
 

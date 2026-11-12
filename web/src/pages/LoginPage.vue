@@ -43,7 +43,7 @@ async function submit(): Promise<void> {
       <div class="mb-8 flex flex-col items-center gap-3 text-center">
         <LogoMark :size="64" alt="" />
         <div>
-          <h1 class="text-xl font-semibold tracking-tight text-fg">HashHurdr</h1>
+          <h1 class="text-xl font-bold tracking-tight text-fg">HashHurdr</h1>
           <p class="mt-1 text-sm text-muted">{{ session.meta?.instance_name }}</p>
         </div>
       </div>
@@ -51,7 +51,7 @@ async function submit(): Promise<void> {
         <div class="flex items-center gap-3">
           <span class="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent-text"><LockKeyhole class="size-5" aria-hidden="true" /></span>
           <div>
-            <h2 class="text-base font-semibold text-fg">Sign in</h2>
+            <h2 class="text-base font-bold text-fg">Sign in</h2>
             <p class="text-xs text-subtle">This dashboard is password protected.</p>
           </div>
         </div>

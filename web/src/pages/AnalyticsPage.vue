@@ -133,7 +133,7 @@ function togglePick(id: string): void {
   <div class="space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 class="text-2xl font-semibold tracking-tight text-fg">Analytics</h2>
+        <h2 class="text-2xl font-bold tracking-tight text-fg">Analytics</h2>
         <p class="mt-1 text-sm text-muted">Explore how your fleet has behaved. Everything is kept on this computer.</p>
       </div>
       <Button variant="secondary" size="sm" :disabled="!hasData" @click="exportCsv"><template #icon><Download class="size-4" /></template>Export CSV</Button>

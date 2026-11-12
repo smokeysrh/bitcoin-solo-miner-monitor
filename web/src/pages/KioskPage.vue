@@ -196,7 +196,7 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
                 v-for="h in ODDS_HEADLINES"
                 :key="h.key"
                 type="button"
-                class="min-h-11 rounded-full border px-[clamp(0.75rem,1.6vw,3rem)] py-[clamp(0.25rem,0.5vw,1rem)] text-[clamp(0.875rem,1.3vw,4rem)] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent"
+                class="min-h-11 rounded-full border px-[clamp(0.75rem,1.6vw,3rem)] py-[clamp(0.25rem,0.5vw,1rem)] text-[clamp(0.875rem,1.3vw,4rem)] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-focus"
                 :class="h.key === oddsHeadline.key ? 'border-accent bg-accent/15 text-accent-text' : 'border-line text-muted hover:text-fg'"
                 :aria-pressed="h.key === oddsHeadline.key"
                 :data-testid="`kiosk-odds-choice-${h.key}`"

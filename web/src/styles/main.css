@@ -1,6 +1,33 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/inter/index.css';
-@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/* ------------------------------------------------------------------------------------------------
+   Brand fonts from the HashHurdr kit (SIL OFL 1.1; the licence texts sit next to the files in
+   public/fonts). They are served by this app from /fonts, never from a font host. One variable file
+   per family covers every weight and, for Saira, every width the interface uses.
+   ------------------------------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'Saira';
+  src: url('/fonts/Saira-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-stretch: 50% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  src: url('/fonts/Inter-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono Variable';
+  src: url('/fonts/JetBrainsMono-latin.woff2') format('woff2');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *, [data-theme='amoled'], [data-theme='amoled'] *));
 @custom-variant light (&:where([data-theme='light'], [data-theme='light'] *));
@@ -8,87 +35,103 @@
 /* ------------------------------------------------------------------------------------------------
    Design tokens. Components use the semantic names (surface, line, fg, accent...) so a theme is
    nothing more than a different set of values here; no component knows which theme is active.
+   The colours are the HashHurdr Night Shift palette: dark is the kit's "dark" (jet black, the default),
+   amoled is the kit's "black" (true black for OLED screens and the wall display), light is the kit's
+   "light". The app's stored theme names stay dark, amoled and light.
    ------------------------------------------------------------------------------------------------ */
 
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
   --accent-base: #f7931a;
-  --bg: #090b10;
+  --bg: #0a0a0a;
   --bg-glow: rgb(247 147 26 / 0.07);
-  --surface-1: #0f1219;
-  --surface-2: #151922;
-  --surface-3: #1c212c;
-  --overlay: rgb(5 7 11 / 0.72);
-  --line: rgb(255 255 255 / 0.075);
-  --line-strong: rgb(255 255 255 / 0.15);
-  --fg: #eceef4;
-  --fg-muted: #a1aabd;
-  --fg-subtle: #7b8599;
-  --ok: #34d399;
-  --warn: #fbbf24;
-  --bad: #f87171;
-  --info: #60a5fa;
-  --violet: #a78bfa;
+  --surface-1: #151413;
+  --surface-2: #1d1c1a;
+  --surface-3: #272522;
+  --overlay: rgb(10 10 10 / 0.72);
+  --line: #2e2c29; /* card edges and dividers; controls use --line-strong */
+  --line-strong: #7c766c; /* input and control borders, 3:1 or better on every surface */
+  --fg: #f4f1ea;
+  --fg-muted: #b9b2a7;
+  --fg-subtle: #958e84;
+  --ok: #3dd68c;
+  --warn: #f5d547;
+  --bad: #ff6b6b;
+  --info: #5cb8ff;
+  --violet: #e08bc1;
+  --on-bad: #0a0a0a; /* text and icons on a solid --bad fill (the alert count badge) */
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
   --shadow-pop: 0 18px 50px -12px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.06);
-  --chart-grid: rgb(255 255 255 / 0.06);
-  --chart-axis: #7b8599;
+  /* chart series colours, in the kit's order; the grid and axis colours are for drawn charts */
+  --chart-1: #f7931a;
+  --chart-2: #56b4e9;
+  --chart-3: #f0e442;
+  --chart-4: #2fbf9b;
+  --chart-5: #e08bc1;
+  --chart-6: #d6d0c5;
+  --chart-grid: #2e2c29;
+  --chart-axis: #958e84;
 }
 
 :root[data-theme='amoled'] {
   color-scheme: dark;
   --bg: #000000;
   --bg-glow: rgb(247 147 26 / 0.05);
-  --surface-1: #07080b;
-  --surface-2: #0d0f14;
-  --surface-3: #14171e;
+  --surface-1: #0d0d0c;
+  --surface-2: #151413;
+  --surface-3: #1d1c1a;
   --overlay: rgb(0 0 0 / 0.8);
-  --line: rgb(255 255 255 / 0.09);
-  --line-strong: rgb(255 255 255 / 0.18);
+  --line: #272522;
   --shadow-card: 0 0 0 1px rgb(255 255 255 / 0.02) inset;
+  --chart-grid: #272522;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f4f5f8;
+  --bg: #faf8f4;
   --bg-glow: rgb(247 147 26 / 0.09);
   --surface-1: #ffffff;
-  --surface-2: #f6f7fa;
-  --surface-3: #eceef3;
-  --overlay: rgb(20 24 34 / 0.45);
-  --line: rgb(16 24 40 / 0.1);
-  --line-strong: rgb(16 24 40 / 0.22);
-  --fg: #12151c;
-  --fg-muted: #4a5366;
-  --fg-subtle: #667085;
-  /* status colours double as text colours on their own 15% tint, so each is darkened until it clears 5:1 there */
-  --ok: #036247;
-  --warn: #7a4a05;
-  --bad: #a61919;
-  --info: #1b49cb;
-  --violet: #6926d0;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 6px 18px -10px rgb(16 24 40 / 0.16);
-  --shadow-pop: 0 18px 50px -12px rgb(16 24 40 / 0.35), 0 0 0 1px rgb(16 24 40 / 0.08);
-  --chart-grid: rgb(16 24 40 / 0.08);
-  --chart-axis: #667085;
+  --surface-2: #f2efe9;
+  --surface-3: #e8e4dc;
+  --overlay: rgb(10 10 10 / 0.45);
+  --line: #e2ddd4;
+  --line-strong: #7c766c;
+  --fg: #0a0a0a;
+  --fg-muted: #4f4a43;
+  --fg-subtle: #6b655c;
+  /* status colours double as text colours on their own tint, so each is the kit's deep variant */
+  --ok: #0b6b41;
+  --warn: #7a5a00;
+  --bad: #b42525;
+  --info: #1a5ab8;
+  --violet: #a8407a;
+  --on-bad: #ffffff;
+  --shadow-card: 0 1px 2px rgb(10 10 10 / 0.06), 0 6px 18px -10px rgb(10 10 10 / 0.16);
+  --shadow-pop: 0 18px 50px -12px rgb(10 10 10 / 0.35), 0 0 0 1px rgb(10 10 10 / 0.08);
+  --chart-1: #b35c00;
+  --chart-2: #0072b2;
+  --chart-3: #8c7a00;
+  --chart-4: #007f66;
+  --chart-5: #a8407a;
+  --chart-6: #57524a;
+  --chart-grid: #e2ddd4;
+  --chart-axis: #6b655c;
 }
 
 /* Everything derived from the accent: set --accent-base (and optionally --accent-fg) and the rest follows. */
 :root {
   --accent: var(--accent-base);
-  --accent-fg: #1b1203;
+  --accent-fg: #0a0a0a;
   --accent-text: var(--accent);
+  --focus: var(--accent);
   --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
   --accent-softer: color-mix(in oklab, var(--accent) 8%, transparent);
   --accent-line: color-mix(in oklab, var(--accent) 38%, transparent);
-  /* Wall display series companions to the brand orange (#f7931a = oklch 0.7523 0.1663 62.6): same lightness and, as far
-     as sRGB allows, the same chroma, with only the hue changed, so bars and lines sit at the orange's depth.
-     blue   oklch(0.7525 0.1490 235.2): sRGB tops out at about 0.150 chroma at this lightness for any blue.
-     violet oklch(0.7526 0.1655 310.2): within 1% of the orange's chroma.
-     Fixed values; they do not follow a custom accent. The light theme keeps its darker --info / --violet below. */
-  --accent-blue: #2dbcff;
-  --accent-violet: #cf8efc;
+  /* Wall display series companions to the brand orange: the kit's sky (chart-2) and plum (chart-5). Fixed values;
+     they do not follow a custom accent. The light theme keeps its darker --info / --violet below. */
+  --accent-blue: #56b4e9;
+  --accent-violet: #e08bc1;
   --ok-soft: color-mix(in oklab, var(--ok) 14%, transparent);
   --warn-soft: color-mix(in oklab, var(--warn) 15%, transparent);
   --bad-soft: color-mix(in oklab, var(--bad) 15%, transparent);
@@ -99,10 +142,17 @@
   --row-h: 2.75rem;
 }
 
-/* Orange/amber text on a white page is too pale to read, so text-sized accent gets darker in light mode. */
+/* Orange text on a light page is too pale to read: the kit's Ember carries it, and the focus ring with it.
+   Any other accent gets a darkened copy of itself (--accent-ink, set by applyLook and theme-init.js). */
 :root[data-theme='light'] {
-  --accent-text: color-mix(in oklab, var(--accent) 62%, black);
-  /* Light-mode bars and lines must still read on white (the pale dark-theme pair would be 2:1), so they stay as dark as the status blue and violet. */
+  --accent-text: var(--accent-ink, #9a4d00);
+  --focus: var(--accent-text);
+  /* the status tints are a little paler on light so status text keeps 4.5:1 on a card inside a card */
+  --ok-soft: color-mix(in oklab, var(--ok) 12%, transparent);
+  --warn-soft: color-mix(in oklab, var(--warn) 12%, transparent);
+  --bad-soft: color-mix(in oklab, var(--bad) 12%, transparent);
+  --info-soft: color-mix(in oklab, var(--info) 12%, transparent);
+  /* Light-mode bars and lines must still read on white, so they stay as dark as the status blue and violet. */
   --accent-blue: var(--info);
   --accent-violet: var(--violet);
 }
@@ -115,8 +165,9 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: 'Saira', 'Bahnschrift', 'DIN Alternate', 'Arial Narrow', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', 'Liberation Mono', monospace;
 
   --color-bg: var(--bg);
   --color-surface-1: var(--surface-1);
@@ -133,9 +184,11 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-softer: var(--accent-softer);
   --color-accent-line: var(--accent-line);
+  --color-focus: var(--focus);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-on-bad: var(--on-bad);
   --color-info: var(--info);
   --color-violet: var(--violet);
   --color-ok-soft: var(--ok-soft);
@@ -242,7 +295,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -259,14 +312,14 @@
   /* slim, theme-aware scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-color: color-mix(in oklab, var(--line-strong) 55%, transparent) transparent;
   }
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--line-strong);
+    background: color-mix(in oklab, var(--line-strong) 55%, transparent);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: content-box;
@@ -285,7 +338,20 @@
     color: var(--fg);
   }
 
+  /* Headlines are Saira at the kit's 87.5% width. It has its own stylistic sets, so the interface face's feature
+     settings (set on html) are switched off here. Small uppercase labels are captions, not headlines: they stay in
+     the interface face. */
+  h1,
+  h2,
+  h3:not(.eyebrow, .uppercase) {
+    font-family: var(--font-display);
+    font-stretch: 87.5%;
+    font-feature-settings: normal;
+  }
+
+  /* Numbers and data (hashrates, odds, temperatures, prices) are set in JetBrains Mono, tabular by design. */
   .tnum {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
 }

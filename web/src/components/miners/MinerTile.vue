@@ -28,7 +28,7 @@ const down = computed(() => (props.device.status_since ? fmt.formatDuration(now.
   <RouterLink
     :to="`/miners/${device.id}`"
     :class="[
-      'card card-hover group relative block overflow-hidden p-[var(--pad-card)] outline-none focus-visible:ring-2 focus-visible:ring-accent',
+      'card card-hover group relative block overflow-hidden p-[var(--pad-card)] outline-none focus-visible:ring-2 focus-visible:ring-focus',
     ]"
     :data-testid="`miner-tile-${device.id}`"
     :aria-label="`${device.name}, ${device.status}`"

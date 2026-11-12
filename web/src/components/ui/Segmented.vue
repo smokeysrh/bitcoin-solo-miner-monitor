@@ -31,7 +31,7 @@ const model = defineModel<T>()
       :class="
         cn(
           'inline-flex items-center justify-center gap-1.5 rounded-[10px] px-3 font-medium text-muted transition-colors outline-none',
-          'hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=checked]:bg-surface-3 data-[state=checked]:text-fg data-[state=checked]:shadow-sm',
+          'hover:text-fg focus-visible:ring-2 focus-visible:ring-focus data-[state=checked]:bg-surface-3 data-[state=checked]:text-fg data-[state=checked]:shadow-sm',
           size === 'sm' ? 'h-7 text-xs' : 'h-8 text-[13px]',
         )
       "

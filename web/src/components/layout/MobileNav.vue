@@ -44,7 +44,7 @@ function go(path: string): void {
             {{ item.label.split(' ')[0] }}
             <span
               v-if="item.name === 'alerts' && live.alerts.length"
-              class="absolute top-2 left-1/2 ml-2 grid min-w-4 place-items-center rounded-full bg-bad px-1 text-[10px] leading-4 font-semibold text-white"
+              class="absolute top-2 left-1/2 ml-2 grid min-w-4 place-items-center rounded-full bg-bad px-1 text-[10px] leading-4 font-semibold text-on-bad"
             >
               {{ live.alerts.length }}
             </span>
