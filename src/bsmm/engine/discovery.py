@@ -26,7 +26,14 @@ from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.engine.fleet import AddResult, Fleet
 from bsmm.models import Device, ProbeResult, Severity, Source
-from bsmm.net import MAX_SCAN_HOSTS, is_private_host, iter_hosts, local_ipv4_networks, own_ipv4_addresses, tcp_open
+from bsmm.net import (
+    MAX_SCAN_HOSTS,
+    is_private_host,
+    iter_hosts,
+    local_ipv4_networks,
+    own_ipv4_addresses,
+    tcp_open,
+)
 from bsmm.sources.base import NodeRefusal, SourceError
 from bsmm.sources.bitcoin_core import normalise_url, probe_node_access
 from bsmm.sources.public_pool import PublicPoolSource
