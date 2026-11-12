@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
@@ -43,11 +41,11 @@ afterEach(() => {
 describe('issue 2390: brand file URLs', () => {
   // The components and the tests spell the URLs independently, so a rename of either side fails here.
   // The URL must stay a plain path to the public file (never a data: URI), so the built app serves the kit file unchanged.
-  it('are plain public paths, each naming a kit file that exists in web/public', () => {
+  // That each URL names an existing file is checked in issue2390-brand-files.test.ts, which runs in the node environment.
+  it('are plain public paths', () => {
     expect(Object.values(BRAND_ASSETS).sort()).toEqual([LOCKUP_DARK, LOCKUP_LIGHT, SYMBOL].sort())
     for (const url of Object.values(BRAND_ASSETS)) {
       expect(url.startsWith('/brand/')).toBe(true)
-      expect(existsSync(fileURLToPath(new URL(`../public${url}`, import.meta.url)))).toBe(true)
     }
   })
 })

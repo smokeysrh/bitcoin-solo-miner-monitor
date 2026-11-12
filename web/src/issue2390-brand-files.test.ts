@@ -1,11 +1,22 @@
 // @vitest-environment node
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { BRAND_ASSETS } from '@/lib/brand'
 
 // Card #2390: the install manifest, page head and service worker show HashHurdr; technical identifiers keep their names.
 // The files are read from disk, so these tests run against what the browser is actually served.
 const publicFile = (name: string): string => readFileSync(fileURLToPath(new URL(`../public/${name}`, import.meta.url)), 'utf8')
+
+describe('issue 2390: brand file URLs', () => {
+  it('each URL the components use names a kit file that exists in web/public', () => {
+    const urls = Object.values(BRAND_ASSETS)
+    expect(urls.length).toBeGreaterThan(0)
+    for (const url of urls) {
+      expect(existsSync(fileURLToPath(new URL(`../public${url}`, import.meta.url))), url).toBe(true)
+    }
+  })
+})
 
 describe('issue 2390: install manifest and page head', () => {
   it('the manifest names HashHurdr and keeps its start URL and scope', () => {
