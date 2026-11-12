@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 2026-11-12
 
-This minor release adds a Solo blocks list and guidance for a Bitcoin node that refuses the app, plus wall display and read-only fixes since v1.2.0.
+This minor release adds a Solo blocks list and guidance for a Bitcoin node that refuses the app, plus wall display, appearance and discovery fixes and security hardening since v1.2.0.
 
 ### Added
 - **Solo blocks:**
@@ -19,8 +19,18 @@ This minor release adds a Solo blocks list and guidance for a Bitcoin node that 
 - **Wall display:**
   - The Overview panel now fits above the footer, so the page no longer overflows at 1280x720 (PR #100).
   - The wall display says when the Bitcoin price has stopped updating, and the chart's stale notice is larger and easier to read (PR #102).
+  - The stale-price notice no longer appears for a price you typed in yourself while settings are still loading (PR #112).
+  - On a square screen, the Overview panel now fits the same way as a portrait screen, matching how the page lays out its figures (PR #109).
 - **Customize:**
   - Read-only viewers no longer see Customize and "Reset dashboard layout", because only an admin can save a layout. Appearance gives a short reason (PR #101).
+  - Appearance changes made with a control token are now kept on this device. Before, the app tried to save them on the server, which refuses anyone but an admin (PR #108).
+- **Discovery:**
+  - A Bitcoin node you saved by its host name is now recognized as already added when a scan finds it by its IP address. A name that cannot be looked up in time is treated as no match and does not stop the scan (PR #113).
+  - A scan now has one limit of 4096 different addresses and 16 ranges in total, and it refuses a larger request with a plain message. Addresses are checked a few at a time instead of all at once (PR #114).
+- **Security hardening:**
+  - Raw miner diagnostics now hide passwords, tokens, keys and logins inside web addresses at any depth. Model, hostname and MAC address are still shown (PR #110).
+  - A source address can no longer contain a user name or password, including in the short `//user:pass@host` form. A login saved that way earlier is hidden in the source list and in the config export (PR #111).
+  - Replies from miners, pools, explorers and Bitcoin nodes are now read with a size limit. A reply over the limit counts as one failed poll (PR #115).
 
 ## [1.2.0] - 2026-11-12
 
