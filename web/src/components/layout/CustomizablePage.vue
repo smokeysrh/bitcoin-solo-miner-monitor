@@ -38,7 +38,8 @@ const { draft, announcement, begin, hide, append, move } = useLayoutEditor<Place
 const editing = ref(false)
 const saving = ref(false)
 
-const canEdit = computed(() => session.canAdmin || session.canControl)
+// Layouts are saved with PATCH /settings, which needs admin rights; a control token would only get a 403.
+const canEdit = computed(() => session.canAdmin)
 const saved = computed(() => resolvePageLayout(settings.data?.ui[props.pageKey], props.cards))
 // What is on screen: the draft while editing, the saved layout otherwise.
 const shown = computed(() => (editing.value ? draft.value.map((p) => p.id) : saved.value).flatMap((id) => card(id) ?? []))
