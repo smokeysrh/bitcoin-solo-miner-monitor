@@ -93,8 +93,7 @@ describe('issue 2366: wall display price freshness', () => {
     const section = await networkPanel(network({ field_sources: priceField(true) }))
     const note = section.find(`[data-testid="${STALE_NOTE_ID}"]`)
     expect(note.exists()).toBe(true)
-    expect(note.text()).toContain('Price not updating')
-    expect(note.text()).toContain('2h ago')
+    expect(note.text()).toBe('Price not updating (last updated 2h ago)')
     // the old price stays visible, it is labelled rather than hidden
     expect(section.get('[data-testid="kiosk-price-value"]').text()).toContain('82,000')
     // same cell as the price, so it reads as part of it
