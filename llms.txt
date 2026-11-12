@@ -54,7 +54,7 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 
 - How are my miners doing? -> GET /api/v1/overview, then GET /api/v1/devices
 - What are my odds of finding a block? -> GET /api/v1/odds (add ?hashrate_ths=50 for a what-if)
-- What is my chance in the next 10 minutes? -> GET /api/v1/odds: horizons.ten_minutes (seconds=600), also in bsmm odds and MCP get_odds. This is a fixed-window Poisson chance of at least one block, not the chance of winning the very next network block. Bitcoin targets 10-minute blocks; the exact future block time is unknown. Past work never makes a miner due.
+- What is my chance in the next 10 minutes? -> GET /api/v1/odds: horizons.ten_minutes (seconds=600), also in bsmm odds and MCP get_odds. This is a fixed-window Poisson chance of at least one block, not the chance of the very next network block. Bitcoin targets 10-minute blocks; the exact future block time is unknown. Your miner has no memory, so nobody is ever due.
 - Is anything wrong? -> GET /api/v1/alerts/active and GET /api/v1/insights
 - Which blocks did solo pools find lately? -> GET /api/v1/blocks/solo (the latest 20 from mempool.space, newest first; `yours` marks a block that paid one of the user's addresses; `available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)
 - Restart a miner -> POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)
@@ -74,7 +74,7 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 - Do not guess node credentials, wallet addresses or passwords. Ask for missing information through secure app fields; keep secrets and addresses out of chat and logs.
 - Network scans are limited to private address ranges.
 - Restarting a miner interrupts hashing; downtime depends on firmware. Lost hashing time reduces the chance of finding a block.
-- Solo mining is a lottery. Never promise a block or profit or say the user is due. When available, horizons.ten_minutes (Next 10 minutes) estimates chance over a fixed 600-second window; the next network block can arrive at any time.
+- Solo mining is a lottery, so keep the odds talk light. Every hash is a fresh ticket: never promise a block and never say the user is due. When available, horizons.ten_minutes (Next 10 minutes) estimates chance over a fixed 600-second window; the next network block can arrive at any time.
 
 ## Conventions
 

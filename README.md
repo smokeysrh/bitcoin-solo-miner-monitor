@@ -21,7 +21,7 @@ Set authentication for this network and use the least access scope needed. Keep 
 
 Start monitoring only. Verify the dashboard, health check and fleet overview. Ask before restarting a miner, changing a pool or payout address, tuning, changing firmware, deleting data or doing another destructive action.
 
-Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as chance across a fixed window; it says nothing about when the next network block arrives.
+Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as the chance across one fixed window, not a countdown: the next network block arrives whenever it likes.
 ```
 
 ## Install it
@@ -66,7 +66,7 @@ See [miner identification](docs/miner-identification.md) for how the app names d
 
 ## Odds, plainly
 
-Solo mining is luck at scale. The app estimates your chance from your hashrate and network conditions, then puts the result into words and time windows. Most solo miners will never find a block. A probability for “Next 10 minutes” describes one fixed 600-second window. The actual block arrival time remains unknown. Treat odds as context for your setup; payouts remain luck.
+Solo mining is a lottery, and every hash is a ticket (ours just come with a heatsink). The app turns your hashrate and network conditions into words and time windows, so you can enjoy the lottery without a calculator. “Next 10 minutes” is the chance across one fixed 600-second window; the next network block shows up whenever it likes. Your miner has no memory, and neither does the lottery, so you are never due and always in the running.
 
 ## AI agents and other ways in
 

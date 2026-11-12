@@ -10,7 +10,7 @@ export interface GlossaryEntry {
 export const GLOSSARY: Record<string, GlossaryEntry> = {
   solo: {
     title: 'Solo mining',
-    body: 'You mine on your own instead of sharing work with a pool. Almost every day pays nothing, but if one of your hashes wins a block, you keep the whole reward.',
+    body: 'You mine on your own instead of sharing work with a pool. Every hash is a lottery ticket, and if one of yours lands a block, the whole block reward is yours.',
   },
   hashrate: {
     title: 'Hashrate',
@@ -26,7 +26,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   },
   bestshare: {
     title: 'Best share',
-    body: 'The luckiest hash your miner has found so far. If it ever reaches the network difficulty, that hash is a block and you win the reward.',
+    body: 'The luckiest hash your miner has found so far. If it ever reaches the network difficulty, that hash is a block. Until then, it goes on the fridge.',
   },
   rejected: {
     title: 'Rejected shares',
@@ -74,7 +74,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   },
   odds: {
     title: 'Your odds',
-    body: 'Each guess is an independent lottery ticket, so past results do not change your chances. The odds only depend on your hashrate and the network difficulty.',
+    body: 'Your miner has no memory, and neither does the lottery: every hash is a fresh ticket. Your odds only depend on your hashrate and the network difficulty.',
   },
   psu: {
     title: 'PSU overhead',

@@ -110,7 +110,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
   >
     <template #heading>
       <h2 class="text-2xl font-semibold tracking-tight text-fg">Odds &amp; costs</h2>
-      <p class="mt-1 max-w-2xl text-sm text-muted">The honest numbers: how likely a block is, what the electricity costs, and what changes if you add hardware.</p>
+      <p class="mt-1 max-w-2xl text-sm text-muted">The lottery maths: how likely a block is, what the electricity costs, and what changes if you add hardware.</p>
     </template>
     <template #actions>
       <Button v-if="active" variant="ghost" size="sm" @click="reset"><template #icon><RotateCcw class="size-4" /></template>Back to my real numbers</Button>
@@ -127,7 +127,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             </p>
             <p class="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
               At {{ fmt.hashrate(o.hashrate) }} you hold about {{ fmt.formatFraction(o.share_of_network, 7) }} of the network. On average you would wait
-              <b class="text-fg">{{ fmt.formatDuration(o.expected_seconds) }}</b> for a block, but luck is not scheduled: the next hash is just as likely to win as any other.
+              <b class="text-fg">{{ fmt.formatDuration(o.expected_seconds) }}</b> for a block, but the lottery keeps no schedule: every hash is a fresh ticket, and the next one is as good as any.
             </p>
           </div>
         </section>
@@ -148,7 +148,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             </li>
           </ul>
           <p class="mt-4 text-xs text-subtle">Bars use a log scale so very small chances stay visible.</p>
-          <p class="mt-3 text-sm text-muted">Next 10 minutes is a fixed 600-second chance of at least one block, not the chance of winning the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. You are never due.</p>
+          <p class="mt-3 text-sm text-muted">Next 10 minutes is the chance of at least one block in a fixed 600-second window, not of the very next network block. Bitcoin targets 10-minute blocks, but the exact future block time is unknown. Your miner has no memory, so you are never due, and always in the running.</p>
         </MetricCard>
     </template>
 
@@ -164,7 +164,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
             ]" />
             <p v-if="o.economics.cost_note" class="mt-4 text-xs leading-relaxed text-warn" data-testid="odds-cost-note">{{ o.economics.cost_note }}</p>
             <p class="mt-4 text-xs leading-relaxed text-subtle">
-              “Expected payout” is an average over many lifetimes: you will almost certainly receive nothing, and very rarely a whole block ({{ o.economics.block_reward_btc }} BTC) at once.
+              “Expected payout” is lottery maths, an average over many lifetimes. A block comes as one big lump ({{ o.economics.block_reward_btc }} BTC), never a trickle.
               Electricity price: {{ fmt.money(o.economics.price_per_kwh, 3) }}/kWh. <RouterLink to="/settings/energy" class="text-accent-text underline underline-offset-2 hover:no-underline">Change</RouterLink>
             </p>
           </MetricCard>
@@ -180,7 +180,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               { label: 'Best share', value: fmt.formatDifficulty(o.best_share.difficulty) },
               { label: 'Closest you came', value: o.best_share.progress_to_block != null ? fmt.formatFraction(o.best_share.progress_to_block, 4) + ' of a block' : '–' },
             ]" />
-            <p class="mt-4 text-xs leading-relaxed text-subtle"><Term k="bestshare">Best share</Term> shows the luckiest single hash. It is a fun measure of luck, not a sign you are getting closer.</p>
+            <p class="mt-4 text-xs leading-relaxed text-subtle"><Term k="bestshare">Best share</Term> shows your luckiest single hash. Fridge material: every hash is a fresh ticket, so it is bragging rights only.</p>
           </MetricCard>
     </template>
 

@@ -38,8 +38,8 @@ const rows = computed(() =>
       </dl>
 
       <p class="mt-4 text-xs leading-relaxed text-subtle">
-        On average that is one block every {{ fmt.formatDuration(odds.expected_seconds, 1) }}. Each hash is an
-        independent ticket, so <Term k="odds">past luck changes nothing</Term>.
+        On average that is one block every {{ fmt.formatDuration(odds.expected_seconds, 1) }}. Every hash is a
+        fresh ticket, so <Term k="odds">your miner has no memory</Term> and nobody is ever due.
       </p>
     </div>
     <EmptyState v-else compact :icon="Dices" title="Odds need network data" :description="live.odds && !live.odds.available ? live.odds.reason : 'Waiting for the first reading.'" />
