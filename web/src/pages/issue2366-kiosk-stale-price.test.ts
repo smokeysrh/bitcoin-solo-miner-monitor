@@ -101,6 +101,25 @@ describe('issue 2366: wall display price freshness', () => {
     expect(section.get('[data-testid="kiosk-price-value"]').element.parentElement?.contains(note.element)).toBe(true)
   })
 
+  it('keeps the wall display list valid while the note shows (only dt/dd inside the dl and its groups)', async () => {
+    const section = await networkPanel(network({ field_sources: priceField(true) }))
+    expect(section.find(`[data-testid="${STALE_NOTE_ID}"]`).exists()).toBe(true)
+    const group = section.get('[data-testid="kiosk-price-value"]').element.parentElement
+    const list = group?.parentElement
+    expect(list?.tagName).toBe('DL')
+    const childrenOf = (parent: Element | null | undefined): Element[] => (parent ? Array.from(parent.children) : [])
+    const tagNames = (parent: Element | null | undefined): string[] => childrenOf(parent).map((child) => child.tagName)
+    const allowed = ['DT', 'DD']
+    expect(tagNames(group).length).toBeGreaterThan(0)
+    expect(tagNames(group).filter((tag) => !allowed.includes(tag))).toEqual([])
+    const groups = childrenOf(list)
+    expect(groups.length).toBeGreaterThan(0)
+    for (const child of groups) {
+      if (child.tagName === 'DIV') expect(tagNames(child).filter((tag) => !allowed.includes(tag))).toEqual([])
+      else expect(allowed).toContain(child.tagName)
+    }
+  })
+
   it('sizes the note for the wall (the panel note size, not small print)', async () => {
     const section = await networkPanel(network({ field_sources: priceField(true) }))
     const note = section.get(`[data-testid="${STALE_NOTE_ID}"]`)
