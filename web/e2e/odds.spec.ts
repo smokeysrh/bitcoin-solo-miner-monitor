@@ -24,6 +24,9 @@ test('Next 10 minutes is visible on dashboard, calculator and kiosk', async ({ p
   expect((await whatif.json()).horizons.ten_minutes.probability).toBe(0)
   await page.goto('/kiosk')
   await page.getByRole('button', { name: 'Show odds', exact: true }).click()
-  await expect(page.getByText('Next 10 minutes', { exact: true })).toBeVisible()
+  // The wall display names the ten-minute horizon "Next block" and says it in full under the big number (issue 78).
+  await expect(page.getByTestId('kiosk-odds-headline-label')).toHaveText('Chance of a block in the next 10 minutes')
+  await expect(page.getByTestId('kiosk-odds-choice-ten_minutes')).toHaveText('Next block')
+  await expect(page.getByTestId('kiosk-odds-choice-ten_minutes')).toHaveAttribute('aria-pressed', 'true')
   expect(failures).toEqual([])
 })
