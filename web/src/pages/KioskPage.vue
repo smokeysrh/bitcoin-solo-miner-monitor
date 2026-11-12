@@ -156,11 +156,11 @@ async function chooseHeadline(key: OddsHeadline): Promise<void> {
       <section :key="panel" class="relative flex flex-1 flex-col justify-center py-[max(1rem,2vmin)]" :aria-label="panel">
         <template v-if="panel === 'overview'">
           <p class="eyebrow text-center text-[length:max(0.875rem,2.4vmin)] leading-[1.25]">Fleet hashrate</p>
-          <p class="mt-[1.5vmin] flex items-baseline justify-center gap-[2vmin]">
+          <p class="mt-[2vmin] flex items-baseline justify-center gap-[2vmin]">
             <span class="text-gradient-accent tnum text-[length:clamp(4rem,min(18vw,28vmin),48rem)] leading-[1.2] font-bold tracking-tight">{{ hash.value }}</span>
             <span class="text-[length:clamp(1.5rem,min(5vw,8vmin),12rem)] font-medium text-subtle">{{ hash.unit }}</span>
           </p>
-          <div class="mt-[2vmin] w-full" :style="{ height: `${chartHeight}px` }"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="chartHeight" minimal /></div>
+          <div class="mt-[1.5vmin] w-full" :style="{ height: `${chartHeight}px` }"><HistoryChart :metrics="['hashrate_hs']" range="6h" :height="chartHeight" minimal /></div>
           <dl class="mt-[3vmin] grid w-full grid-cols-2 gap-[2.5vmin] text-center landscape:grid-cols-4">
             <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Miners online</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ s?.devices_online ?? 0 }}<span class="text-[0.55em] text-subtle"> / {{ s?.devices_total ?? 0 }}</span></dd></div>
             <div><dt class="text-[length:max(0.875rem,2.4vmin)] text-subtle">Power</dt><dd class="tnum mt-1 text-[length:max(2.25rem,6vmin)] font-semibold text-fg">{{ fmt.formatPower(s?.power_w) }}</dd></div>
