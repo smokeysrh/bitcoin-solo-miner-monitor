@@ -5,6 +5,23 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-11-12
+
+This minor release adds a Solo blocks list and guidance for a Bitcoin node that refuses the app, plus wall display and read-only fixes since v1.2.0.
+
+### Added
+- **Solo blocks:**
+  - A Solo blocks page lists the latest 20 blocks found by solo pools (Solo CK, Public Pool, Braiins Solo, FutureBit Apollo Solo and SoloPool.com), newest first, from mempool.space. A block found by one of your own miners is marked. If outside lookups are off, the page says so. If nothing can be read, it shows an error instead of an empty list. The wall display is unchanged (#98, PR #104).
+- **Node refusal guidance:**
+  - When discovery finds a Bitcoin node that refuses the app, the app now says why (the login is missing or wrong, this computer is not allowed, or the node did not answer) and what to change. The dashboard node card and the discovery panel show the next step in plain English. The same reason and next step reach agents through the API, the MCP tools and the agent guide. The node login is never shown or logged (#99, PR #103).
+
+### Fixed
+- **Wall display:**
+  - The Overview panel now fits above the footer, so the page no longer overflows at 1280x720 (PR #100).
+  - The wall display says when the Bitcoin price has stopped updating, and the chart's stale notice is larger and easier to read (PR #102).
+- **Customize:**
+  - Read-only viewers no longer see Customize and "Reset dashboard layout", because only an admin can save a layout. Appearance gives a short reason (PR #101).
+
 ## [1.2.0] - 2026-11-12
 
 This minor release adds wall display and Customize features since v1.1.3. They were developed as separate pull requests and merged together as one change (PR #95).
