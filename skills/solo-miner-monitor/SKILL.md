@@ -1,9 +1,9 @@
 ---
 name: solo-miner-monitor
-description: Set up, check on and operate Bitcoin Solo Miner Monitor, the self-hosted dashboard for people who solo mine with Bitaxe, NerdQAxe, Avalon, Antminer and similar miners. Use when the user asks about their miners' health, hashrate, temperatures, odds of finding a block, their node or solo pool, alerts, or wants the monitor installed and configured.
+description: Set up, check on and operate HashHurdr, the Bitcoin Solo Miner Monitor, the self-hosted dashboard for people who solo mine with Bitaxe, NerdQAxe, Avalon, Antminer and similar miners. Use when the user asks about their miners' health, hashrate, temperatures, odds of finding a block, their node or solo pool, alerts, or wants the monitor installed and configured.
 ---
 
-# Solo Miner Monitor
+# HashHurdr
 
 A self-hosted app with a web UI, REST API, MCP server and CLI. It finds compatible AxeOS and cgminer-API miners on the local network, watches them, connects to the user's Bitcoin node / solo pool, estimates block odds, sends alerts and can restart or reconfigure miners within safe limits. Readings and controls depend on firmware and protocol support.
 

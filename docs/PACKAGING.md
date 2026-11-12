@@ -1,4 +1,4 @@
-# Installing and shipping Solo Miner Monitor
+# Installing and shipping HashHurdr
 
 ## For users
 

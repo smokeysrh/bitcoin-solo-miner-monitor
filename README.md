@@ -1,4 +1,13 @@
-# Bitcoin Solo Miner Monitor
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/readme-banner-dark-1280x320.png">
+    <img src="docs/brand/readme-banner-light-1280x320.png" alt="HashHurdr, the Bitcoin Solo Miner Monitor. Built for Plebs, By Plebs. One dashboard. Every miner." width="100%">
+  </picture>
+</p>
+
+# HashHurdr
+
+**Built for Plebs, By Plebs.** HashHurdr, the Bitcoin Solo Miner Monitor, is free, open source and runs on your own machine.
 
 ## A fleet dashboard for the solo-mining pleb
 
@@ -13,7 +22,7 @@ Keep an eye on the hash without babysitting twelve browser tabs. Spot miners tha
 Copy this into your agent chat. It uses the official project and release links, then follows the guide served by the app you actually install.
 
 ```text
-Set up Bitcoin Solo Miner Monitor for monitoring my solo-mining fleet.
+Set up HashHurdr, the Bitcoin Solo Miner Monitor, for monitoring my solo-mining fleet.
 
 Start at https://github.com/smokeysrh/bitcoin-solo-miner-monitor and its latest stable release at https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest. Read the repository's AGENTS.md, choose the official release artifact for my platform, and preserve my existing app data, settings and miner configuration. Back up the app data before an upgrade. After launch, read the running app's /llms.txt or current agent guide and follow it.
 
@@ -108,4 +117,4 @@ Current v1.1.2 demo screens, captured in Firefox. All fleet data shown here is s
 - [Security notes](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
-MIT licensed. See [LICENSE](LICENSE).
+MIT licensed. See [LICENSE](LICENSE). Rules for the name, logo and Hashling: [BRAND.md](BRAND.md).
