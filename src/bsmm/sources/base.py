@@ -33,6 +33,27 @@ class SourceBadResponse(SourceError):
     code = "bad_response"
 
 
+URL_LOGIN_MESSAGE = "The address can't contain a user name or password."
+URL_LOGIN_HINT = "Remove it from the address. For a Bitcoin node, enter them in the RPC user name and RPC password fields."
+_URL_AUTHORITY = re.compile(r"^(?P<prefix>(?:[A-Za-z][A-Za-z0-9+.-]*:)?//)?(?P<netloc>[^/?#]*)(?P<rest>.*)$", re.DOTALL)
+
+
+def url_has_login(url: str | None) -> bool:
+    """True when the address carries a user name or password (``user:pass@host``). Never raises."""
+    m = _URL_AUTHORITY.match((url or "").strip())
+    return bool(m and "@" in m.group("netloc"))
+
+
+def hide_url_login(url: str | None) -> str | None:
+    """The address with any user name and password replaced by ``***@``, so a saved login is never shown."""
+    if not url:
+        return url
+    m = _URL_AUTHORITY.match(url.strip())
+    if not m or "@" not in m.group("netloc"):
+        return url
+    return f"{m.group('prefix') or ''}***@{m.group('netloc').rpartition('@')[2]}{m.group('rest')}"
+
+
 class _M(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
