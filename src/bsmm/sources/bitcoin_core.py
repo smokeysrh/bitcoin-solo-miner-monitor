@@ -22,6 +22,7 @@ import httpx
 
 from bsmm.net import local_address_towards
 from bsmm.sources.base import (
+    URL_LOGIN_MESSAGE,
     BlockInfo,
     ConnectionTest,
     DataSource,
@@ -33,6 +34,7 @@ from bsmm.sources.base import (
     SourceError,
     SourceForbidden,
     SourceUnreachable,
+    url_has_login,
 )
 from bsmm.units import to_float, to_int
 
@@ -81,7 +83,9 @@ def normalise_url(raw: str) -> str:
         raise ValueError("enter the node's address, for example http://192.168.1.10:8332")
     if "://" not in text:
         text = "http://" + text
-    m = re.match(r"^(?P<scheme>https?)://(?P<host>[^/:]+|\[[^\]]+\])(?::(?P<port>\d+))?", text)
+    if url_has_login(text):
+        raise ValueError(f"{URL_LOGIN_MESSAGE} Enter them in the RPC user name and RPC password fields.")
+    m = re.match(r"^(?P<scheme>https?)://(?P<host>\[[^\]]+\]|[^/:]+)(?::(?P<port>\d+))?", text)
     if not m:
         raise ValueError(f"{raw!r} is not a valid address")
     port = m.group("port") or str(DEFAULT_PORT)

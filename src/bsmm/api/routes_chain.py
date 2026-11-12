@@ -15,7 +15,14 @@ from bsmm.engine.network import PUBLIC_SOURCE_ID, SOURCE_CLASSES
 from bsmm.engine.odds import build_odds
 from bsmm.engine.solo_blocks import SOLO_BLOCKS_LIMIT
 from bsmm.models import Source
-from bsmm.sources.base import ConnectionTest, SourceError
+from bsmm.sources.base import (
+    URL_LOGIN_HINT,
+    URL_LOGIN_MESSAGE,
+    ConnectionTest,
+    SourceError,
+    hide_url_login,
+    url_has_login,
+)
 from bsmm.sources.bitcoin_core import LOGIN_RECIPE, check_cookie_option, node_host
 from bsmm.sources.mempool_space import SOLO_POOLS
 
@@ -156,7 +163,14 @@ SOURCE_HELP: dict[str, dict[str, Any]] = {
 
 
 def _public(src: Source) -> dict[str, Any]:
-    return src.model_dump(mode="json")
+    out = src.model_dump(mode="json")
+    out["url"] = hide_url_login(src.url)  # an address saved earlier with a login in it is never returned
+    return out
+
+
+def _refuse_url_login(url: str | None) -> None:
+    if url_has_login(url):
+        raise bad_request(URL_LOGIN_MESSAGE, URL_LOGIN_HINT)
 
 
 @router.get("/sources/kinds", tags=["sources"], operation_id="listSourceKinds", summary="The kinds of node/pool/data sources you can add, with what each needs")
@@ -190,6 +204,7 @@ async def test_source(body: SourceBody, ctx: AppContext = Depends(get_ctx), _: P
 async def add_source(body: SourceBody, force: bool = False, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     if body.kind not in SOURCE_CLASSES or body.kind == "demo":
         raise bad_request(f"Unknown source type {body.kind!r}.", "Valid: " + ", ".join(k for k in SOURCE_CLASSES if k != "demo"))
+    _refuse_url_login(body.url)
     result: ConnectionTest | None = None
     if body.enabled:
         result = await ctx.network.test_source(body.kind, body.url, body.secret, body.options)
@@ -208,6 +223,7 @@ async def update_source(source_id: str, body: SourcePatch, ctx: AppContext = Dep
     if src is None:
         raise not_found("That source")
     data = body.model_dump(exclude_unset=True)
+    _refuse_url_login(data.get("url"))
     saved_cookie = src.options.get("cookie_path")
     saved_host = node_host(src.url)
     for k in ("name", "url", "options", "enabled"):
