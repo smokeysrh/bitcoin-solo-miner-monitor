@@ -3,6 +3,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
+import { BRAND_ASSETS } from '@/lib/brand'
 import { NAV } from '@/lib/nav'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
@@ -31,8 +32,8 @@ const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
       <LogoMark v-if="collapsed" alt="HashHurdr" />
       <div v-else class="min-w-0">
         <!-- The horizontal lockup carries the name. One file per background: the dark theme and black theme use "-dark", the light theme uses "-light". -->
-        <img src="/brand/hashhurdr-lockup-horizontal-dark.svg" alt="HashHurdr" width="145" height="32" class="h-8 w-auto light:hidden" />
-        <img src="/brand/hashhurdr-lockup-horizontal-light.svg" alt="HashHurdr" width="145" height="32" class="hidden h-8 w-auto light:block" />
+        <img :src="BRAND_ASSETS.lockupHorizontalDark" alt="HashHurdr" width="145" height="32" class="h-8 w-auto light:hidden" />
+        <img :src="BRAND_ASSETS.lockupHorizontalLight" alt="HashHurdr" width="145" height="32" class="hidden h-8 w-auto light:block" />
         <p class="truncate text-[11px] text-subtle">{{ session.meta?.instance_name }}</p>
       </div>
     </div>

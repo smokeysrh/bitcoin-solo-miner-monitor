@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { mount } from '@vue/test-utils'
@@ -5,6 +7,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { useUi } from '@/stores/ui'
 import LogoMark from '@/components/brand/LogoMark.vue'
 import SidebarNav from '@/components/layout/SidebarNav.vue'
+import { BRAND_ASSETS } from '@/lib/brand'
 
 // Card #2390: the sidebar header and the logo mark show the supplied HashHurdr artwork.
 // File-level checks (manifest, page head, service worker) are in issue2390-brand-files.test.ts.
@@ -35,6 +38,18 @@ beforeEach(() => {
 afterEach(() => {
   wrappers.splice(0).forEach((w) => w.unmount())
   vi.unstubAllGlobals()
+})
+
+describe('issue 2390: brand file URLs', () => {
+  // The components and the tests spell the URLs independently, so a rename of either side fails here.
+  // The URL must stay a plain path to the public file (never a data: URI), so the built app serves the kit file unchanged.
+  it('are plain public paths, each naming a kit file that exists in web/public', () => {
+    expect(Object.values(BRAND_ASSETS).sort()).toEqual([LOCKUP_DARK, LOCKUP_LIGHT, SYMBOL].sort())
+    for (const url of Object.values(BRAND_ASSETS)) {
+      expect(url.startsWith('/brand/')).toBe(true)
+      expect(existsSync(fileURLToPath(new URL(`../public${url}`, import.meta.url)))).toBe(true)
+    }
+  })
 })
 
 describe('issue 2390: sidebar header', () => {
