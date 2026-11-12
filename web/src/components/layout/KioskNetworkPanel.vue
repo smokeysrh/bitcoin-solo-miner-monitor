@@ -3,13 +3,16 @@ import { computed } from 'vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import { useFmt } from '@/composables/useFmt'
 import type { EpochInfo, HalvingInfo, NetworkState } from '@/lib/types'
+import { useSettings } from '@/stores/settings'
 
 // The wall display's Bitcoin network panel, read from across a room: the next halving leads, the next difficulty
-// change follows, and height, difficulty and price are the smaller row underneath. A value that is missing or out of
-// date says "Unavailable" and never a zero. Sizes follow the screen (see the style block) and never drop below the
-// floors there.
+// change follows, and height, difficulty and price are the smaller row underneath. A value that is missing, or whose
+// network data is out of date, says "Unavailable" and never a zero. The exception is the price: when only its source
+// stopped refreshing, it stays visible with a note saying so (see priceStaleNote). Sizes follow the screen (see the
+// style block) and never drop below the floors there.
 const props = defineProps<{ net: NetworkState | null }>()
 const fmt = useFmt()
+const settings = useSettings()
 
 const UNAVAILABLE = 'Unavailable'
 
@@ -20,6 +23,13 @@ const epoch = computed(() => fresh.value?.epoch ?? null)
 const height = computed(() => fresh.value?.height ?? null)
 const difficulty = computed(() => fresh.value?.difficulty ?? null)
 const price = computed(() => props.net?.btc_price || null)
+
+/** A price the source stopped refreshing keeps showing; say so in words, with its age. A price typed in by the user never goes stale. */
+const priceStaleNote = computed(() => {
+  if (price.value === null || settings.data?.network?.price_source === 'manual') return null
+  const source = props.net?.field_sources?.prices
+  return source?.stale ? `Price not updating (last updated ${fmt.formatAgo(source.ts)})` : null
+})
 
 /** Only the app's own estimate, and only when it supplied one. */
 function estimate(info: HalvingInfo | EpochInfo | null): string | null {
@@ -67,6 +77,7 @@ const epochEstimate = computed(() => estimate(epoch.value))
       <div>
         <dt class="k-label-small text-muted" data-testid="kiosk-price-label">Bitcoin price</dt>
         <dd class="k-small tnum leading-none font-bold" :class="price === null ? 'k-off text-muted' : 'text-fg'" data-testid="kiosk-price-value">{{ price === null ? UNAVAILABLE : fmt.money(price, 0) }}</dd>
+        <dd v-if="priceStaleNote" class="k-note font-semibold text-warn" data-testid="kiosk-price-stale">{{ priceStaleNote }}</dd>
       </div>
     </dl>
   </div>

@@ -144,7 +144,7 @@ const hasData = computed(() => series.value.some((s) => s.data.some((v) => typeo
 
 <template>
   <div :class="kiosk ? 'flex flex-col' : undefined" :style="{ minHeight: `${height}px` }">
-    <p v-if="error && successfulQuery === queryKey && lastSuccess" class="mb-2 text-sm text-warn" role="status">
+    <p v-if="error && successfulQuery === queryKey && lastSuccess" class="mb-2 text-warn" :class="kiosk ? 'text-xl' : 'text-sm'" role="status">
       Chart is stale. Last updated: {{ new Date(lastSuccess).toLocaleString() }}.
     </p>
     <Skeleton v-if="loading" class="w-full" :style="{ height: `${height}px` }" />
