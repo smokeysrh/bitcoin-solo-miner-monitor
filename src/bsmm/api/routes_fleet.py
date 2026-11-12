@@ -19,6 +19,7 @@ from bsmm.context import AppContext
 from bsmm.engine.odds import build_odds
 from bsmm.models import DeviceStatus, DeviceView, FleetSummary
 from bsmm.net import split_host_port
+from bsmm.redaction import redact_credentials
 from bsmm.storage import metrics as mx
 
 router = APIRouter()
@@ -226,8 +227,8 @@ async def device_raw(device_id: str, ctx: AppContext = Depends(get_ctx), _: Prin
     if rt is None:
         raise not_found(f"Miner {device_id}")
     raw = rt.driver.last_raw if rt.driver else None
-    if isinstance(raw, dict):  # hide wifi name / mac-like identifiers? keep: it is the user's own data, but drop obvious secrets
-        raw = {k: v for k, v in raw.items() if "pass" not in k.lower()}
+    if isinstance(raw, dict):  # identity (model, hostname, MAC) is the user's own data and stays; credentials do not
+        raw = redact_credentials(raw)
     return {"driver": rt.device.driver, "raw": raw}
 
 
