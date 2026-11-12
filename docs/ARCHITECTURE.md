@@ -21,7 +21,7 @@ One Python process serves a REST API, an MCP endpoint, a live event stream and t
 | `engine/fleet.py` | Polls every device concurrently, backs off failing ones, keeps live state, and is the **only** path for control actions (`run_action`: permission check, safety settings, audit log). |
 | `engine/alerts.py` | Rules evaluated on every poll. State rules (offline, hot...) need to hold for a while, fire once, repeat after a cooldown and send "Resolved". Active alert state is persisted, so a restart doesn't forget one. |
 | `engine/network.py`, `sources/` | Chain state from Bitcoin Core RPC, Public Pool, ckpool, mempool.space. Sources are interchangeable behind one interface; losing one degrades gracefully. |
-| `engine/odds.py`, `mining.py` | Pure maths: block probability, expected time, economics, break-even. No I/O, fully unit-tested. |
+| `engine/odds.py`, `mining.py` | Pure maths: block probability, expected time, economics. No I/O, fully unit-tested. |
 | `engine/discovery.py` | Private-range scanner. Probes known ports, fingerprints, never writes. |
 | `engine/insights.py` | Plain-language observations and setup nudges ("your node is 3 blocks behind", "no alert channel yet"). Rules, not a model. |
 | `notify/` | Eight channel types behind one dispatcher; formatting per channel (Telegram HTML, Discord embeds...). A failed send is recorded, never swallowed. |

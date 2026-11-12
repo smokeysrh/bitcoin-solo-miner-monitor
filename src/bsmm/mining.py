@@ -259,10 +259,8 @@ class Economics:
     block_reward_btc: float
     expected_value_per_day: float | None
     expected_value_per_year: float | None
-    #: expected value divided by electricity spend; 1.0 is break-even *in expectation*
+    #: expected value divided by electricity spend
     ev_to_cost_ratio: float | None
-    #: price (USD) BTC would need for expected value to cover electricity
-    break_even_btc_price: float | None
 
     def as_dict(self) -> dict[str, Any]:
         return {f: getattr(self, f) for f in self.__dataclass_fields__}
@@ -281,13 +279,10 @@ def economics(
     ev_day: float | None = None
     ev_year: float | None = None
     ratio: float | None = None
-    break_even: float | None = None
     if btc_price is not None and btc_price > 0:
         ev_day = rate_day * block_reward_btc * btc_price
         ev_year = ev_day * (SECONDS_PER_YEAR / SECONDS_PER_DAY)
         ratio = (ev_day / cost_day) if cost_day is not None and cost_day > 0 else None
-    if rate_day > 0 and block_reward_btc > 0 and cost_day is not None and cost_day > 0:
-        break_even = cost_day / (rate_day * block_reward_btc)
     return Economics(
         price_per_kwh=price_per_kwh,
         btc_price=btc_price,
@@ -298,7 +293,6 @@ def economics(
         expected_value_per_day=ev_day,
         expected_value_per_year=ev_year,
         ev_to_cost_ratio=ratio,
-        break_even_btc_price=break_even,
     )
 
 

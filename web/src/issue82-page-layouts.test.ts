@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Component } from 'vue'
 import { api } from '@/lib/api'
-import type { NetworkState, Odds, Settings } from '@/lib/types'
+import type { NetworkState, Odds, OddsAvailable, Settings } from '@/lib/types'
 import { mergeSettings, useSettings } from '@/stores/settings'
 import { useSession } from '@/stores/session'
 import { useLive } from '@/stores/live'
@@ -117,7 +117,7 @@ const ODDS_DATA = {
   live: true,
   economics: {
     price_per_kwh: 0.12, btc_price: 60000, cost_per_day: 1, cost_per_month: 30, cost_per_year: 365, block_reward_btc: 3.125,
-    expected_value_per_day: 0.5, expected_value_per_year: 180, ev_to_cost_ratio: 0.5, break_even_btc_price: 120000,
+    expected_value_per_day: 0.5, expected_value_per_year: 180, ev_to_cost_ratio: 0.5,
     power_w: 100, power_complete: true, cost_note: null, currency: 'USD',
   },
   work: { total_hashes: 1e18, expected_blocks_of_work: 1e-6, chance_found_by_now: 1e-6, blocks_found: 0 },
@@ -327,5 +327,19 @@ describe.each(CASES)('issue 82: $name page can be customized like the Dashboard'
     await done()
     expect(document.querySelector('[data-testid="customize-done"]')).toBeNull()
     expect(order(c)).toEqual(expected)
+  })
+})
+
+describe('the Odds & costs page has no break-even Bitcoin price row', () => {
+  it('ignores a break-even field from an older server and renders no row for it', async () => {
+    // Inject the removed field as an older server would still send it; the page must not show it.
+    const available = ODDS_DATA as OddsAvailable
+    const legacy = { ...available, economics: { ...available.economics, break_even_btc_price: 120000 } } as unknown as Odds
+    useLive().odds = legacy
+    const wrapper = await mountPage(ODDS)
+    const text = wrapper.text()
+    expect(text).toContain('Payout vs. cost')
+    expect(text).not.toMatch(/break-?even/i)
+    expect(text).not.toContain('120,000')
   })
 })

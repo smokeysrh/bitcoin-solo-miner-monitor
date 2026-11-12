@@ -40,10 +40,6 @@ const eco = computed(() => (live.odds?.available ? live.odds.economics : null))
           <dt class="text-muted">Payout vs. cost</dt>
           <dd class="tnum font-medium" :class="eco.ev_to_cost_ratio >= 1 ? 'text-ok' : 'text-warn'">{{ (eco.ev_to_cost_ratio * 100).toFixed(0) }}%</dd>
         </div>
-        <div v-if="eco.break_even_btc_price" class="flex items-baseline justify-between gap-3">
-          <dt class="text-muted">Break-even Bitcoin price</dt>
-          <dd class="tnum font-medium text-fg">{{ fmt.money(eco.break_even_btc_price, 0) }}</dd>
-        </div>
       </dl>
       <p class="mt-3 text-[11px] leading-relaxed text-subtle">The payout is a long-shot lottery that arrives in one huge lump, not income.</p>
     </div>

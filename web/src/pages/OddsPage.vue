@@ -161,7 +161,6 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               { label: 'Cost per year', value: fmt.money(o.economics.cost_per_year) },
               { label: 'Expected payout per year', value: o.economics.expected_value_per_year != null ? fmt.money(o.economics.expected_value_per_year) : '–' },
               { label: 'Payout vs. cost', value: o.economics.ev_to_cost_ratio != null ? `${(o.economics.ev_to_cost_ratio * 100).toFixed(0)}%` : '–', tone: o.economics.ev_to_cost_ratio == null ? undefined : o.economics.ev_to_cost_ratio >= 1 ? 'ok' : 'warn' },
-              { label: 'Break-even Bitcoin price', value: o.economics.break_even_btc_price ? fmt.money(o.economics.break_even_btc_price, 0) : '–' },
             ]" />
             <p v-if="o.economics.cost_note" class="mt-4 text-xs leading-relaxed text-warn" data-testid="odds-cost-note">{{ o.economics.cost_note }}</p>
             <p class="mt-4 text-xs leading-relaxed text-subtle">

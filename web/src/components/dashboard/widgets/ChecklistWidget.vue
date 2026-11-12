@@ -49,7 +49,7 @@ const steps = computed<Step[]>(() => [
   {
     id: 'energy',
     title: 'Set your electricity price',
-    why: 'So costs and break-even figures use your real rate.',
+    why: 'So costs use your real rate.',
     done: !insights.has('energy-default') && live.deviceCount > 0,
     cta: 'Set price',
     run: () => void router.push('/settings/energy'),
