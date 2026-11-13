@@ -351,3 +351,37 @@ def test_installed_executable_is_first_candidate_open_and_used_after_reinstall(m
     assert candidate_calls[0] == ("start",)
     assert len(install_calls) == 2
     assert candidate_calls == [("start",), ("stop",), ("start",), ("start",), ("stop",)]
+
+
+FONT_PATH = "/fonts/Inter-latin.woff2"
+
+
+def fake_served_ui(monkeypatch, font: bytes) -> list[str]:
+    """Replace smoke.fetch with a fixed UI reply and return the list of requested paths."""
+    requested: list[str] = []
+    replies = {
+        "/api/v1/health": json.dumps({"version": "1.2.3"}).encode(),
+        "/": b'<script src="/assets/index-abc.js"></script><div id="app"></div>',
+        "/assets/index-abc.js": b"console.log(1)",
+        "/llms.txt": b"1.2.3 MCP",
+        FONT_PATH: font,
+    }
+
+    def fetch(base, path):
+        requested.append(path)
+        return replies[path]
+
+    monkeypatch.setattr(smoke, "fetch", fetch)
+    return requested
+
+
+def test_check_assets_fetches_a_bundled_font(monkeypatch):
+    requested = fake_served_ui(monkeypatch, b"wOF2")
+    smoke.check_assets("http://127.0.0.1:1", "1.2.3")
+    assert FONT_PATH in requested
+
+
+def test_check_assets_rejects_an_empty_font(monkeypatch):
+    fake_served_ui(monkeypatch, b"")
+    with pytest.raises(AssertionError):
+        smoke.check_assets("http://127.0.0.1:1", "1.2.3")

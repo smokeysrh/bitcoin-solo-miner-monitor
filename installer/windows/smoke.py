@@ -129,6 +129,7 @@ def check_assets(base: str, version: str) -> None:
     assets = re.findall(r'(?:src|href)="(/assets/[^" ]+)"', html)
     assert assets and "<div id=\"app\">" in html
     assert all(len(fetch(base, asset)) > 0 for asset in assets)
+    assert len(fetch(base, "/fonts/Inter-latin.woff2")) > 0
     guide = fetch(base, "/llms.txt").decode()
     assert version in guide and "MCP" in guide
 
