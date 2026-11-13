@@ -11,10 +11,10 @@ This patch release tidies up the Night Shift look from 1.4.0, with the light the
 
 ### Changed
 - **Charts:**
-  - The line charts (miner detail charts, Analytics, the history chart and the wall display chart) now draw hashrate and best-share lines in the brand kit's chart orange instead of your accent colour. Before, those lines were hard to see on the white light theme. In the light theme the chart orange is a darker orange that is easier to see on white (PR #135).
-  - With the default orange accent, the hashrate and best-share lines look the same as before in dark and Black. If you picked a custom accent colour, those two lines no longer follow it. The small trend lines on miner tiles and in the miners table still use your accent colour (PR #135).
+  - Charts where each line is a metric (the dashboard charts and the small hashrate chart on its top card, a single miner's detail charts, Analytics in whole-fleet mode and the wall display chart) now draw hashrate and best share in the brand kit's chart orange instead of your accent colour. In the light theme the chart orange is a darker orange that is easier to see on white (PR #135).
+  - On those charts, with the default orange accent, hashrate and best share look the same as before in dark and Black. If you picked a custom accent colour, those two lines no longer follow it. The small trend lines on miner tiles and in the miners table still use your accent colour (PR #135).
   - Other lines on those charts changed colour too, in dark and Black as well. Fan speed and WiFi moved from bright cyan to the kit's teal. Board temperature and core voltage moved from pink to the kit's neutral stone colour, so they no longer look like the frequency and pool latency lines (PR #135).
-  - On charts with several miners, the miner colours now follow the kit's chart colours, so miners after the first get different colours than before (PR #135).
+  - Charts that draw one line per miner (Analytics in each-miner mode and the dashboard Hashrate chart with its Per miner switch on) now take their colours from the kit's chart colours, whatever the metric. The first miner's line uses the kit's chart orange instead of your accent colour. With the default orange accent it looks the same as before in dark and Black, it is a darker orange in the light theme, and it no longer follows a custom accent. Every miner after the first gets a different colour than before (PR #135).
   - The celebration confetti uses the kit colours (PR #135).
 - **Form fields:**
   - Text boxes, dropdowns, text areas and tag fields now show a clearly visible border all the time, in every theme. Before, the stronger border only appeared on hover, and tag fields had the faint one (PR #135).
