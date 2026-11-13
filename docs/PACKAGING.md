@@ -6,8 +6,6 @@ Pick the one that matches your computer. All of them give you the same app on po
 
 An agent can handle installation and setup using the [copyable README prompt](../README.md#let-your-agent-do-the-setup). Use artifacts from the [official stable release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest).
 
-This checkout describes the unreleased v1.4.0 candidate. Its versioned download links become usable only after that release's assets are published and verified. Until then, choose an available artifact from the stable release; do not treat a missing candidate asset as an installation route.
-
 ### Docker (best for a NAS, Raspberry Pi, Umbrel-style box or home server)
 
 ```bash
