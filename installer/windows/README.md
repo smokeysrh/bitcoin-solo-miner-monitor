@@ -120,8 +120,9 @@ first candidate to open that data directory. The smoke checks the candidate
 schema and old logical values (not database-file equality), exact password/key
 and decrypted credential preservation, reopen, same-candidate reinstall and
 uninstall-data retention. Schema versions are reported honestly; an unchanged
-schema is not a claim that an ALTER migration ran. The combined v1.1.2 candidate
-must report schema 1 → 2 while retaining the old rows and exact credentials.
+schema is not a claim that an ALTER migration ran. The database schema is still
+version 2. The smoke check requires a candidate opening v1.1.1 data to report
+schema 1 → 2 while retaining the old rows and exact credentials.
 
 This is **v1.1.1 data upgrade**, not a previous v1.1.1 Windows-installer upgrade:
 there was no such Windows asset. It does not migrate the retired v0.9.3 GUI
