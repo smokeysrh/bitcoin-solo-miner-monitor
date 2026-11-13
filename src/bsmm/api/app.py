@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
+import mimetypes
 import socket
 import time
 import uuid
@@ -246,7 +247,7 @@ def _mount_ui(app: FastAPI) -> None:
         async def no_ui() -> HTMLResponse:
             return HTMLResponse(
                 "<!doctype html><meta charset=utf-8><title>HashHurdr</title>"
-                "<body style='font:16px system-ui;background:#0b0e14;color:#e6e8ee;max-width:42rem;margin:4rem auto;padding:0 1rem'>"
+                "<body style='font:16px system-ui;background:#0a0a0a;color:#f4f1ea;max-width:42rem;margin:4rem auto;padding:0 1rem'>"
                 "<h1>HashHurdr</h1><p>The API is running, but the web interface was not built into this install.</p>"
                 "<p>Developers: <code>cd web &amp;&amp; npm install &amp;&amp; npm run build</code>. Everyone else: use the release package or Docker image.</p>"
                 "<p><a style='color:#f7931a' href='/docs'>API docs</a> &middot; <a style='color:#f7931a' href='/api/v1/meta'>/api/v1/meta</a> &middot; "
@@ -254,6 +255,7 @@ def _mount_ui(app: FastAPI) -> None:
             )
 
         return
+    mimetypes.add_type("font/woff2", ".woff2")  # Python 3.11 to 3.13 do not know it and would guess a text type
     assets = WEB_DIR / "assets"
     if assets.is_dir():
         app.mount("/assets", StaticFiles(directory=assets), name="assets")
