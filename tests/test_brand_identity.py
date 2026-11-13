@@ -107,6 +107,19 @@ def test_manifest_names_hashhurdr_and_keeps_its_install_identity():
         assert f"{width}x{height}" == declared, src
 
 
+def test_no_script_writes_the_supplied_app_icon_files():
+    scripts = [path for path in (ROOT / "web" / "scripts").rglob("*") if path.is_file()]
+    assert scripts, "web/scripts has no files to scan"
+    icon_names = ("icon-192.png", "icon-512.png", "icon-maskable-512.png")
+    offenders = sorted(
+        f"{path.relative_to(ROOT).as_posix()} names {name}"
+        for path in scripts
+        for name in icon_names
+        if name in path.read_text(encoding="utf-8", errors="replace")
+    )
+    assert offenders == [], "a script could overwrite the supplied kit icons"
+
+
 def test_page_head_uses_the_name_and_the_supplied_favicons():
     html = (ROOT / "web/index.html").read_text(encoding="utf-8")
     assert "<title>HashHurdr</title>" in html
