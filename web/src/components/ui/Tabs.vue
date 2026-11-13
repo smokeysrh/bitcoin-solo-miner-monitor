@@ -20,7 +20,7 @@ const model = defineModel<string>({ required: true })
         v-for="t in tabs"
         :key="t.value"
         :value="t.value"
-        class="relative -mb-px inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted outline-none transition-colors hover:text-fg focus-visible:text-fg data-[state=active]:border-accent data-[state=active]:text-fg"
+        class="relative -mb-px inline-flex h-10 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium text-muted outline-none transition-colors hover:text-fg focus-visible:text-fg data-[state=active]:border-accent-text data-[state=active]:text-fg"
       >
         <component :is="t.icon" v-if="t.icon" class="size-4" aria-hidden="true" />
         {{ t.label }}

@@ -443,6 +443,11 @@
     background-clip: text;
     color: transparent;
   }
+  /* Orange on paper is about 2:1; large text needs 3:1. Light headlines run from the kit's Ember (a custom accent's darkened
+     copy of itself) to a darker shade of it. Only the image changes: the `background` shorthand would reset the text clip. */
+  :root[data-theme='light'] .text-gradient-accent {
+    background-image: linear-gradient(135deg, var(--accent-text), color-mix(in oklab, var(--accent-text) 78%, black));
+  }
 }
 
 /* Prose-like blocks inside tooltips, the glossary and the guide. */

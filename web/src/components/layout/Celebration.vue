@@ -3,10 +3,15 @@ import { ExternalLink, PartyPopper } from 'lucide-vue-next'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { playBlockChime } from '@/lib/sound'
+import { cssVar } from '@/lib/theme'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
 import Button from '@/components/ui/Button.vue'
 import Dialog from '@/components/ui/Dialog.vue'
+
+/** The kit's six chart colours (read at draw time: a canvas cannot use var()), and the kit orange if the stylesheet is missing. */
+const CONFETTI_TOKENS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart-5', '--chart-6']
+const CONFETTI_FALLBACK = '#f7931a'
 
 const ui = useUi()
 const settings = useSettings()
@@ -50,7 +55,7 @@ function confetti(): void {
   const dpr = window.devicePixelRatio || 1
   const w = (el.width = window.innerWidth * dpr)
   const h = (el.height = window.innerHeight * dpr)
-  const colors = ['#F7931A', '#FFD27A', '#34d399', '#60a5fa', '#a78bfa', '#f472b6']
+  const colors = CONFETTI_TOKENS.map((token) => cssVar(token, CONFETTI_FALLBACK))
   const pieces: Piece[] = Array.from({ length: 220 }, () => ({
     x: w / 2 + (Math.random() - 0.5) * w * 0.25,
     y: h * 0.35,

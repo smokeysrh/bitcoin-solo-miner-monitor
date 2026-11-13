@@ -24,7 +24,7 @@ function onKey(e: KeyboardEvent): void {
 <template>
   <div>
     <div
-      class="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-line bg-surface-2 px-2 py-1.5 transition-colors focus-within:border-focus focus-within:ring-2 focus-within:ring-focus/25"
+      class="flex min-h-10 flex-wrap items-center gap-1.5 rounded-xl border border-line-strong bg-surface-2 px-2 py-1.5 transition-colors focus-within:border-focus focus-within:ring-2 focus-within:ring-focus/25"
     >
       <span v-for="t in tags" :key="t" class="inline-flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pr-1 pl-2.5 text-xs text-accent-text">
         {{ t }}
