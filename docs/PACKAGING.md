@@ -25,23 +25,23 @@ Open `http://<that computer>:8420`.
 
 ### Windows installer
 
-Download the Windows installer attached to the [v1.1.2 release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/tag/v1.1.2). Follow its setup steps, launch the app and open the dashboard. Keep the existing data directory when upgrading. The v0.9.3 installer belongs to the older app; use the legacy instructions below for that installation.
+Download the Windows installer, `bsmm-<version>-windows-setup.exe`, from the [latest release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest). Follow its setup steps, launch the app and open the dashboard. Keep the existing data directory when upgrading. The v0.9.3 installer belongs to the older app; use the legacy instructions below for that installation.
 
 ### Python wheel with pipx (Windows, macOS, Linux)
 
-Install Python 3.11 or newer and pipx, then use the versioned GitHub wheel:
+Install Python 3.11 or newer and pipx. On the [latest release](https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/latest) page, copy the link of the `bitcoin_solo_miner_monitor-<version>-py3-none-any.whl` asset and give it to pipx:
 
 ```bash
-pipx install https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.1.2/bitcoin_solo_miner_monitor-1.1.2-py3-none-any.whl
+pipx install <wheel link>
 bsmm setup                                   # interactive setup; review the discovered miners before accepting
 ```
 
-The wheel is distributed through GitHub Releases. Choose its `.whl` asset rather than asking pipx to find the package on PyPI. For a hardware-free preview after installation, run `bsmm demo`.
+The wheel is distributed through GitHub Releases, and the package is not on PyPI. Give pipx the `.whl` link from the latest release rather than asking it to find the package by name. For a hardware-free preview after installation, run `bsmm demo`.
 
 Apprise is an optional Python extra and is not bundled in the Windows installer. To include it in a new pipx installation, use:
 
 ```bash
-pipx install 'bitcoin-solo-miner-monitor[apprise] @ https://github.com/smokeysrh/bitcoin-solo-miner-monitor/releases/download/v1.1.2/bitcoin_solo_miner_monitor-1.1.2-py3-none-any.whl'
+pipx install 'bitcoin-solo-miner-monitor[apprise] @ <wheel link>'
 ```
 
 `bsmm start` / `bsmm stop` control the background server. `bsmm service install` previews autostart configuration; `bsmm service install --apply` installs it after you approve (a systemd user unit, a launchd agent, or a Windows scheduled task). Ask before changing an existing service.
@@ -60,9 +60,9 @@ For discovery without adoption, use `bsmm discover --cidr 192.168.1.0/24 --json`
 
 Before replacing the app, download a database backup from **Settings → Data & backup**. Keep a protected copy of `secret.key` (or your configured `BSMM_SECRET_KEY`) too; the database download omits the key. See [SECURITY.md](../SECURITY.md#secrets). Preserve the whole data directory and existing miner configuration. `BSMM_DATA_DIR` selects a custom data directory; `bsmm doctor` reports the current one.
 
-The v1.1.2 candidate adds history-count columns to v1.1.1 data and repairs recognized notification credentials left in old config before serving requests. Existing rows, password hashes and the encryption key must survive. If credential repair refuses startup, keep the data and key for recovery; do not reset them to make startup pass. This is a v1.1.1 data upgrade, not an upgrade from a previous v1.1.1 Windows installer.
+On first start, a newer app adds history-count columns to v1.1.1 data and moves recognized notification credentials left in old config into encrypted storage, before serving requests. Existing rows, password hashes and the encryption key must survive. If credential repair refuses startup, keep the data and key for recovery; do not reset them to make startup pass. This is a v1.1.1 data upgrade, not an upgrade from a previous v1.1.1 Windows installer.
 
-For a wheel installation, stop the existing app through its normal launcher or service after approval, then reinstall from the versioned wheel URL above with `pipx install --force <wheel-url>`. Start it with the same data directory and verify `bsmm version`, `bsmm doctor` and `bsmm status` before continuing. For Docker, keep the same `bsmm-data` volume mounted while pulling and recreating the container; avoid volume-removal commands.
+For a wheel installation, stop the existing app through its normal launcher or service after approval, then reinstall from the `.whl` link on the latest release page with `pipx install --force <wheel link>`. Start it with the same data directory and verify `bsmm version`, `bsmm doctor` and `bsmm status` before continuing. For Docker, keep the same `bsmm-data` volume mounted while pulling and recreating the container; avoid volume-removal commands.
 
 ### Coming from v0.9.x
 
