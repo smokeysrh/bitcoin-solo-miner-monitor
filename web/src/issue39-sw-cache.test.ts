@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 // Runs the real web/public/sw.js against an in-memory CacheStorage. Nothing is copied from the worker.
 const WORKER_SOURCE = readFileSync(fileURLToPath(new URL('../public/sw.js', import.meta.url)), 'utf8')
 const ORIGIN = 'https://bsmm.test'
-const CURRENT_CACHE = 'bsmm-shell-v2'
-const PREVIOUS_CACHE = 'bsmm-shell-v1'
+const CURRENT_CACHE = 'bsmm-shell-v1'
 const OLD_OWNED_CACHE = 'bsmm-shell-v0'
 const FONT_PATH = '/fonts/Inter-latin.woff2'
 const FOREIGN_CACHE = 'other-app-offline'
@@ -132,11 +131,21 @@ describe('service worker cache ownership', () => {
     expect([...spaces.keys()].sort()).toEqual([CURRENT_CACHE, FOREIGN_CACHE])
   })
 
-  it('drops the previous release cache, which held no fonts, and keeps a foreign cache', async () => {
-    for (const name of [PREVIOUS_CACHE, CURRENT_CACHE, FOREIGN_CACHE]) spaces.set(name, new FakeCache())
+  it('keeps the page and assets saved before the update, so an offline open still works after it', async () => {
+    const assetKey = `${ORIGIN}/assets/app-abc123.js`
+    const saved = ownedCache()
+    saved.entries.set('/', new Response('saved page', { status: 200 }))
+    saved.entries.set(assetKey, new Response('saved asset', { status: 200 }))
+
     await activate()
-    expect(spaces.has(PREVIOUS_CACHE)).toBe(false)
-    expect([...spaces.keys()].sort()).toEqual([CURRENT_CACHE, FOREIGN_CACHE])
+    expect(spaces.get(CURRENT_CACHE)).toBe(saved)
+
+    network.mockRejectedValue(new Error('offline'))
+    const page = await fetchThroughWorker('/devices', 'navigate')
+    expect(page.response.status).toBe(200)
+    expect(await page.response.text()).toBe('saved page')
+    const asset = await fetchThroughWorker('/assets/app-abc123.js', 'cors')
+    expect(await asset.response.text()).toBe('saved asset')
   })
 })
 
