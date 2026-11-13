@@ -292,7 +292,8 @@ describe('issue 2393: install and first-paint surfaces follow the dark backgroun
 
 // Card #2394 (follow-ups to #2393): on the light theme the chart lines, the checked switch track, the active tab underline
 // and the headline numbers were drawn in Bitcoin orange (about 2.2:1 on white, below the 3:1 that non-text UI and large
-// text need). They now use the kit's light values: the chart tokens and Ember. Dark and Black keep their orange.
+// text need). They now use the kit's light values: the chart tokens and Ember. With the default accent, Dark and Black
+// keep their orange (the headline gradient follows another accent; the chart lines are the fixed kit orange).
 
 const SOURCES_WITH_SERIES_COLOURS = ['../lib/metrics.ts', '../components/layout/Celebration.vue']
 const CHART_TOKENS = [1, 2, 3, 4, 5, 6].map((n) => `--chart-${n}`)
@@ -353,6 +354,61 @@ describe('issue 2394: chart series use the kit chart colours', () => {
     expect(source).toContain("from '@/lib/theme'")
     expect(source).toMatch(/cssVar\(/)
     for (const token of CHART_TOKENS) expect(source, token).toContain(`'${token}'`)
+  })
+})
+
+// Overlaid charts (a miner's detail charts, Analytics) tell series apart by colour, so two metrics that had different
+// colours before the kit palette must still have different colours in every theme. Reading the token names is not enough:
+// two different tokens can resolve to the same hex (--chart-5 and --violet are both the kit plum).
+const MAX_VAR_HOPS = 5 // var() chains here are one or two hops (--accent -> --accent-base); the cap stops a cycle
+/** Follows `var(--name)` through the stylesheet to the hex a theme paints; the light and black themes inherit what they do not set. */
+function resolveColour(theme: ThemeName, value: string): string {
+  let current = value.trim().toLowerCase()
+  for (let hop = 0; hop < MAX_VAR_HOPS; hop++) {
+    if (/^#[0-9a-f]{6}$/.test(current)) return current
+    const name = varName(current)
+    expect(name, `${theme}: ${value} resolves through plain var(--token) references, stuck at ${current}`).not.toBeNull()
+    const next =
+      rawToken(colourBlocks[theme], name!) ??
+      (theme === 'light' ? rawToken(derivedLight, name!) : undefined) ??
+      rawToken(derivedRoot, name!) ??
+      rawToken(colourBlocks.dark, name!)
+    expect(next, `${theme}: ${name} is defined in main.css`).toBeDefined()
+    current = next!
+  }
+  throw new Error(`${theme}: ${value} did not resolve to a hex within ${MAX_VAR_HOPS} var() hops`)
+}
+/** Metric keys grouped by shared colour, each group and the list sorted so two partitions compare with toEqual. */
+function normalisePartition(groups: string[][]): string[][] {
+  return groups.map((group) => [...group].sort()).sort((a, b) => a[0]!.localeCompare(b[0]!))
+}
+
+describe('issue 2394: metrics keep distinct chart colours', () => {
+  // The groups of metrics that shared a colour on origin/main (web/src/lib/metrics.ts there), which were the same in all
+  // three themes: Power/current/uptime = info; the ok family; the bad family; the warn family; fan speed and WiFi = cyan;
+  // Hashrate/best share = accent; board temperature/core voltage = pink; frequency/pool latency = violet.
+  const MAIN_PARTITION = normalisePartition([
+    ['power_w', 'current_a', 'uptime_s'],
+    ['efficiency_j_th', 'free_heap_bytes', 'shares_accepted', 'online'],
+    ['temp_asic_c', 'hw_error_pct', 'shares_rejected'],
+    ['temp_vr_c', 'voltage_in_v', 'reject_rate_pct'],
+    ['fan_pct', 'fan_rpm', 'wifi_rssi_dbm'],
+    ['hashrate_hs', 'best_diff'],
+    ['temp_board_c', 'core_voltage_mv'],
+    ['frequency_mhz', 'pool_ping_ms'],
+  ])
+
+  it('the expected partition covers every metric exactly once', () => {
+    expect(MAIN_PARTITION.flat().sort()).toEqual(METRIC_LIST.map((m) => m.key).sort())
+  })
+
+  it.each(THEME_NAMES)('%s: metrics share a colour exactly when they did on main', (theme) => {
+    const byColour = new Map<string, string[]>()
+    for (const metric of METRIC_LIST) {
+      const hex = resolveColour(theme, metric.color)
+      byColour.set(hex, [...(byColour.get(hex) ?? []), metric.key])
+    }
+    expect(normalisePartition([...byColour.values()])).toEqual(MAIN_PARTITION)
   })
 })
 
