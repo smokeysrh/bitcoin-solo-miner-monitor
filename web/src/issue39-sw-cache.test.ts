@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 // Runs the real web/public/sw.js against an in-memory CacheStorage. Nothing is copied from the worker.
 const WORKER_SOURCE = readFileSync(fileURLToPath(new URL('../public/sw.js', import.meta.url)), 'utf8')
 const ORIGIN = 'https://bsmm.test'
-const CURRENT_CACHE = 'bsmm-shell-v1'
+const CURRENT_CACHE = 'bsmm-shell-v2'
+const PREVIOUS_CACHE = 'bsmm-shell-v1'
 const OLD_OWNED_CACHE = 'bsmm-shell-v0'
+const FONT_PATH = '/fonts/Inter-latin.woff2'
 const FOREIGN_CACHE = 'other-app-offline'
 
 type CacheKey = string | { url: string }
@@ -129,11 +131,19 @@ describe('service worker cache ownership', () => {
     await activate()
     expect([...spaces.keys()].sort()).toEqual([CURRENT_CACHE, FOREIGN_CACHE])
   })
+
+  it('drops the previous release cache, which held no fonts, and keeps a foreign cache', async () => {
+    for (const name of [PREVIOUS_CACHE, CURRENT_CACHE, FOREIGN_CACHE]) spaces.set(name, new FakeCache())
+    await activate()
+    expect(spaces.has(PREVIOUS_CACHE)).toBe(false)
+    expect([...spaces.keys()].sort()).toEqual([CURRENT_CACHE, FOREIGN_CACHE])
+  })
 })
 
 describe('service worker cache writes', () => {
   const cases = [
     { name: 'asset', path: '/assets/app-abc123.js', mode: 'cors', savedAs: `${ORIGIN}/assets/app-abc123.js` },
+    { name: 'font', path: FONT_PATH, mode: 'cors', savedAs: `${ORIGIN}${FONT_PATH}` },
     { name: 'navigation', path: '/devices', mode: 'navigate', savedAs: '/' },
   ]
 
@@ -183,5 +193,53 @@ describe('service worker cache writes', () => {
 
     const { response } = await fetchThroughWorker('/devices', 'navigate')
     expect(await response.text()).toBe('saved page')
+  })
+})
+
+describe('service worker bundled fonts', () => {
+  const fontKey = `${ORIGIN}${FONT_PATH}`
+
+  it('answers a font request from the network and saves a copy in our cache', async () => {
+    const cache = ownedCache()
+    const { event, response } = await fetchThroughWorker(FONT_PATH, 'cors')
+    expect(await response.text()).toBe('fresh')
+    await Promise.all(event.extended)
+    expect(network).toHaveBeenCalledTimes(1)
+    expect(await (await cache.match(fontKey))?.text()).toBe('fresh')
+  })
+
+  it('prefers the network over an older saved font, since file names carry no hash', async () => {
+    const cache = ownedCache()
+    cache.entries.set(fontKey, new Response('old font', { status: 200 }))
+    const { event, response } = await fetchThroughWorker(FONT_PATH, 'cors')
+    expect(await response.text()).toBe('fresh')
+    await Promise.all(event.extended)
+    expect(await (await cache.match(fontKey))?.text()).toBe('fresh')
+  })
+
+  it('serves the saved font when the server is unreachable', async () => {
+    const cache = ownedCache()
+    cache.entries.set(fontKey, new Response('saved font', { status: 200 }))
+    network.mockRejectedValueOnce(new Error('offline'))
+    const { response } = await fetchThroughWorker(FONT_PATH, 'cors')
+    expect(await response.text()).toBe('saved font')
+  })
+
+  it('does not save a failed font response', async () => {
+    const cache = ownedCache()
+    network.mockResolvedValueOnce(new Response('missing', { status: 404 }))
+    const { event, response } = await fetchThroughWorker(FONT_PATH, 'cors')
+    expect(response.status).toBe(404)
+    await Promise.all(event.extended)
+    expect(cache.put).not.toHaveBeenCalled()
+  })
+
+  it('passes the network error on when the server is unreachable and nothing was saved', async () => {
+    ownedCache()
+    network.mockRejectedValueOnce(new Error('offline'))
+    const event = makeEvent({ method: 'GET', url: fontKey, mode: 'cors' })
+    listener('fetch')(event)
+    if (!event.responded) throw new Error('worker did not handle the request')
+    await expect(event.responded).rejects.toThrow('offline')
   })
 })
