@@ -2,7 +2,7 @@
 // what you see about your miners always comes live from the server.
 // CacheStorage is shared by every app on this origin, so only names with our prefix are ours to delete.
 const CACHE_PREFIX = 'bsmm-shell-'
-const CACHE = `${CACHE_PREFIX}v2`
+const CACHE = `${CACHE_PREFIX}v1`
 const LIVE = /^\/(api|mcp|metrics|docs|openapi\.json|llms\.txt)/
 
 // Saving a copy is a bonus. The event waits for it, but a failure never breaks a page that loaded fine.
