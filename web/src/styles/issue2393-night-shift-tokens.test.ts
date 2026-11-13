@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { DEVICE_COLORS, METRIC_LIST } from '@/lib/metrics'
 import { ACCENT_PRESETS, accentForeground, contrast } from '@/lib/theme'
 
 // Card #2393 (umbrella #2244): the app wears the HashHurdr Night Shift palette in its three existing themes and bundles
@@ -284,5 +285,224 @@ describe('issue 2393: install and first-paint surfaces follow the dark backgroun
     expect(init).toContain("localStorage.getItem('bsmm.accent')")
     expect(init).toContain("'--accent-base'")
     expect(init).toContain("'--accent-ink'")
+  })
+})
+
+// ---------------------------------------------------------------------------------------------------- card #2394
+
+// Card #2394 (follow-ups to #2393): on the light theme the chart lines, the checked switch track, the active tab underline
+// and the headline numbers were drawn in Bitcoin orange (about 2.2:1 on white, below the 3:1 that non-text UI and large
+// text need). They now use the kit's light values: the chart tokens and Ember. With the default accent, Dark and Black
+// keep their orange (the headline gradient follows another accent; the chart lines are the fixed kit orange).
+
+const SOURCES_WITH_SERIES_COLOURS = ['../lib/metrics.ts', '../components/layout/Celebration.vue']
+const CHART_TOKENS = [1, 2, 3, 4, 5, 6].map((n) => `--chart-${n}`)
+/** Kit colour tokens a series may use: the six chart colours and the status colours (their light values are the kit's deep ones). */
+const SERIES_TOKENS = [...CHART_TOKENS, '--ok', '--warn', '--bad', '--info', '--violet']
+const KIT_HEXES = new Set(
+  Object.values(KIT)
+    .flatMap((tokens) => Object.values(tokens))
+    .filter((v) => /^#[0-9a-f]{6}$/.test(v)),
+)
+
+/** The colour a stylesheet token has in a theme; the name is the token a `var(--name)` or a Tailwind colour utility points at. */
+function tokenColour(theme: ThemeName, token: string): string {
+  if (token === '--accent') return colour(theme, '--accent-base')
+  if (token === '--accent-text') return accentText(theme)
+  return colour(theme, token)
+}
+/** `var(--chart-1)` -> `--chart-1`, or null when the value is not a plain variable reference (a hex, a mix...). */
+const varName = (value: string): string | null => /^var\((--[\w-]+)\)$/.exec(value.trim())?.[1] ?? null
+
+describe('issue 2394: chart series use the kit chart colours', () => {
+  const seriesColours = [...METRIC_LIST.map((m) => ({ what: `metric ${m.key}`, value: m.color })), ...DEVICE_COLORS.map((value, i) => ({ what: `device colour ${i + 1}`, value }))]
+
+  it('every series colour is a kit colour token: no hex, and not the accent colour', () => {
+    for (const { what, value } of seriesColours) {
+      const name = varName(value)
+      expect(name, `${what} is a var(--token) reference, got ${value}`).not.toBeNull()
+      expect(SERIES_TOKENS, `${what} uses a kit series token, got ${value}`).toContain(name)
+    }
+  })
+
+  it('the hashrate and best-share lines use --chart-1, and the first six device colours are the chart tokens in kit order', () => {
+    expect(METRIC_LIST.find((m) => m.key === 'hashrate_hs')?.color).toBe('var(--chart-1)')
+    expect(METRIC_LIST.find((m) => m.key === 'best_diff')?.color).toBe('var(--chart-1)')
+    expect(DEVICE_COLORS.slice(0, CHART_TOKENS.length)).toEqual(CHART_TOKENS.map((t) => `var(${t})`))
+  })
+
+  it.each(THEME_NAMES)('%s: every series colour reaches 3:1 on the page and on a card', (theme) => {
+    for (const { what, value } of seriesColours) {
+      const name = varName(value)
+      if (name === null) continue // reported by the first test; nothing to resolve
+      for (const surface of ['--bg', '--surface-1']) {
+        expect(contrast(tokenColour(theme, name), colour(theme, surface)), `${theme} ${what} (${value}) on ${surface}`).toBeGreaterThanOrEqual(AA_UI)
+      }
+    }
+  })
+
+  it('no off-kit hex is left in the series colours or the confetti', () => {
+    for (const file of SOURCES_WITH_SERIES_COLOURS) {
+      const hexes = [...read(file).matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0].toLowerCase())
+      const offKit = hexes.filter((hex) => !KIT_HEXES.has(hex))
+      expect(offKit, `${file} has hex colours that are not in the approved kit`).toEqual([])
+    }
+  })
+
+  it('the confetti reads the six chart tokens through the theme helper', () => {
+    const source = read('../components/layout/Celebration.vue')
+    expect(source).toContain("from '@/lib/theme'")
+    expect(source).toMatch(/cssVar\(/)
+    for (const token of CHART_TOKENS) expect(source, token).toContain(`'${token}'`)
+  })
+})
+
+// Overlaid charts (a miner's detail charts, Analytics) tell series apart by colour, so two metrics that had different
+// colours before the kit palette must still have different colours in every theme. Reading the token names is not enough:
+// two different tokens can resolve to the same hex (--chart-5 and --violet are both the kit plum).
+const MAX_VAR_HOPS = 5 // var() chains here are one or two hops (--accent -> --accent-base); the cap stops a cycle
+/** Follows `var(--name)` through the stylesheet to the hex a theme paints; the light and black themes inherit what they do not set. */
+function resolveColour(theme: ThemeName, value: string): string {
+  let current = value.trim().toLowerCase()
+  for (let hop = 0; hop < MAX_VAR_HOPS; hop++) {
+    if (/^#[0-9a-f]{6}$/.test(current)) return current
+    const name = varName(current)
+    expect(name, `${theme}: ${value} resolves through plain var(--token) references, stuck at ${current}`).not.toBeNull()
+    const next =
+      rawToken(colourBlocks[theme], name!) ??
+      (theme === 'light' ? rawToken(derivedLight, name!) : undefined) ??
+      rawToken(derivedRoot, name!) ??
+      rawToken(colourBlocks.dark, name!)
+    expect(next, `${theme}: ${name} is defined in main.css`).toBeDefined()
+    current = next!
+  }
+  throw new Error(`${theme}: ${value} did not resolve to a hex within ${MAX_VAR_HOPS} var() hops`)
+}
+/** Metric keys grouped by shared colour, each group and the list sorted so two partitions compare with toEqual. */
+function normalisePartition(groups: string[][]): string[][] {
+  return groups.map((group) => [...group].sort()).sort((a, b) => a[0]!.localeCompare(b[0]!))
+}
+
+describe('issue 2394: metrics keep distinct chart colours', () => {
+  // The groups of metrics that shared a colour on origin/main (web/src/lib/metrics.ts there), which were the same in all
+  // three themes: Power/current/uptime = info; the ok family; the bad family; the warn family; fan speed and WiFi = cyan;
+  // Hashrate/best share = accent; board temperature/core voltage = pink; frequency/pool latency = violet.
+  const MAIN_PARTITION = normalisePartition([
+    ['power_w', 'current_a', 'uptime_s'],
+    ['efficiency_j_th', 'free_heap_bytes', 'shares_accepted', 'online'],
+    ['temp_asic_c', 'hw_error_pct', 'shares_rejected'],
+    ['temp_vr_c', 'voltage_in_v', 'reject_rate_pct'],
+    ['fan_pct', 'fan_rpm', 'wifi_rssi_dbm'],
+    ['hashrate_hs', 'best_diff'],
+    ['temp_board_c', 'core_voltage_mv'],
+    ['frequency_mhz', 'pool_ping_ms'],
+  ])
+
+  it('the expected partition covers every metric exactly once', () => {
+    expect(MAIN_PARTITION.flat().sort()).toEqual(METRIC_LIST.map((m) => m.key).sort())
+  })
+
+  it.each(THEME_NAMES)('%s: metrics share a colour exactly when they did on main', (theme) => {
+    const byColour = new Map<string, string[]>()
+    for (const metric of METRIC_LIST) {
+      const hex = resolveColour(theme, metric.color)
+      byColour.set(hex, [...(byColour.get(hex) ?? []), metric.key])
+    }
+    expect(normalisePartition([...byColour.values()])).toEqual(MAIN_PARTITION)
+  })
+})
+
+describe('issue 2394: light-theme controls and headlines reach 3:1', () => {
+  /** The colour a Tailwind colour utility (`bg-accent`, `border-accent-text`) paints, read from a component's class list. */
+  function utilityColour(file: string, re: RegExp, theme: ThemeName): { name: string; hex: string } {
+    const name = re.exec(read(file))?.[1]
+    expect(name, `${file} has a class matching ${re}`).toBeDefined()
+    return { name: name!, hex: tokenColour(theme, `--${name}`) }
+  }
+
+  it.each(THEME_NAMES)('%s: the checked switch track stands out from the page and cards', (theme) => {
+    const track = utilityColour('../components/ui/Switch.vue', /data-\[state=checked\]:bg-([\w-]+)/, theme)
+    for (const surface of SURFACES) {
+      expect(contrast(track.hex, colour(theme, surface)), `${theme} checked track (bg-${track.name}) on ${surface}`).toBeGreaterThanOrEqual(AA_UI)
+    }
+  })
+
+  it('light: the white switch thumb stands out from the checked track', () => {
+    const track = utilityColour('../components/ui/Switch.vue', /data-\[state=checked\]:bg-([\w-]+)/, 'light')
+    expect(contrast('#ffffff', track.hex), `white thumb on the checked track (bg-${track.name})`).toBeGreaterThanOrEqual(AA_UI)
+  })
+
+  it.each(THEME_NAMES)('%s: the active tab underline stands out from the page and cards', (theme) => {
+    const underline = utilityColour('../components/ui/Tabs.vue', /data-\[state=active\]:border-([\w-]+)/, theme)
+    for (const surface of SURFACES) {
+      expect(contrast(underline.hex, colour(theme, surface)), `${theme} active tab underline (border-${underline.name}) on ${surface}`).toBeGreaterThanOrEqual(AA_UI)
+    }
+  })
+
+  /** Split on commas that are not inside parentheses (so a colour-mix() stays in one piece). */
+  function topLevelParts(text: string): string[] {
+    const parts: string[] = []
+    let depth = 0
+    let start = 0
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i]
+      if (c === '(') depth++
+      else if (c === ')') depth--
+      else if (c === ',' && depth === 0) {
+        parts.push(text.slice(start, i).trim())
+        start = i + 1
+      }
+    }
+    parts.push(text.slice(start).trim())
+    return parts
+  }
+
+  it('dark and black keep the orange headline gradient', () => {
+    const base = /\n  \.text-gradient-accent \{([^}]*)\}/.exec(css)?.[1]
+    expect(base, 'main.css has the .text-gradient-accent rule').toBeDefined()
+    expect(base).toContain('color-mix(in oklab, var(--accent) 88%, white)')
+    expect(css).not.toMatch(/data-theme='(dark|amoled)'\] \.text-gradient-accent/)
+  })
+
+  it('light: every stop of the headline gradient reaches 3:1 (large text) on the page and cards', () => {
+    const block = /:root\[data-theme='light'\] \.text-gradient-accent \{([^}]*)\}/.exec(css)?.[1]
+    expect(block, "main.css overrides .text-gradient-accent for [data-theme='light']").toBeDefined()
+    // `background:` would reset background-clip and leave the text invisible; only the image may change
+    expect(block).not.toMatch(/(^|[\s;])background:/)
+    const gradient = /background-image:\s*linear-gradient\((.*)\)\s*;/s.exec(block!)?.[1]
+    expect(gradient, 'the light override sets a linear-gradient background-image').toBeDefined()
+    const stops = topLevelParts(gradient!).slice(1) // the first part is the angle
+    expect(stops.length).toBeGreaterThanOrEqual(2)
+    const ember = accentText('light')
+    for (const stop of stops) {
+      // Ember itself, or Ember mixed with black: darker than Ember, so never less readable (an sRGB mix is the conservative stand-in)
+      const mix = /^color-mix\(in oklab, var\(--accent-text\) (\d+)%, black\)$/.exec(stop)
+      expect(stop === 'var(--accent-text)' || mix !== null, `stop ${stop} is Ember or Ember mixed with black`).toBe(true)
+      const hex = mix ? blend(ember, '#000000', Number(mix[1]) / 100) : ember
+      for (const surface of SURFACES) {
+        expect(contrast(hex, colour('light', surface)), `light headline stop ${stop} on ${surface}`).toBeGreaterThanOrEqual(AA_UI)
+      }
+    }
+  })
+})
+
+describe('issue 2394: text fields rest on the strong control border', () => {
+  // The approved kit's tokens.json describes border as "decorative card edges only" and border-strong as "input and control
+  // borders; 3:1 or better". So the fields are wrong, not the main.css comment.
+  it.each(['Input', 'Textarea', 'Select'])('%s: the resting border is --line-strong', (name) => {
+    const resting = /invalid \? 'border-bad' : '([^']*)'/.exec(read(`../components/ui/${name}.vue`))?.[1]
+    expect(resting, `${name}.vue sets a resting border`).toBeDefined()
+    expect(resting!.split(/\s+/)).toEqual(['border-line-strong'])
+  })
+
+  it('TagInput: the field box rests on --line-strong', () => {
+    const box = /class="flex min-h-10 [^"]*"/.exec(read('../components/ui/TagInput.vue'))?.[0]
+    expect(box, 'TagInput.vue has its field box').toBeDefined()
+    expect(box!.split(/\s+/)).toContain('border-line-strong')
+    expect(box!.split(/\s+/)).not.toContain('border-line')
+  })
+
+  it('the stylesheet comment says controls use --line-strong, and that is now true of the text fields', () => {
+    expect(css).toMatch(/--line: #2e2c29; \/\* card edges and dividers; controls use --line-strong \*\//)
   })
 })

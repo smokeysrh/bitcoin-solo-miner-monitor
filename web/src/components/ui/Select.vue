@@ -48,7 +48,7 @@ function onChange(e: Event): void {
         cn(
           'w-full appearance-none rounded-xl border bg-surface-2 pl-3 pr-9 text-sm text-fg outline-none transition-colors',
           'focus:border-focus focus:ring-2 focus:ring-focus/25 disabled:opacity-55',
-          invalid ? 'border-bad' : 'border-line hover:border-line-strong',
+          invalid ? 'border-bad' : 'border-line-strong',
           size === 'sm' ? 'h-8' : 'h-10',
         )
       "

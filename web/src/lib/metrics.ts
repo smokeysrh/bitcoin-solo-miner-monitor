@@ -13,26 +13,26 @@ export interface MetricMeta {
 }
 
 export const METRIC_LIST: MetricMeta[] = [
-  { key: 'hashrate_hs', label: 'Hashrate', kind: 'hashrate', color: 'var(--accent)', help: 'How many guesses per second' },
+  { key: 'hashrate_hs', label: 'Hashrate', kind: 'hashrate', color: 'var(--chart-1)', help: 'How many guesses per second' },
   { key: 'power_w', label: 'Power', kind: 'power', color: 'var(--info)', help: 'Electricity used' },
   { key: 'efficiency_j_th', label: 'Efficiency', kind: 'efficiency', color: 'var(--ok)', help: 'Joules per terahash. Lower is better' },
   { key: 'temp_asic_c', label: 'ASIC temperature', kind: 'temp', color: 'var(--bad)' },
   { key: 'temp_vr_c', label: 'Regulator temperature', kind: 'temp', color: 'var(--warn)' },
-  { key: 'temp_board_c', label: 'Board temperature', kind: 'temp', color: '#f472b6' },
-  { key: 'fan_pct', label: 'Fan speed', kind: 'percent', color: '#22d3ee' },
-  { key: 'fan_rpm', label: 'Fan speed (rpm)', kind: 'rpm', color: '#22d3ee' },
+  { key: 'temp_board_c', label: 'Board temperature', kind: 'temp', color: 'var(--chart-6)' },
+  { key: 'fan_pct', label: 'Fan speed', kind: 'percent', color: 'var(--chart-4)' },
+  { key: 'fan_rpm', label: 'Fan speed (rpm)', kind: 'rpm', color: 'var(--chart-4)' },
   { key: 'frequency_mhz', label: 'Frequency', kind: 'mhz', color: 'var(--violet)' },
-  { key: 'core_voltage_mv', label: 'Core voltage', kind: 'mv', color: '#f472b6' },
+  { key: 'core_voltage_mv', label: 'Core voltage', kind: 'mv', color: 'var(--chart-6)' },
   { key: 'voltage_in_v', label: 'Input voltage', kind: 'volt', color: 'var(--warn)' },
   { key: 'current_a', label: 'Input current', kind: 'amp', color: 'var(--info)' },
   { key: 'hw_error_pct', label: 'Hardware errors', kind: 'percent', color: 'var(--bad)' },
   { key: 'reject_rate_pct', label: 'Rejected shares', kind: 'percent', color: 'var(--warn)' },
-  { key: 'wifi_rssi_dbm', label: 'WiFi signal', kind: 'dbm', color: '#22d3ee' },
+  { key: 'wifi_rssi_dbm', label: 'WiFi signal', kind: 'dbm', color: 'var(--chart-4)' },
   { key: 'pool_ping_ms', label: 'Pool latency', kind: 'ms', color: 'var(--violet)' },
   { key: 'free_heap_bytes', label: 'Free memory', kind: 'bytes', color: 'var(--ok)' },
   { key: 'shares_accepted', label: 'Accepted shares', kind: 'count', color: 'var(--ok)' },
   { key: 'shares_rejected', label: 'Rejected shares (count)', kind: 'count', color: 'var(--bad)' },
-  { key: 'best_diff', label: 'Best share', kind: 'difficulty', color: 'var(--accent)' },
+  { key: 'best_diff', label: 'Best share', kind: 'difficulty', color: 'var(--chart-1)' },
   { key: 'uptime_s', label: 'Uptime', kind: 'seconds', color: 'var(--info)' },
   { key: 'online', label: 'Miners online', kind: 'flag', color: 'var(--ok)' },
 ]
@@ -105,8 +105,8 @@ export function formatAxis(kind: MetricKind, v: number, fmt: Fmt): string {
   }
 }
 
-/** Same hue family for N devices drawn on one chart. */
-export const DEVICE_COLORS = ['var(--accent)', 'var(--info)', 'var(--ok)', 'var(--violet)', '#f472b6', '#22d3ee', 'var(--warn)', 'var(--bad)', '#a3e635', '#fb923c']
+/** The kit's six chart colours, then its status colours, for N devices drawn on one chart. */
+export const DEVICE_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)', 'var(--ok)', 'var(--warn)', 'var(--bad)', 'var(--info)']
 
 export const RANGES: { value: string; label: string; seconds: number }[] = [
   { value: '1h', label: '1h', seconds: 3600 },

@@ -173,8 +173,8 @@ describe('issue 80: the history chart passes the wall display variant through', 
   it('draws the power line in the accent blue on the wall display, and keeps the status blue everywhere else', async () => {
     history()
     const colours = async (extra: { kiosk?: boolean }) => ((await mountHistory(extra)).findComponent(TimeSeriesChart).props('series') as ChartSeries[]).map((s) => s.color)
-    expect(await colours(KIOSK_PROPS)).toEqual(['var(--accent)', 'var(--accent-blue)'])
-    expect(await colours({})).toEqual(['var(--accent)', 'var(--info)']) // the normal chart is untouched
+    expect(await colours(KIOSK_PROPS)).toEqual(['var(--chart-1)', 'var(--accent-blue)'])
+    expect(await colours({})).toEqual(['var(--chart-1)', 'var(--info)']) // the normal chart is untouched
   })
 
   it('hands the canvas the accent blue value, not the status blue', async () => {
