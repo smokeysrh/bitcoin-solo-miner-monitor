@@ -2,7 +2,7 @@
 // what you see about your miners always comes live from the server.
 // CacheStorage is shared by every app on this origin, so only names with our prefix are ours to delete.
 const CACHE_PREFIX = 'bsmm-shell-'
-const CACHE = `${CACHE_PREFIX}v1`
+const CACHE = `${CACHE_PREFIX}v2`
 const LIVE = /^\/(api|mcp|metrics|docs|openapi\.json|llms\.txt)/
 
 // Saving a copy is a bonus. The event waits for it, but a failure never breaks a page that loaded fine.
@@ -45,6 +45,23 @@ self.addEventListener('fetch', (event) => {
         if (res.ok) remember(event, req, res.clone())
         return res
       })(),
+    )
+    return
+  }
+
+  // bundled fonts have no hash in their name, so like pages: the network first, the last good copy when the server is unreachable
+  if (url.pathname.startsWith('/fonts/')) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) remember(event, req, res.clone())
+          return res
+        })
+        .catch(async (err) => {
+          const hit = await recall(req)
+          if (hit) return hit
+          throw err
+        }),
     )
     return
   }
