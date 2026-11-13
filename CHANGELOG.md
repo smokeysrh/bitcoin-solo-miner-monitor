@@ -5,6 +5,36 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-11-13
+
+This patch release tidies up the Night Shift look from 1.4.0, with the light theme getting the most fixes, and points the install guide at the latest release. Easier on the eyes, same hurd.
+
+### Changed
+- **Charts:**
+  - Charts where each line is a metric (the dashboard charts and the small hashrate chart on its top card, a single miner's detail charts, Analytics in whole-fleet mode and the wall display chart) now draw hashrate and best share in the brand kit's chart orange instead of your accent colour. In the light theme the chart orange is a darker orange that is easier to see on white (PR #135).
+  - On those charts, with the default orange accent, hashrate and best share look the same as before in dark and Black. If you picked a custom accent colour, those two lines no longer follow it. The small trend lines on miner tiles and in the miners table still use your accent colour for miners that are running normally (PR #135).
+  - Other lines on those charts changed colour too, in dark and Black as well. Fan speed and WiFi moved from bright cyan to the kit's teal. Board temperature and core voltage moved from pink to the kit's neutral stone colour, so they no longer look like the frequency and pool latency lines (PR #135).
+  - Charts that draw one line per miner (Analytics in each-miner mode and the dashboard Hashrate chart with its Per miner switch on) now take their colours from the kit's chart colours, whatever the metric. The first miner's line uses the kit's chart orange instead of your accent colour. With the default orange accent it looks the same as before in dark and Black, it is a darker orange in the light theme, and it no longer follows a custom accent. Miners two to ten get different colours than before. The colour list has ten colours, so from the eleventh miner the colours repeat in the same order (PR #135).
+  - The celebration confetti uses the kit colours (PR #135).
+- **Form fields:**
+  - Text boxes, dropdowns, text areas and tag fields now show a clearly visible border all the time, in every theme. Before, the stronger border only appeared on hover, and tag fields had the faint one (PR #135).
+- **Fallback page:**
+  - The page shown when the interface files are missing now uses the Night Shift colours (PR #134).
+- **Docs:**
+  - The install guide now points to the latest release for the Windows installer and the Python wheel, instead of old v1.1.2 download links (PR #133).
+  - The README now says its screenshots were taken on v1.1.2, before the HashHurdr name and Night Shift look, and have not been retaken yet (PR #133).
+
+### Removed
+- **Developer tooling:**
+  - An old icon generator script that could overwrite the new HashHurdr icons is gone (PR #132).
+
+### Fixed
+- **Light theme readability:**
+  - The "on" track of a switch and the underline under the selected tab are darker, so they are readable on white (PR #135).
+  - The large headline numbers and a few large headings drawn in the orange gradient are darker, so they are readable on white. Dark and Black are unchanged (PR #135).
+- **Fonts:**
+  - The app now always sends its bundled font files labelled as fonts. On some systems they were sent with the wrong file type (PR #134).
+
 ## [1.4.0] - 2026-11-12
 
 This minor release gives the Bitcoin Solo Miner Monitor its new name, HashHurdr, and a Night Shift look, Built for Plebs, By Plebs, with every hash still a fresh ticket.
