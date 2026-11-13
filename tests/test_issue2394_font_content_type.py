@@ -1,10 +1,14 @@
 """Card #2394: the bundled web fonts are served with a font content type.
 
 Python 3.11 to 3.13 ``mimetypes`` does not know ``.woff2``, so the file server fell back to a guessed text type.
+The type lookup is pinned to Python's built-in table, as on an install with no system type files (Windows). Linux hosts
+read system files that already map ``.woff2``, which would hide the bug.
 The built UI is faked with a small directory (index page plus one font file), so no npm build is needed.
 """
 
 from __future__ import annotations
+
+import mimetypes
 
 import httpx
 
@@ -17,6 +21,9 @@ FONT_BYTES = b"wOF2" + bytes(64)  # only the file extension decides the type, no
 
 async def test_woff2_is_served_as_a_font(lan, tmp_path, monkeypatch):
     ctx, _ = lan
+    # "inited" first: MimeTypes() would otherwise call mimetypes.init() and read the system type files.
+    monkeypatch.setattr(mimetypes, "inited", True)
+    monkeypatch.setattr(mimetypes, "_db", mimetypes.MimeTypes())
     web = tmp_path / "built-ui"
     (web / "fonts").mkdir(parents=True)
     (web / "index.html").write_text('<!doctype html><div id="app"></div>', encoding="utf-8")
