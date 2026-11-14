@@ -96,7 +96,7 @@ Read [SECURITY.md](SECURITY.md) before exposing the dashboard beyond your LAN.
 
 ## Screenshots
 
-Demo screens captured on v1.1.2 in Firefox, before the HashHurdr name and Night Shift look. They have not been retaken yet. All fleet data shown here is simulated, not measured from live miners.
+Fresh screens from HashHurdr v1.4.1 in the Night Shift look. They come from the built-in demo mode, so the five-miner fleet is simulated and none of the numbers are measured from live miners.
 
 ![Fleet dashboard](docs/screenshots/dashboard.png)
 
