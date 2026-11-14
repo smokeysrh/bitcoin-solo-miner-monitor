@@ -2,7 +2,7 @@ manifestVersion: 1
 id: bitcoin-solo-miner-monitor
 category: bitcoin
 name: HashHurdr
-version: "1.4.1"
+version: "1.4.2"
 tagline: Mission control for your solo Bitcoin miners
 description: >-
   Find and monitor your Bitaxe, NerdQAxe, Avalon, Antminer and similar miners from one dashboard.

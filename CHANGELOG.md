@@ -5,6 +5,19 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-11-14
+
+This tiny patch release makes sure HashHurdr keeps its Night Shift fonts when the server cannot be reached, and retakes the README screenshots. Same hurd, same look.
+
+### Fixed
+- **Offline fonts:**
+  - When the server cannot be reached, the bundled Night Shift fonts now load from a saved copy, in a normal browser tab as well as when HashHurdr is installed as an app on a phone or computer. Before, they were never saved for offline use, so the saved offline page could show your device's own fonts instead (PR #137).
+  - The fonts are still fetched from the server first whenever it is reachable, and a fresh copy is saved each time (PR #137).
+
+### Changed
+- **Docs:**
+  - The README screenshots are retaken on v1.4.1 with the HashHurdr name and the Night Shift look, in demo mode with a simulated fleet (PR #138).
+
 ## [1.4.1] - 2026-11-13
 
 This patch release tidies up the Night Shift look from 1.4.0, with the light theme getting the most fixes, and points the install guide at the latest release. Easier on the eyes, same hurd.
