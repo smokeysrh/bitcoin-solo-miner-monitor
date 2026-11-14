@@ -127,7 +127,20 @@ test.describe('issue 79: wall display network panel', () => {
       await page.setViewportSize({ width: shape.width, height: shape.height })
       await openNetworkPanel(page)
       await expect(page.getByTestId('kiosk-halving-value')).toContainText(/\d/)
-      sizes.push((await measure(page, ['kiosk-halving-value']))[0]!.fontPx)
+      // The type size is pure CSS in viewport units, so wait until the page lays out at the new screen size and the
+      // size has grown past the previous shape's (the first shape just records its size) before reading it.
+      const previous = sizes.at(-1) ?? 0
+      let size = 0
+      await expect(async () => {
+        const now = await page.evaluate(() => {
+          const el = document.querySelector<HTMLElement>('[data-testid="kiosk-halving-value"]')
+          return { width: window.innerWidth, height: window.innerHeight, fontPx: el ? Number.parseFloat(getComputedStyle(el).fontSize) : Number.NaN }
+        })
+        expect([now.width, now.height], `viewport for ${shape.name}`).toEqual([shape.width, shape.height])
+        expect(now.fontPx, `halving size at ${shape.name} after ${previous}px`).toBeGreaterThan(previous)
+        size = now.fontPx
+      }).toPass()
+      sizes.push(size)
     }
     expect(sizes[0]!).toBeLessThan(sizes[1]!)
     expect(sizes[1]!).toBeLessThan(sizes[2]!)
