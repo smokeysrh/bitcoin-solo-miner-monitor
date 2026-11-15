@@ -89,14 +89,6 @@ class RetentionSettings(_S):
     event_days: float = Field(180, ge=7, le=3650)
 
 
-class SafetySettings(_S):
-    """Guard rails for anything that writes to a miner."""
-
-    allow_control: bool = True
-    allow_tuning: bool = False  # frequency / voltage changes stay off until you switch them on
-    max_temp_c: float = Field(80.0, ge=50, le=110)
-
-
 class AlertDefaults(_S):
     temp_warn_c: float = Field(75.0, ge=40, le=120)
     temp_crit_c: float = Field(85.0, ge=40, le=130)
@@ -135,7 +127,6 @@ class Settings(_S):
     network: NetworkSettings = Field(default_factory=NetworkSettings)
     mining: MiningSettings = Field(default_factory=MiningSettings)
     retention: RetentionSettings = Field(default_factory=RetentionSettings)
-    safety: SafetySettings = Field(default_factory=SafetySettings)
     alerts: AlertDefaults = Field(default_factory=AlertDefaults)
     ui: UiSettings = Field(default_factory=UiSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)

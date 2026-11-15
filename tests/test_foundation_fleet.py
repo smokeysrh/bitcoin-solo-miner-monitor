@@ -1,7 +1,6 @@
 """Foundation repairs exercised through fleet and API callers, using only simulators."""
 import asyncio
 import sqlite3
-from contextlib import suppress
 
 import pytest
 
@@ -45,7 +44,7 @@ async def test_unavailable_identity_keeps_endpoint_compatibility(lan):
     assert first.device.id == second.device.id and not second.created
 
 
-async def test_replaced_identity_cannot_poll_or_control(lan):
+async def test_replaced_identity_cannot_poll(lan):
     ctx, hosts = lan
     did, sim = await miner(ctx, hosts)
     await ctx.fleet.poll_now(did)
@@ -57,9 +56,6 @@ async def test_replaced_identity_cannot_poll_or_control(lan):
         await ctx.fleet.poll_now(did)
     assert ctx.fleet.view(did).status != "online"
     assert ctx.fleet.view(did).last_error and "identity" in ctx.fleet.view(did).last_error
-    with pytest.raises(DriverError, match="identity"):
-        await ctx.fleet.run_action(did, "restart")
-    assert sim.restarts == 0
     await ctx.fleet._flush_samples()
     assert await ctx.store.db.scalar("SELECT COUNT(*) FROM samples WHERE hashrate_hs IS NOT NULL") == count
 
@@ -95,81 +91,6 @@ async def test_duplicate_endpoint_and_db_failure_preserve_driver(api, monkeypatc
         await ctx.fleet.update(did, {"name": "changed", "power_override_w": 40})
     assert rt.device.model_dump() == old and rt.driver is driver
     assert (await client.get("/api/v1/devices")).status_code == 200
-
-
-@pytest.mark.parametrize("action,params", [
-    ("set_pool", {"url": "", "port": 0, "user": ""}),
-    ("set_pool", {"url": "pool.test", "port": 3333, "user": "u", "role": "typo"}),
-    ("set_fan", {"speed_pct": 101}),
-    ("set_fan", {}),
-    ("set_tuning", {"frequency_mhz": 999}),
-    ("set_tuning", {}),
-])
-async def test_preview_execution_validation_parity(lan, action, params):
-    ctx, hosts = lan
-    did, sim = await miner(ctx, hosts)
-    ctx.settings.current.safety.allow_tuning = True
-    calls = len(sim.calls)
-    audit = len(await ctx.store.list_audit())
-    errors = []
-    for preview in (True, False):
-        with pytest.raises((DriverError, ValueError, TypeError)) as err:
-            await ctx.fleet.run_action(did, action, params, dry_run=preview)
-        errors.append((type(err.value), str(err.value)))
-        if preview:
-            assert len(await ctx.store.list_audit()) == audit
-    assert errors[0] == errors[1]
-    assert all(c[0] == "GET" for c in sim.calls[calls:])
-
-
-@pytest.mark.parametrize("action,params", [
-    ("set_pool", {"url": "pool.test", "port": 3333, "user": "u"}),
-    ("set_fan", {"speed_pct": 70}),
-    ("set_tuning", {"frequency_mhz": 550}),
-])
-async def test_valid_preview_never_writes_and_apply_does(lan, action, params):
-    ctx, hosts = lan
-    did, sim = await miner(ctx, hosts)
-    ctx.settings.current.safety.allow_tuning = True
-    before = len(sim.calls)
-    assert (await ctx.fleet.run_action(did, action, params, dry_run=True))["ok"]
-    assert all(c[0] == "GET" for c in sim.calls[before:])
-    assert await ctx.store.list_audit() == []
-    assert (await ctx.fleet.run_action(did, action, params))["ok"]
-    assert any(c[0] == "PATCH" for c in sim.calls[before:])
-
-
-async def test_single_bulk_actions_serialize_but_other_miners_progress(api, monkeypatch):
-    client, ctx, hosts = api
-    did, _ = await miner(ctx, hosts)
-    other, other_sim = await miner(ctx, hosts, "other.test", "AA:BB:CC:00:00:02")
-    driver = ctx.fleet._ensure_driver(ctx.fleet.runtimes[did])
-    original = driver.restart
-    entered, release = asyncio.Event(), asyncio.Event()
-    active = peak = 0
-
-    async def held():
-        nonlocal active, peak
-        active += 1
-        peak = max(peak, active)
-        entered.set()
-        await release.wait()
-        result = await original()
-        active -= 1
-        return result
-
-    monkeypatch.setattr(driver, "restart", held)
-    first = asyncio.create_task(client.post(f"/api/v1/devices/{did}/actions/restart", json={}))
-    await entered.wait()
-    second = asyncio.create_task(client.post("/api/v1/devices/actions", json={"device_ids": [did], "action": "restart", "dry_run": False}))
-    try:
-        assert (await client.post(f"/api/v1/devices/{other}/actions/restart", json={})).status_code == 200
-        assert other_sim.restarts == 1
-    finally:
-        release.set()
-        responses = await asyncio.gather(first, second)
-    assert all(r.status_code == 200 for r in responses)
-    assert peak == 1
 
 
 @pytest.mark.parametrize("keep_history", [False, True])
@@ -242,53 +163,3 @@ async def test_stop_preserves_owned_batch_once(lan, monkeypatch, boundary):
     assert await ctx.store.db.scalar("SELECT COUNT(*) FROM samples") == 1
     for table in ("samples_1m", "samples_1h", "samples_1d"):
         assert await ctx.store.db.scalar(f"SELECT SUM(n) FROM {table}") == 1
-
-
-async def test_queued_control_rechecks_global_permission(lan, monkeypatch):
-    ctx, hosts = lan
-    did, sim = await miner(ctx, hosts)
-    driver = ctx.fleet._ensure_driver(ctx.fleet.runtimes[did])
-    entered, release = asyncio.Event(), asyncio.Event()
-    original = driver.restart
-
-    async def held():
-        entered.set()
-        await release.wait()
-        return await original()
-
-    monkeypatch.setattr(driver, "restart", held)
-    first = asyncio.create_task(ctx.fleet.run_action(did, "restart"))
-    await entered.wait()
-    queued = asyncio.create_task(ctx.fleet.run_action(did, "restart"))
-    await asyncio.sleep(0)
-    ctx.settings.current.safety.allow_control = False
-    release.set()
-    await first
-    with pytest.raises(PermissionError):
-        await queued
-    assert sim.restarts == 1
-
-
-async def test_cancelled_queued_action_does_not_write(lan, monkeypatch):
-    ctx, hosts = lan
-    did, sim = await miner(ctx, hosts)
-    driver = ctx.fleet._ensure_driver(ctx.fleet.runtimes[did])
-    entered, release = asyncio.Event(), asyncio.Event()
-    original = driver.restart
-
-    async def held():
-        entered.set()
-        await release.wait()
-        return await original()
-
-    monkeypatch.setattr(driver, "restart", held)
-    first = asyncio.create_task(ctx.fleet.run_action(did, "restart"))
-    await entered.wait()
-    queued = asyncio.create_task(ctx.fleet.run_action(did, "restart"))
-    await asyncio.sleep(0)
-    queued.cancel()
-    with suppress(asyncio.CancelledError):
-        await queued
-    release.set()
-    await first
-    assert sim.restarts == 1

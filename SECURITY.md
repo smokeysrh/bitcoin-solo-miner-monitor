@@ -13,7 +13,7 @@ The app is meant for a home network. It is **open by default on first start** on
 | Scope | Can |
 | --- | --- |
 | `read` | See everything except secrets. Safe for monitoring agents. |
-| `control` | Also scan, add or edit miners and run miner actions (restart, pause, pool change...), within Settings → Safety. |
+| `control` | Also scan, add, edit or remove miners in HashHurdr's own list, mark alerts seen, send test notifications, check for updates and dismiss insights. |
 | `admin` | Everything, including settings, tokens and passwords. |
 
 - Browser sign-in uses a password and an HttpOnly, SameSite=Lax session cookie (`Secure` over HTTPS). Wrong passwords lock that address out for a growing delay.
@@ -35,11 +35,10 @@ When v1.1.2 opens existing data, it moves recognized notification credentials le
 - The app talks to miners, configured node/pool sources, enabled public network-data services and GitHub release checks. Selected notification channels send alerts to their configured destinations. There is no telemetry.
 - `BSMM_OFFLINE=1` disables automatic public network-data, price and release checks. Configured sources and alert destinations still make requests. `BSMM_NO_UPDATE_CHECK=1` skips release checks alone.
 - Responses carry a strict Content-Security-Policy (no inline scripts, no framing), `nosniff` and `no-referrer`.
-- Miner actions are audited (who, what, when, result).
 
 ## Limits you should know
 
-- Many AxeOS and cgminer firmware builds expose unauthenticated controls. Keep miners on a trusted network and restrict dashboard access too; an authorized dashboard user can send controls through it.
+- Many AxeOS and cgminer firmware builds are open on the network. Keep miners on a trusted network and restrict dashboard access too.
 - Don't put the dashboard on the public internet without a password and HTTPS in front of it (a reverse proxy, Tailscale or Cloudflare Tunnel is the usual way).
 - A wrong payout address loses a found block. The app and its agent guide insist on read-back before changing one.
-- Agents should begin with monitoring, show discovery results and wait for confirmation before adoption. Ask before hardware controls, pool/payout changes, tuning, firmware changes or deleting data. These are agent instructions; unattended CLI commands such as `setup --yes` can act without a further prompt.
+- Agents should begin with monitoring, show discovery results and wait for confirmation before adoption. Ask before deleting data. These are agent instructions; unattended CLI commands such as `setup --yes` can act without a further prompt.

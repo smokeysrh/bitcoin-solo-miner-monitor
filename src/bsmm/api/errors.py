@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from bsmm.drivers.base import ActionFailed, AuthRequired, BadResponse, DriverError, Unreachable, Unsupported
+from bsmm.drivers.base import AuthRequired, BadResponse, DriverError, Unreachable
 from bsmm.sources.base import SourceError
 
 
@@ -50,7 +50,7 @@ def body(status: int, code: str, message: str, hint: str | None = None, details:
 
 _HINTS = {
     401: "Send a token as 'Authorization: Bearer <token>' (create one with `bsmm token create` or in Settings > Agents & API).",
-    403: "This token or session is not allowed to do that. Control actions need a token with the 'control' scope.",
+    403: "This token or session is not allowed to do that. Scanning, adding, editing or removing miners in HashHurdr's list, marking alerts seen and similar need the 'control' scope; settings need 'admin'.",
     404: "List what exists with the matching GET endpoint, or see /openapi.json.",
     405: "That method is not supported on this path. See /openapi.json.",
     429: "Wait a moment and try again.",
@@ -84,14 +84,6 @@ def install(app: FastAPI) -> None:
         return JSONResponse(body(422, "validation_error", f"{first['field']}: {first['problem']}", "Fix the listed fields and retry.", problems),
                             status_code=422)
 
-    @app.exception_handler(Unsupported)
-    async def _unsupported(_: Request, exc: Unsupported) -> JSONResponse:
-        return JSONResponse(body(409, "unsupported", str(exc), "Check the device's capabilities list."), status_code=409)
-
-    @app.exception_handler(ActionFailed)
-    async def _action(_: Request, exc: ActionFailed) -> JSONResponse:
-        return JSONResponse(body(422, "action_rejected", str(exc)), status_code=422)
-
     @app.exception_handler(Unreachable)
     async def _unreachable(_: Request, exc: Unreachable) -> JSONResponse:
         return JSONResponse(body(502, "device_unreachable", str(exc), "Check that the miner is powered and on the network."), status_code=502)
@@ -114,7 +106,7 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(PermissionError)
     async def _perm(_: Request, exc: PermissionError) -> JSONResponse:
-        return JSONResponse(body(403, "not_allowed", str(exc), "Change the relevant switch in Settings > Safety if you really want this."), status_code=403)
+        return JSONResponse(body(403, "not_allowed", str(exc)), status_code=403)
 
     @app.exception_handler(KeyError)
     async def _key(_: Request, exc: KeyError) -> JSONResponse:

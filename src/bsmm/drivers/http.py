@@ -29,20 +29,20 @@ async def request_json(
     url: str,
     *,
     timeout: float,
-    json_body: Any = None,
     retries: int = 0,
     headers: dict[str, str] | None = None,
-    expect_json: bool = True,
 ) -> Any:
-    """Make a request and return the decoded JSON body, translating failures into driver errors.
+    """Make a GET request and return the decoded JSON body, translating failures into driver errors.
 
-    ``retries`` is only honoured for idempotent reads (GET); a write is never replayed.
+    HashHurdr only reads from miners, so any other method is refused before a request is made.
     """
-    attempts = 1 + (max(0, retries) if method.upper() == "GET" else 0)
+    if method.upper() != "GET":
+        raise ValueError(f"miner drivers only read from miners; {method} is not allowed")
+    attempts = 1 + max(0, retries)
     last: Exception | None = None
     for _ in range(attempts):
         try:
-            resp = await request_bounded(client, method, url, json_body=json_body, headers=headers, timeout=timeout)
+            resp = await request_bounded(client, method, url, headers=headers, timeout=timeout)
         except httpx.TimeoutException as e:
             last = Unreachable(f"timed out after {timeout:g}s")
             last.__cause__ = e
@@ -57,8 +57,6 @@ async def request_json(
             raise AuthRequired(f"HTTP {resp.status_code} (the device refused access)")
         if resp.status_code >= 400:
             raise BadResponse(f"HTTP {resp.status_code} from {method} {_path(url)}")
-        if not expect_json:
-            return resp.text
         text = resp.text
         if not text.strip():
             return {}

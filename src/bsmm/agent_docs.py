@@ -64,7 +64,7 @@ NODE_REFUSAL_FLOW: list[str] = [
 MCP_TOOLS: list[str] = [
     "get_overview", "list_miners", "get_miner", "get_history", "get_odds", "get_network", "get_node_and_pool", "get_alerts",
     "list_events", "get_insights", "get_diagnostics", "get_settings", "scan_network", "add_discovered_miners", "add_miner",
-    "update_miner", "remove_miner", "restart_miner", "identify_miner", "run_miner_action", "run_bulk_action", "configure_source",
+    "update_miner", "remove_miner", "configure_source",
     "list_notification_channel_types", "create_notification_channel", "update_settings", "create_alert_rule", "send_notification",
 ]
 
@@ -77,8 +77,6 @@ TASKS: dict[str, str] = {
     "Is anything wrong?": "GET /api/v1/alerts/active and GET /api/v1/insights",
     "Which blocks did solo pools find lately?": "GET /api/v1/blocks/solo (the latest 20 from mempool.space, newest first; `yours` marks a block that paid one of the user's addresses; "
         "`available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)",
-    "Restart a miner": "POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)",
-    "Point miners at my own pool/node": "POST /api/v1/devices/actions {\"action\":\"set_pool\",\"all\":true,\"params\":{...}} previews by default; send dry_run=false to apply",
     "A found node refuses the app (401/403)": "Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable, cookie_unreadable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step",
     "History / charts": "GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w",
     "Live updates": "GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)",
@@ -87,13 +85,10 @@ TASKS: dict[str, str] = {
 }
 
 SAFETY: list[str] = [
-    "Ask before hardware controls, restarts, pool or payout changes, tuning, firmware changes, deleting data or other destructive actions. Confirm the target; read payout changes back through a private confirmation view.",
-    "Control actions are audited and can be switched off in Settings > Safety (allow_control). Frequency/voltage changes are OFF until the user enables allow_tuning.",
-    "Bulk actions preview by default (dry_run: true). Show the user the preview before sending dry_run=false.",
+    "Ask before deleting data or doing another destructive action. Confirm the target.",
     "Secrets (RPC passwords, bot tokens, webhook URLs) are write-only: they are never returned by any endpoint.",
     "Do not guess node credentials, wallet addresses or passwords. Ask for missing information through secure app fields; keep secrets and addresses out of chat and logs.",
     "Network scans are limited to private address ranges.",
-    "Restarting a miner interrupts hashing; downtime depends on firmware. Lost hashing time reduces the chance of finding a block.",
     "Solo mining is a lottery, so keep the odds talk light. Every hash is a fresh ticket: never promise a block and never say the user is due. When available, horizons.ten_minutes (Next 10 minutes) estimates chance over a fixed 600-second window; the next network block can arrive at any time.",
 ]
 
@@ -103,14 +98,14 @@ def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> di
         "name": "HashHurdr",
         "version": __version__,
         "summary": "Dashboard and API for solo Bitcoin miners: discovers miners, monitors them, watches the user's node and pool, "
-                   "computes block odds, alerts, and lets you control miners within safe limits.",
+                   "computes block odds and sends alerts.",
         "base_url": base,
         "api_base": f"{base}/api/v1",
         "demo": demo,
         "auth": {
             "mode": auth_mode,
             "how": "Send 'Authorization: Bearer <token>' (or header X-API-Key). When mode is 'none' no credentials are needed.",
-            "scopes": {"read": "look only", "control": "restart / scan / add miners / change pools", "admin": "settings, sources, channels, rules, tokens"},
+            "scopes": {"read": "look only", "control": "scan / add, edit or remove miners in HashHurdr's own list / acknowledge alerts / test notifications / check for updates / dismiss insights", "admin": "settings, sources, channels, rules, tokens"},
             "create_token_on_server": "bsmm token create --name agent --scope read",
         },
         "setup_preflight": SETUP_PREFLIGHT,
@@ -145,7 +140,7 @@ def llms_txt(base: str = "http://localhost:8420") -> str:
     safety = "\n".join(f"- {s}" for s in SAFETY)
     return f"""# HashHurdr
 
-> HashHurdr, the Bitcoin Solo Miner Monitor: a self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version {__version__}.
+> HashHurdr, the Bitcoin Solo Miner Monitor: a self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds and sends alerts. Version {__version__}.
 
 This server: {base}
 Everything below is also available as JSON at {base}/api/v1/agent/guide.
@@ -180,7 +175,6 @@ Everything below is also available as JSON at {base}/api/v1/agent/guide.
 
 - Field names carry units: `hashrate_hs` (H/s), `power_w`, `temp_asic_c`, `efficiency_j_th`.
 - Errors are always `{{"error": {{"code", "message", "hint", "status"}}}}`.
-- Bulk miner actions preview with `dry_run: true`; check the endpoint schema before assuming another operation supports a preview.
 - Live updates: `GET {base}/api/v1/stream?topics=device,fleet,event` (Server-Sent Events).
 
 ## Docs

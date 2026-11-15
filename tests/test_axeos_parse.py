@@ -62,7 +62,6 @@ def test_nerdqaxe_identification():
     assert info.mac and info.mac.startswith("AA:BB:CC:00:00:")
     assert info.asic_model == "BM1370" and info.asic_count == 4
     assert info.firmware == "v1.0.30"
-    assert Capability.RESTART in info.capabilities
 
 
 def test_magic_miner_uses_chip_temp_and_avg_hashrate():
@@ -120,8 +119,7 @@ def test_modern_firmware_pools_array_and_new_fields():
     assert t.pools[0].active and not t.pools[1].active
     info = build_info("192.168.1.60", 80, d)
     assert info.model == "Bitaxe GT" and info.family == "bitaxe"
-    caps = set(info.capabilities)
-    assert {Capability.PAUSE, Capability.SCOREBOARD, Capability.IDENTIFY, Capability.SET_POOL} <= caps
+    assert info.capabilities == [Capability.SCOREBOARD]
 
 
 def test_using_fallback_marks_the_right_pool():
@@ -178,5 +176,5 @@ def test_normalize_mac():
 
 
 def test_capabilities_are_conservative_for_unknown_firmware():
-    caps = capabilities_for({"hashRate": 1, "stratumURL": "x"}, "luckyminer")
-    assert caps == [Capability.RESTART]
+    caps = capabilities_for({"hashRate": 1, "stratumURL": "x"})
+    assert caps == []

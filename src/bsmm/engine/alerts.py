@@ -263,7 +263,7 @@ def eval_pool_fallback(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition
 def eval_device_attention(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition]:
     out: dict[str, Condition] = {}
     for d in ctx.devices:
-        if d.status == DeviceStatus.DEGRADED and in_scope(rule, d) and d.status_reason != "Restarting":
+        if d.status == DeviceStatus.DEGRADED and in_scope(rule, d):
             out[f"{rule.id}:{d.id}"] = Condition(f"{rule.id}:{d.id}", f"{d.name} needs attention", d.status_reason or "", d.id)
     return out
 

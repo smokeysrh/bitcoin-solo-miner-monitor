@@ -22,12 +22,11 @@ import httpx
 
 from bsmm import mining
 from bsmm.bitcoin_address import parse_address
-from bsmm.drivers.base import ActionFailed, Driver, DriverError, IdentityMismatch, Unsupported, check_identity
+from bsmm.drivers.base import Driver, DriverError, check_identity
 from bsmm.drivers.registry import driver_for, probe_host
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.models import (
-    Capability,
     Device,
     DeviceStatus,
     DeviceView,
@@ -47,7 +46,6 @@ log = logging.getLogger(__name__)
 
 SMOOTHING_TAU_S = 45.0
 SPARK_POINTS = 30
-RESTART_GRACE_S = 150.0
 MONITOR_RETRY_MAX_S = 300.0
 MONITOR_RETRY_MAX_STEPS = 5
 #: Most unsaved sample rows kept in memory while storage is failing (a few MB; hours for a home fleet).
@@ -87,7 +85,6 @@ class DeviceRuntime:
     last_poll_ms: float | None = None
     task: asyncio.Task[None] | None = None
     wake: asyncio.Event = field(default_factory=asyncio.Event)
-    expect_back_until: float = 0.0
     spark: deque[float | None] = field(default_factory=lambda: deque(maxlen=SPARK_POINTS * 3))
     last_seen_dirty: bool = False
     offline_since: float | None = None
@@ -390,7 +387,7 @@ class Fleet:
             return await _complete(asyncio.create_task(self._update_locked(rt, patch)))
 
     async def _update_locked(self, rt: DeviceRuntime, patch: dict[str, Any]) -> Device:
-        allowed = {"name", "tags", "group", "notes", "enabled", "allow_control", "poll_interval_s", "model_override", "host", "port"}
+        allowed = {"name", "tags", "group", "notes", "enabled", "poll_interval_s", "model_override", "host", "port"}
         unknown = set(patch) - allowed - {"power_override_w"}
         if unknown:
             raise ValueError(f"cannot change: {', '.join(sorted(unknown))}")
@@ -605,13 +602,10 @@ class Fleet:
         rt.last_error = str(error) or error.__class__.__name__
         # An identity mismatch counts like any other failed poll: one odd reading must not flip a working miner
         # offline (#92). A replaced miner still mismatches on every poll, so it reaches the threshold anyway.
-        restarting = now < rt.expect_back_until and not isinstance(error, IdentityMismatch)
-        if restarting:
-            self._set_status(rt, DeviceStatus.DEGRADED, "Restarting")
-        elif rt.failures >= cfg.offline_after_failures and rt.status != DeviceStatus.OFFLINE:
+        if rt.failures >= cfg.offline_after_failures and rt.status != DeviceStatus.OFFLINE:
             rt.offline_since = now
             await self._set_status_async(rt, DeviceStatus.OFFLINE, rt.last_error)
-        if rt.failures >= cfg.offline_after_failures or restarting:
+        if rt.failures >= cfg.offline_after_failures:
             # one row per failed poll lets availability be computed later
             self._pending.append(telemetry_to_row(rt.device.id, Telemetry(ts=now, online=False)))
             self._bound_pending()
@@ -850,102 +844,6 @@ class Fleet:
             self._summary_cache = build_summary(list(self.runtimes.values()), self.settings.current, demo=self.demo)
             self.bus.publish("fleet", self._summary_cache.model_dump(mode="json"))
             await asyncio.sleep(4)
-
-    # -- control -----------------------------------------------------------------------------------------------------------
-
-    async def run_action(self, device_id: str, action: str, params: dict[str, Any] | None = None, *, actor: str = "user",
-                         dry_run: bool = False) -> dict[str, Any]:
-        """Execute a control action with guard rails; always audited."""
-        rt = self.runtimes.get(device_id)
-        if rt is None:
-            raise KeyError(device_id)
-        async with rt.lock:
-            if rt.removing or self.runtimes.get(device_id) is not rt:
-                raise KeyError(device_id)
-            if self._stopping:
-                raise PermissionError("The monitor is stopping.")
-            return await _complete(asyncio.create_task(
-                self._run_action_locked(device_id, action, params, actor=actor, dry_run=dry_run)
-            ))
-
-    async def _run_action_locked(self, device_id: str, action: str, params: dict[str, Any] | None, *, actor: str,
-                                 dry_run: bool) -> dict[str, Any]:
-        params = params or {}
-        rt = self.runtimes.get(device_id)
-        if rt is None:
-            raise KeyError(device_id)
-        cfg = self.settings.current.safety
-        dev = rt.device
-        if not cfg.allow_control:
-            raise PermissionError("Controlling miners is switched off in Settings > Safety.")
-        if not dev.allow_control:
-            raise PermissionError(f"Control is switched off for {dev.name}.")
-        if not dev.enabled:
-            raise PermissionError(f"{dev.name} is disabled.")
-        needed = {
-            "restart": Capability.RESTART,
-            "identify": Capability.IDENTIFY,
-            "pause": Capability.PAUSE,
-            "resume": Capability.PAUSE,
-            "set_pool": Capability.SET_POOL,
-            "set_fan": Capability.SET_FAN,
-            "set_tuning": Capability.SET_FREQUENCY,
-        }
-        if action not in needed:
-            raise ValueError(f"unknown action {action!r}; valid: {', '.join(sorted(needed))}")
-        if needed[action] not in dev.capabilities:
-            raise Unsupported(f"{dev.name} ({dev.display_model}) does not support '{action}' through this app.")
-        if action == "set_tuning" and not cfg.allow_tuning:
-            raise PermissionError("Frequency/voltage changes are switched off. Enable them in Settings > Safety first.")
-        if action == "set_tuning":
-            t = rt.telemetry
-            if t and t.temp_asic_c and t.temp_asic_c >= cfg.max_temp_c:
-                raise ActionFailed(f"{dev.name} is already at {t.temp_asic_c:.0f} C; cool it down before tuning.")
-        driver = self._ensure_driver(rt)
-        try:
-            await driver.validate_action(action, params)
-        except (DriverError, ValueError, TypeError) as e:
-            if not dry_run:
-                await self.store.add_audit(actor, action, dev.id, params, {"ok": False, "error": str(e)})
-            raise
-        if dry_run:
-            return {"ok": True, "dry_run": True, "action": action, "device": dev.name, "params": _redact(params)}
-        try:
-            await driver.verify_identity()
-            # Settings can change during a read-only identity/range request.
-            if not self.settings.current.safety.allow_control or not dev.allow_control or rt.removing:
-                raise PermissionError("Control was switched off or the miner is being removed.")
-            if action == "set_tuning" and not self.settings.current.safety.allow_tuning:
-                raise PermissionError("Frequency/voltage changes are switched off.")
-            if action == "restart":
-                res = await driver.restart()
-                rt.expect_back_until = time.time() + RESTART_GRACE_S
-            elif action == "identify":
-                res = await driver.identify()
-            elif action == "pause":
-                res = await driver.pause()
-            elif action == "resume":
-                res = await driver.resume()
-            elif action == "set_pool":
-                res = await driver.set_pool(
-                    url=params.get("url", ""), port=params.get("port", 0), user=params.get("user", ""),
-                    password=params.get("password", "x"), role=params.get("role", "primary"), tls=params.get("tls"),
-                )
-            elif action == "set_fan":
-                res = await driver.set_fan(auto=params.get("auto"), speed_pct=params.get("speed_pct"),
-                                           temp_target_c=params.get("temp_target_c"))
-            else:
-                res = await driver.set_tuning(frequency_mhz=params.get("frequency_mhz"), core_voltage_mv=params.get("core_voltage_mv"))
-        except (DriverError, ValueError, TypeError) as e:
-            await self.store.add_audit(actor, action, dev.id, params, {"ok": False, "error": str(e)})
-            raise
-        await self.store.add_audit(actor, action, dev.id, params, {"ok": res.ok, "message": res.message})
-        rt.wake.set()
-        return {"ok": res.ok, "action": action, "device": dev.name, "message": res.message}
-
-
-def _redact(params: dict[str, Any]) -> dict[str, Any]:
-    return {k: ("***" if "pass" in k.lower() else v) for k, v in params.items()}
 
 
 def mining_duration(seconds: float | None) -> str:

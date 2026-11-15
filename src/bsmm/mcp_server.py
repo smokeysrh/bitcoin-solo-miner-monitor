@@ -33,8 +33,7 @@ This server controls a self-hosted dashboard for people who solo mine Bitcoin wi
 
 Start with get_overview (fleet totals, odds of finding a block, alerts). To set a user up from scratch:
 scan_network -> add_discovered_miners -> configure_source (their node/pool) -> create_notification_channel -> update_settings (electricity price).
-Never guess a user's node credentials, wallet address or passwords: ask them. Bulk actions preview by default: show the
-preview to the user before applying with dry_run=false. Restarting a miner pauses hashing for about a minute.
+Never guess a user's node credentials, wallet address or passwords: ask them.
 All hashrates are in H/s (fields ending _hs); the odds of finding a block are a long shot, which is the whole charm of solo mining.
 """
 
@@ -186,7 +185,7 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
 
     @mcp.tool(annotations=READ)
     async def get_settings(ctx: Context) -> Any:
-        """All settings (electricity price, polling, safety switches...). Contains no secrets."""
+        """All settings (electricity price, polling...). Contains no secrets."""
         return await api(ctx, "GET", "/api/v1/settings")
 
     # ---------------------------------------------------------------------------------- discover & add
@@ -230,33 +229,6 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
         """Stop monitoring a miner (does not touch the miner itself). Deletes its history unless keep_history is true. Confirm with the user first."""
         return await api(ctx, "DELETE", f"/api/v1/devices/{miner_id}", params={"keep_history": keep_history})
 
-    # ---------------------------------------------------------------------------------- control
-
-    @mcp.tool(annotations=DESTRUCTIVE)
-    async def restart_miner(ctx: Context, miner_id: str) -> Any:
-        """Reboot a miner. Hashing stops for about a minute. Ask the user before restarting a miner that is hashing well."""
-        return await api(ctx, "POST", f"/api/v1/devices/{miner_id}/actions/restart", body={})
-
-    @mcp.tool(annotations=WRITE)
-    async def identify_miner(ctx: Context, miner_id: str) -> Any:
-        """Make a miner flash its screen/LED so the user can find it physically."""
-        return await api(ctx, "POST", f"/api/v1/devices/{miner_id}/actions/identify", body={})
-
-    @mcp.tool(annotations=DESTRUCTIVE)
-    async def run_miner_action(ctx: Context, miner_id: str, action: str, params: dict[str, Any] | None = None, dry_run: bool = False) -> Any:
-        """Run a control action. action: restart | identify | pause | resume | set_pool {url, port, user, password?, role: primary|fallback} |
-        set_fan {auto?, speed_pct?, temp_target_c?} | set_tuning {frequency_mhz?, core_voltage_mv?} (tuning is off unless the user enabled it in Settings > Safety;
-        values must be ones the miner lists). Use dry_run=true to validate first. Everything is audited."""
-        return await api(ctx, "POST", f"/api/v1/devices/{miner_id}/actions/{action}", body={"params": params or {}, "dry_run": dry_run})
-
-    @mcp.tool(annotations=DESTRUCTIVE)
-    async def run_bulk_action(ctx: Context, action: str, params: dict[str, Any] | None = None, miner_ids: list[str] | None = None,
-                              tag: str | None = None, all_miners: bool = False, dry_run: bool = True) -> Any:
-        """Apply one action to many miners, for example moving every miner to the user's own pool (set_pool). Defaults to a PREVIEW (dry_run=true):
-        show the user the result, and only send dry_run=false after they agree."""
-        return await api(ctx, "POST", "/api/v1/devices/actions",
-                         body={"action": action, "params": params or {}, "device_ids": miner_ids, "tag": tag, "all": all_miners, "dry_run": dry_run})
-
     # ---------------------------------------------------------------------------------- configure
 
     @mcp.tool(annotations=WRITE)
@@ -289,7 +261,7 @@ def build_server(backend: Backend, *, name: str = "bitcoin-solo-miner-monitor") 
     @mcp.tool(annotations=WRITE)
     async def update_settings(ctx: Context, patch: dict[str, Any]) -> Any:
         """Change settings with a partial object, e.g. {"energy": {"price_per_kwh": 0.09}}, {"units": {"temperature": "f"}},
-        {"mining": {"addresses": ["bc1q..."]}}, {"safety": {"allow_tuning": true}}. Ask before changing safety switches."""
+        {"mining": {"addresses": ["bc1q..."]}}."""
         return await api(ctx, "PATCH", "/api/v1/settings", body=patch)
 
     @mcp.tool(annotations=WRITE)

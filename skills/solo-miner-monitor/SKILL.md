@@ -5,7 +5,7 @@ description: Set up, check on and operate HashHurdr, the Bitcoin Solo Miner Moni
 
 # HashHurdr
 
-A self-hosted app with a web UI, REST API, MCP server and CLI. It finds compatible AxeOS and cgminer-API miners on the local network, watches them, connects to the user's Bitcoin node / solo pool, estimates block odds, sends alerts and can restart or reconfigure miners within safe limits. Readings and controls depend on firmware and protocol support.
+A self-hosted app with a web UI, REST API, MCP server and CLI. It finds compatible AxeOS and cgminer-API miners on the local network, watches them, connects to the user's Bitcoin node / solo pool, estimates block odds and sends alerts. Readings depend on firmware and protocol support.
 
 The server explains itself. **Fetch `<server>/llms.txt` first** (default `http://<host>:8420/llms.txt`) and follow it; this skill only tells you how to behave.
 
@@ -16,9 +16,6 @@ The server explains itself. **Fetch `<server>/llms.txt` first** (default `http:/
 | "How are my miners?" / "Is anything wrong?" | `GET /api/v1/overview` and `GET /api/v1/insights`. Summarise in two or three sentences, problems first. |
 | "What are my odds?" | `GET /api/v1/odds`. Quote `plain_english`. Every hash is a fresh ticket: nobody is "close" or "due". |
 | "Set it up" / "install it" | Setup flow below. |
-| "Restart / pause X" | Confirm the action and target, then use the matching `/actions/restart` or `/actions/pause` endpoint (`control` scope). |
-| "Change my pool / address" | Read the new address back to the user, preview with `dry_run: true`, apply only after they confirm. |
-| "Make it faster" | Tuning is off by default. Explain the heat/power trade-off and ask them to enable it themselves in Settings > Safety. |
 
 ## Setup flow
 
@@ -39,8 +36,8 @@ The server explains itself. **Fetch `<server>/llms.txt` first** (default `http:/
 ## Rules
 
 - Keep it plain, true and fun. Solo mining is a lottery, and a light ticket joke is welcome.
-- Ask before restarting a miner, changing pools or payout addresses, tuning, changing firmware, deleting data or other destructive actions. Read payout changes back through a private confirmation view. Controls are audited; downtime depends on the action and firmware, and lost hashing time reduces the chance of finding a block.
-- Prefer the least power that does the job: a `read` token to look, `control` to act, `admin` only for setup.
+- Ask before deleting data or doing another destructive action.
+- Prefer the least power that does the job: a `read` token to look, `control` to scan and edit the miner list, `admin` only for setup.
 - Never print or store tokens, RPC passwords, bot tokens or webhook URLs in chat history. Secrets are write-only in the API.
 - Report errors with the server's `hint`; it says what to do next.
 - Units are in the field names: `hashrate_hs` is hashes per second, `efficiency_j_th` is joules per terahash (lower is better).
@@ -57,4 +54,4 @@ bsmm token create --name agent --scope read
 bsmm mcp --url http://HOST:8420 --token TOKEN   # MCP over stdio
 ```
 
-MCP tools (27; the server lists them with descriptions): reading `get_overview`, `list_miners`, `get_miner`, `get_history`, `get_odds`, `get_network`, `get_node_and_pool`, `get_alerts`, `list_events`, `get_insights`, `get_diagnostics`, `get_settings`; acting `scan_network`, `add_discovered_miners`, `add_miner`, `update_miner`, `remove_miner`, `restart_miner`, `identify_miner`, `run_miner_action`, `run_bulk_action`, `configure_source`, `create_notification_channel`, `update_settings`, `create_alert_rule`, `send_notification`.
+MCP tools (23; the server lists them with descriptions): reading `get_overview`, `list_miners`, `get_miner`, `get_history`, `get_odds`, `get_network`, `get_node_and_pool`, `get_alerts`, `list_events`, `get_insights`, `get_diagnostics`, `get_settings`; acting `scan_network`, `add_discovered_miners`, `add_miner`, `update_miner`, `remove_miner`, `configure_source`, `create_notification_channel`, `update_settings`, `create_alert_rule`, `send_notification`.

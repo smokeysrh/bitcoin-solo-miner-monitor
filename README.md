@@ -28,7 +28,7 @@ Start at https://github.com/smokeysrh/bitcoin-solo-miner-monitor and its latest 
 
 Set authentication for this network and use the least access scope needed. Keep passwords, tokens, RPC credentials and wallet addresses out of chat and logs; never guess them. Enter secrets through the app's secure fields. Scan only my private network, show me the miner and node/pool candidates, and wait for my confirmation before adopting miners. Ask only for information that is genuinely missing: Bitcoin Core RPC credentials, my electricity price, or which alert channel I want.
 
-Start monitoring only. Verify the dashboard, health check and fleet overview. Ask before restarting a miner, changing a pool or payout address, tuning, changing firmware, deleting data or doing another destructive action.
+Start monitoring only. Verify the dashboard, health check and fleet overview. Ask before deleting data or doing another destructive action.
 
 Return the dashboard URL and a plain-English fleet report: health, hashrate, alerts and block odds. Include “Next 10 minutes” when the installed stable release exposes it. Explain that estimate as the chance across one fixed window. It is not a countdown. The next network block arrives whenever it likes.
 ```
@@ -54,11 +54,12 @@ See [PACKAGING.md](docs/PACKAGING.md) for the longer install and upgrade guide.
 
 ## What it keeps an eye on
 
+HashHurdr only reads from your miners and never changes them.
+
 - **Your miners:** online state, hashrate, reported power, temperature, fans, accepted and rejected shares, pool, uptime and history. Fleet totals and per-miner pages update live.
 - **Your node and pool:** Bitcoin Core, Public Pool, ckpool and mempool.space data sources can show chain height, sync state, fees and pool information.
 - **Your costs and odds:** electricity estimates use the tariff you enter. The odds view describes modeled block probability across day, month and year windows, plus **Next 10 minutes**. That value is the modeled chance across the next ten minutes. The network can find a block at any time.
 - **Useful alerts:** watch for offline or hot miners, fan trouble, hashrate drops, rejected shares, pool fallback, node trouble, new best shares, restarts, difficulty changes and blocks found. Send chosen alerts through ntfy, Telegram, Discord, Slack, Pushover, email or a webhook. Apprise is an optional Python extra, not bundled in the Windows installer.
-- **Controls when you ask:** restart, identify, pause or resume, change a pool, set a fan, or enable supported tuning where the firmware allows it. Tuning starts off. Bulk controls offer a dry-run preview, and miner actions are audited.
 
 ## Miner compatibility
 
@@ -69,7 +70,7 @@ Support follows the miner's API and firmware response. BSMM has drivers for the 
 | Bitaxe, NerdQAxe and related AxeOS devices, including supported Lucky and Magic Miner replies | AxeOS HTTP API | Live readings and identification from the firmware's model, board and chip fields. |
 | Avalon, Antminer and Braiins OS devices exposing a compatible cgminer API | cgminer TCP API | Supported readings and model labels from the miner's own API responses. |
 
-Available readings and controls vary by device and firmware. Identification includes confidence and supporting evidence, so an unfamiliar reply stays honestly labeled. Simulator and recorded-reply tests cover API behavior; physical compatibility still depends on the miner and its firmware.
+Available readings vary by device and firmware. Identification includes confidence and supporting evidence, so an unfamiliar reply stays honestly labeled. Simulator and recorded-reply tests cover API behavior; physical compatibility still depends on the miner and its firmware.
 
 See [miner identification](docs/miner-identification.md) for how the app names devices and handles uncertain replies.
 
@@ -84,7 +85,7 @@ Solo mining is a lottery, and every hash is a ticket (ours just come with a heat
 - **REST:** `/api/v1` with an OpenAPI schema at `/openapi.json` and interactive docs at `/docs`.
 - **CLI:** `bsmm setup`, `bsmm status`, `bsmm doctor`, and `bsmm odds`.
 
-Give a monitoring agent a `read` token. Grant `control` only when you want it to operate miners; reserve `admin` for setup and settings. Agent instructions ask before a control action and never guess credentials or payout addresses.
+Give a monitoring agent a `read` token. Grant `control` when it should also scan and add miners or edit your miner list; reserve `admin` for setup and settings. Agent instructions ask before deleting data and never guess credentials or payout addresses.
 
 ## Security and network traffic
 

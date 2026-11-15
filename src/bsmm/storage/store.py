@@ -122,7 +122,6 @@ class Store:
             group=row["grp"],
             notes=row["notes"],
             enabled=bool(row["enabled"]),
-            allow_control=bool(row["allow_control"]),
             poll_interval_s=row["poll_interval_s"],
             model_override=row["model_override"],
             created_at=row["created_at"],
@@ -222,7 +221,6 @@ class Store:
             "grp": dev.group,
             "notes": dev.notes,
             "enabled": int(dev.enabled),
-            "allow_control": int(dev.allow_control),
             "poll_interval_s": dev.poll_interval_s,
             "model_override": dev.model_override,
             "created_at": dev.created_at,
@@ -632,14 +630,6 @@ class Store:
             (limit,),
         )
         return [dict(r) for r in rows]
-
-    async def add_audit(self, actor: str, action: str, device_id: str | None, params: dict[str, Any], result: dict[str, Any]) -> None:
-        # never persist secrets that were part of a change request
-        safe = {k: ("***" if any(s in k.lower() for s in ("pass", "secret", "token", "key")) else v) for k, v in params.items()}
-        await self.db.execute(
-            "INSERT INTO audit (ts, actor, action, device_id, params, result) VALUES (?,?,?,?,?,?)",
-            (time.time(), actor, action, device_id, _j(safe), _j(result)),
-        )
 
     async def list_audit(self, limit: int = 100, device_id: str | None = None) -> list[dict[str, Any]]:
         if device_id:

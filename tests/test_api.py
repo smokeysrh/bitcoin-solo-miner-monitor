@@ -92,35 +92,10 @@ async def test_adding_an_unknown_host_is_a_helpful_404(api):
     assert r.status_code == 404 and r.json()["error"]["code"] == "no_miner_found"
 
 
-async def test_actions_and_audit(api):
+async def test_audit_history_is_read_only_and_empty_for_a_new_miner(api):
     c, ctx, hosts = api
     dev = await add_miner(c, ctx, hosts)
-    r = await c.post(f"/api/v1/devices/{dev.id}/actions/identify", json={})
-    assert r.status_code == 200 and r.json()["ok"] is True
-    r = await c.post(f"/api/v1/devices/{dev.id}/actions/set_tuning", json={"params": {"frequency_mhz": 550}})
-    assert r.status_code == 403 and r.json()["error"]["code"] == "not_allowed"
-    r = await c.post(f"/api/v1/devices/{dev.id}/actions/launch_missiles", json={})
-    assert r.status_code == 400 and "unknown action" in r.json()["error"]["message"]
-    r = await c.post(f"/api/v1/devices/{dev.id}/actions/restart", json={"dry_run": True})
-    assert r.json()["dry_run"] is True
-    audit = (await c.get(f"/api/v1/devices/{dev.id}/audit")).json()["audit"]
-    assert [a["action"] for a in audit][:1] == ["identify"]
-
-
-async def test_bulk_actions_preview_by_default(api):
-    c, ctx, hosts = api
-    a = await add_miner(c, ctx, hosts, "a.test", 1, "AA:BB:CC:00:00:11")
-    b = await add_miner(c, ctx, hosts, "b.test", 2, "AA:BB:CC:00:00:22")
-    sim_a = ctx.fleet.runtimes[a.id].driver
-    r = await c.post("/api/v1/devices/actions", json={"action": "restart", "all": True})
-    j = r.json()
-    assert j["dry_run"] is True and len(j["results"]) == 2 and all(x["dry_run"] for x in j["results"])
-    assert sim_a is not None
-    r = await c.post("/api/v1/devices/actions", json={"action": "identify", "device_ids": [a.id, "dev_missing"], "dry_run": False})
-    res = r.json()["results"]
-    assert res[0]["ok"] is True and res[1]["ok"] is False and "unknown miner" in res[1]["error"]
-    assert (await c.post("/api/v1/devices/actions", json={"action": "restart"})).status_code == 400
-    assert b.id  # both exist
+    assert (await c.get(f"/api/v1/devices/{dev.id}/audit")).json() == {"audit": []}
 
 
 async def test_history_and_overview(api):
@@ -205,7 +180,7 @@ async def test_auth_flow_and_token_scopes(api):
     bearer = httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(ctx=ctx)), base_url="http://bsmm.test",
                                headers={"Authorization": f"Bearer {tok['token']}"})
     assert (await bearer.get("/api/v1/devices")).status_code == 200
-    forbidden = await bearer.post("/api/v1/devices/actions", json={"action": "restart", "all": True})
+    forbidden = await bearer.post("/api/v1/discovery", json={})
     assert forbidden.status_code == 403 and forbidden.json()["error"]["code"] == "insufficient_scope"
     assert (await bearer.patch("/api/v1/settings", json={"energy": {"price_per_kwh": 0.5}})).status_code == 403
     assert (await bearer.get("/api/v1/auth/tokens")).status_code == 403
@@ -236,7 +211,7 @@ async def test_public_read_mode_allows_get_but_not_writes(api):
     await c.patch("/api/v1/settings", json={"auth": {"public_read": True}})
     anon = httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(ctx=ctx)), base_url="http://bsmm.test")
     assert (await anon.get("/api/v1/overview")).status_code == 200
-    assert (await anon.post("/api/v1/devices/actions", json={"action": "restart", "all": True})).status_code == 401
+    assert (await anon.post("/api/v1/discovery", json={})).status_code == 401
     assert (await anon.get("/api/v1/auth/tokens")).status_code == 403  # read scope only
     await anon.aclose()
 
@@ -339,7 +314,6 @@ async def test_agent_docs(api):
     assert "/api/v1/meta" in txt.text and "http://bsmm.test" in txt.text
     guide = (await c.get("/api/v1/agent/guide")).json()
     assert guide["api_base"] == "http://bsmm.test/api/v1" and len(guide["setup_recipe"]) >= 8
-    assert any("dry_run" in s for s in guide["safety"])
     spec = (await c.get("/openapi.json")).json()
     assert spec["info"]["title"].startswith("HashHurdr")
     # every operation has an id, a summary and a tag: that is what makes the spec usable by agents

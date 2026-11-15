@@ -229,10 +229,13 @@ async def test_blocks_found_deduplicates(store):
     assert len(await store.list_blocks_found()) == 1
 
 
-async def test_audit_redacts_secrets(store):
-    await store.add_audit("token:agent", "set_pool", "dev_1", {"url": "x", "stratumPassword": "hunter2", "api_key": "k"}, {"ok": True})
+async def test_audit_rows_from_earlier_releases_are_still_listed(store):
+    await store.db.execute(
+        "INSERT INTO audit (ts, actor, action, device_id, params, result) VALUES (?,?,?,?,?,?)",
+        (1.0, "token:agent", "restart", "dev_1", '{"url": "x"}', '{"ok": true}'),
+    )
     row = (await store.list_audit())[0]
-    assert row["params"]["stratumPassword"] == "***" and row["params"]["api_key"] == "***" and row["params"]["url"] == "x"
+    assert row["action"] == "restart" and row["params"] == {"url": "x"} and row["result"] == {"ok": True}
 
 
 async def test_backup_is_a_consistent_copy(store, tmp_path):

@@ -760,19 +760,6 @@ async def test_device_attention_is_off_by_default_and_ignores_a_restart_in_progr
     assert n.title == "Garage needs attention" and n.body == "Not connected to its pool" and n.type == "device_attention"
 
 
-async def test_device_attention_does_not_fire_while_a_miner_restarts_on_purpose(rig):
-    m = await rig.miner(name="Garage")
-    await rig.rule("device_attention", enabled=True)
-    out = await rig.ctx.fleet.run_action(m.id, "restart", actor="test")
-    assert out["ok"]
-    m.unplug()
-    await m.poll(4)
-    rt = rig.ctx.fleet.runtimes[m.id]
-    assert rt.status == DeviceStatus.DEGRADED and rt.status_reason == "Restarting"
-    await rig.fire(600)
-    assert rig.outbox == []  # neither 'offline' nor 'needs attention': it was told to restart
-
-
 # --- node / pool rules (driven by a NetworkState with SourceHealth entries) ----------------------------------------------------
 
 
