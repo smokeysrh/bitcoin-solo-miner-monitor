@@ -10,10 +10,10 @@ export const poolChangeText = {
 
   /** notice at the top of the miner page */
   noticeTitle: 'Pool or payout settings changed',
-  noticeIntro: "Compare Before and Now. If this was not you, fix it in the miner's own settings page.",
+  noticeIntro: "Compare Before and After. If this was not you, fix it in the miner's own settings page.",
   since: (ago: string): string => `Seen ${ago}`,
   beforeLabel: 'Before',
-  nowLabel: 'Now',
+  nowLabel: 'After',
   /** shown instead of a value when a pool was not there before or is gone now */
   absent: 'none',
   settingLabels: { pool_address: 'Pool address', pool_port: 'Pool port', payout_address: 'Payout address' } as Record<string, string>,
@@ -25,10 +25,10 @@ export const poolChangeText = {
   acceptButton: 'This was me: accept',
   acceptBusy: 'Accepting…',
   confirmTitle: 'Accept this change?',
-  confirmMessage: 'HashHurdr will record the settings the miner reports right now as normal and clear this notice. Nothing is changed on the miner.',
+  confirmMessage: 'HashHurdr will record the settings it last confirmed on the miner as normal and clear this notice. Nothing is changed on the miner.',
   confirmLabel: 'Accept change',
   readOnlyNote: 'Only someone with control access can accept this change.',
-  acceptedToast: (miner: string): string => `Accepted the new settings for ${miner}`,
+  acceptedToast: (miner: string): string => `Accepted the change for ${miner}`,
   acceptFailedToast: 'Could not accept the change',
 
   /** the demo banner button that triggers the scenario */

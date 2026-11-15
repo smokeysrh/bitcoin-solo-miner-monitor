@@ -36,7 +36,7 @@ OTHER_SLOT_LABEL = "pool {slot}"
 # --- Accept (POST /api/v1/events/{id}/accept-pool-change) -----------------------------------------------------------------
 ACCEPT_SUMMARY = "Say that a miner's changed pool or payout settings are intended"
 ACCEPT_DESCRIPTION = (
-    "Records the settings the miner reports at that moment as HashHurdr's record and resolves the event. "
+    "Makes the settings HashHurdr last confirmed on the miner its record and resolves the event. "
     "Nothing is sent to the miner. Only the user can say whether a change was intended."
 )
 #: ``not_found(EVENT_NOT_FOUND, EVENT_NOT_FOUND_HINT)`` renders "<EVENT_NOT_FOUND> was not found."
