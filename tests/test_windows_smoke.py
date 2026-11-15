@@ -262,8 +262,9 @@ def test_logical_gate_detects_each_preservation_failure(monkeypatch, tmp_path, f
               "samples": [{"ts": 123, "hashrate": 456}], "events": [{"title": "old event"}],
               "password": "not-a-real-hash", "key": b"not-a-real-key", "decrypted": {"secret": "synthetic"}}
     after = copy.deepcopy(before)
-    # Reach each preservation check after the combined candidate's migration.
-    after["schema"] = 2
+    # Reach each preservation check after the candidate's migration: the gate wants the highest known migration.
+    from bsmm.storage.db import MIGRATIONS
+    after["schema"] = max(number for number, _ in MIGRATIONS)
     after[field] = None
     monkeypatch.setattr(smoke, "logical_data", lambda _: after)
     with pytest.raises(RuntimeError, match="preservation failed") as caught:
