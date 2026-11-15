@@ -246,14 +246,17 @@ class Fleet:
 
     async def start(self) -> None:
         self._stopping = False
-        self._running = True
         self._work_hashes = float(await self.store.kv_get("luck.total_hashes", 0.0))
         self._work_blocks = float(await self.store.kv_get("luck.expected_blocks", 0.0))
         if await self.store.kv_get("luck.since") is None:
             await self.store.kv_set("luck.since", time.time())
         for dev in await self.store.list_devices():
-            self._spawn(dev)
+            self._spawn(dev)  # not running yet, so no poll task exists until the waiting pool changes are rebuilt
         await self._load_pool_changes()
+        self._running = True
+        for rt in self.runtimes.values():
+            if rt.device.enabled and rt.task is None:
+                self._start_polling(rt)
         self._bg = [
             asyncio.create_task(self._writer_loop(), name="sample-writer"),
             asyncio.create_task(self._housekeeping_loop(), name="fleet-housekeeping"),
@@ -302,8 +305,11 @@ class Fleet:
             rt.status = DeviceStatus.DISABLED
         self.runtimes[dev.id] = rt
         if dev.enabled and self._running:
-            rt.task = asyncio.create_task(self._loop(rt), name=f"poll-{dev.id}")
+            self._start_polling(rt)
         return rt
+
+    def _start_polling(self, rt: DeviceRuntime) -> None:
+        rt.task = asyncio.create_task(self._loop(rt), name=f"poll-{rt.device.id}")
 
     def _ensure_driver(self, rt: DeviceRuntime) -> Driver:
         if rt.driver is None or (rt.driver.host, rt.driver.port) != (rt.device.host, rt.device.port):

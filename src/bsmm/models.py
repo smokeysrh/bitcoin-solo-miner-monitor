@@ -254,7 +254,9 @@ class DeviceView(Device):
     #: the last ~30 hashrate readings (H/s) for instant sparklines
     spark_hashrate_hs: list[float | None] = Field(default_factory=list)
     last_poll_ms: float | None = None
-    #: an unresolved change of the pool or payout settings the miner reports (``None`` once accepted or reverted)
+    #: a change of the pool or payout settings the miner reports that still waits for the user's answer. It is ``None``
+    #: only once the user has answered it with Accept. The miner reporting the recorded settings again does not clear it,
+    #: and a newer confirmed change replaces it.
     pool_change: PoolChange | None = None
 
 
