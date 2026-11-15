@@ -40,5 +40,5 @@ When v1.1.2 opens existing data, it moves recognized notification credentials le
 
 - Many AxeOS and cgminer firmware builds are open on the network. Keep miners on a trusted network and restrict dashboard access too.
 - Don't put the dashboard on the public internet without a password and HTTPS in front of it (a reverse proxy, Tailscale or Cloudflare Tunnel is the usual way).
-- A wrong payout address loses a found block. The app and its agent guide insist on read-back before changing one.
+- A wrong payout address loses a found block. Change it only in your miner's own settings page, and read it back after you save it.
 - Agents should begin with monitoring, show discovery results and wait for confirmation before adoption. Ask before deleting data. These are agent instructions; unattended CLI commands such as `setup --yes` can act without a further prompt.
