@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BellRing, Coins, Database, Info, Lock, Palette, Server, ShieldAlert, SlidersHorizontal } from 'lucide-vue-next'
+import { BellRing, Coins, Database, Info, Lock, Palette, Server, SlidersHorizontal } from 'lucide-vue-next'
 import { RouterLink, RouterView } from 'vue-router'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
@@ -13,7 +13,6 @@ const items = [
   { to: '/settings/sources', label: 'Node & pool', icon: Server },
   { to: '/settings/notifications', label: 'Notifications', icon: BellRing },
   { to: '/settings/energy', label: 'Energy & money', icon: Coins },
-  { to: '/settings/safety', label: 'Safety', icon: ShieldAlert },
   { to: '/settings/security', label: 'Security', icon: Lock },
   { to: '/settings/data', label: 'Data & backup', icon: Database },
   { to: '/settings/about', label: 'About & health', icon: Info },

@@ -50,7 +50,6 @@ const SETTINGS_PAGES = [
   ['Node & pool', '/settings/sources', 'bitcoin core rpc public pool ckpool mempool'],
   ['Notifications', '/settings/notifications', 'discord telegram ntfy email slack webhook'],
   ['Energy & money', '/settings/energy', 'electricity price kwh currency'],
-  ['Safety', '/settings/safety', 'control tuning overclock limits'],
   ['Security', '/settings/security', 'password token login'],
   ['Data & backup', '/settings/data', 'export import backup retention'],
   ['About & health', '/settings/about', 'version update diagnostics doctor'],

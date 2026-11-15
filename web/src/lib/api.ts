@@ -3,12 +3,10 @@
  * `code`, a plain-English `message` and a `hint` that says what to do next.
  */
 import type {
-  ActionResult,
   AlertRule,
   ActiveAlert,
   ApiToken,
   AppEvent,
-  AuditEntry,
   BlockInfo,
   Channel,
   ChannelType,
@@ -38,7 +36,6 @@ import type {
   SourceKind,
   SoloBlocksResult,
   SystemInfo,
-  TuningInfo,
   UpdateStatus,
 } from './types'
 
@@ -216,7 +213,6 @@ export interface UpdateDeviceBody {
   group?: string | null
   notes?: string | null
   enabled?: boolean
-  allow_control?: boolean
   poll_interval_s?: number | null
   model_override?: string | null
   host?: string
@@ -255,12 +251,6 @@ export const api = {
   deviceHistory: (id: string, q: { range?: string; metrics: string[]; step?: number }, signal?: AbortSignal) =>
     get<DeviceHistoryResult>(`/devices/${id}/history`, { range: q.range, metrics: q.metrics, step: q.step }, signal),
   deviceRaw: (id: string) => get<{ driver: string; raw: unknown }>(`/devices/${id}/raw`),
-  deviceTuning: (id: string) => get<TuningInfo>(`/devices/${id}/tuning`),
-  deviceAudit: (id: string, limit = 50) => get<{ audit: AuditEntry[] }>(`/devices/${id}/audit`, { limit }).then((r) => r.audit),
-  action: (id: string, action: string, params: Record<string, unknown> = {}, dryRun = false) =>
-    post<ActionResult>(`/devices/${id}/actions/${action}`, { params, dry_run: dryRun }),
-  bulkAction: (b: { action: string; params?: Record<string, unknown>; device_ids?: string[]; tag?: string; all?: boolean; dry_run: boolean }) =>
-    post<{ dry_run: boolean; results: ActionResult[]; ok: boolean }>('/devices/actions', b),
 
   // discovery
   suggestRanges: () => get<{ cidrs: string[] }>('/discovery/suggest').then((r) => r.cidrs),

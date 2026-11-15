@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { CheckSquare, Cpu, Flashlight, LayoutGrid, Pause, Play, Plus, Radar, RotateCcw, Rows3, Search, X } from 'lucide-vue-next'
+import { Cpu, LayoutGrid, Plus, Radar, Rows3, Search } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
-import BulkActionDialog from '@/components/miners/BulkActionDialog.vue'
 import MinerTable, { type SortKey } from '@/components/miners/MinerTable.vue'
 import MinerTile from '@/components/miners/MinerTile.vue'
 import Button from '@/components/ui/Button.vue'
@@ -33,9 +32,6 @@ const tag = ref<string>('')
 const groupBy = useStorage<GroupBy>('bsmm.miners.groupBy', 'none')
 const sortKey = useStorage<SortKey>('bsmm.miners.sortKey', 'name')
 const sortDir = useStorage<'asc' | 'desc'>('bsmm.miners.sortDir', 'asc')
-const selecting = ref(false)
-const selected = ref<Set<string>>(new Set())
-const bulk = ref<{ open: boolean; action: string }>({ open: false, action: 'restart' })
 
 const view = computed({
   get: () => settings.data?.ui.view_miners ?? 'grid',
@@ -121,27 +117,6 @@ function sortBy(k: SortKey): void {
   }
 }
 
-function toggle(id: string): void {
-  const next = new Set(selected.value)
-  if (!next.delete(id)) next.add(id)
-  selected.value = next
-}
-function toggleAll(on: boolean): void {
-  selected.value = on ? new Set(sorted.value.map((d) => d.id)) : new Set()
-}
-function stopSelecting(): void {
-  selecting.value = false
-  selected.value = new Set()
-}
-function tileClick(e: MouseEvent, d: DeviceView): void {
-  if (!selecting.value) return
-  e.preventDefault()
-  e.stopPropagation()
-  toggle(d.id)
-}
-function runBulk(action: string): void {
-  bulk.value = { open: true, action }
-}
 function clearFilters(): void {
   q.value = ''
   status.value = 'all'
@@ -169,10 +144,6 @@ const hashShown = computed(() => fmt.hashrate(filtered.value.reduce((a, d) => a 
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <Button v-if="session.canControl && live.deviceCount" :variant="selecting ? 'soft' : 'ghost'" size="sm" data-testid="select-mode" @click="selecting ? stopSelecting() : (selecting = true)">
-          <template #icon><CheckSquare class="size-4" /></template>
-          {{ selecting ? 'Done selecting' : 'Select' }}
-        </Button>
         <Segmented
           v-model="view"
           label="Layout"
@@ -265,44 +236,11 @@ const hashShown = computed(() => fmt.hashrate(filtered.value.reduce((a, d) => a 
             {{ s.label }} <span class="rounded-full bg-surface-3 px-2 py-0.5 text-xs font-medium text-muted">{{ s.devices.length }}</span>
           </h3>
           <div v-if="view === 'grid'" class="grid gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-testid="miner-grid">
-            <div v-for="d in s.devices" :key="d.id" class="relative" @click.capture="tileClick($event, d)">
-              <MinerTile :device="d" :class="selected.has(d.id) && 'ring-2 ring-accent'" />
-              <span v-if="selecting" class="pointer-events-none absolute top-3 right-3 grid size-6 place-items-center rounded-md border-2" :class="selected.has(d.id) ? 'border-accent bg-accent text-accent-fg' : 'border-line-strong bg-surface-2'">
-                <svg v-if="selected.has(d.id)" viewBox="0 0 16 16" class="size-3.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 3.5 3.5L13 5" /></svg>
-              </span>
-            </div>
+            <MinerTile v-for="d in s.devices" :key="d.id" :device="d" />
           </div>
-          <MinerTable v-else :devices="s.devices" :selectable="selecting" :selected="selected" :sort-key="sortKey" :sort-dir="sortDir" @toggle="toggle" @toggle-all="toggleAll" @sort="sortBy" />
+          <MinerTable v-else :devices="s.devices" :sort-key="sortKey" :sort-dir="sortDir" @sort="sortBy" />
         </div>
       </template>
     </template>
-
-    <Transition name="rise">
-      <div v-if="selecting && selected.size" class="card sticky bottom-24 z-20 mx-auto flex max-w-3xl flex-wrap items-center gap-2 p-3 shadow-pop lg:bottom-6" role="toolbar" aria-label="Actions for selected miners" data-testid="bulk-bar">
-        <span class="px-2 text-sm font-medium text-fg">{{ selected.size }} selected</span>
-        <span class="mx-1 hidden h-5 w-px bg-line sm:block" aria-hidden="true" />
-        <Button size="sm" variant="secondary" @click="runBulk('identify')"><template #icon><Flashlight class="size-4" /></template>Flash</Button>
-        <Button size="sm" variant="secondary" @click="runBulk('restart')"><template #icon><RotateCcw class="size-4" /></template>Restart</Button>
-        <Button size="sm" variant="secondary" @click="runBulk('pause')"><template #icon><Pause class="size-4" /></template>Pause</Button>
-        <Button size="sm" variant="secondary" @click="runBulk('resume')"><template #icon><Play class="size-4" /></template>Resume</Button>
-        <Button size="iconSm" variant="ghost" class="ml-auto" aria-label="Clear selection" @click="selected = new Set()"><X class="size-4" /></Button>
-      </div>
-    </Transition>
-
-    <BulkActionDialog v-model:open="bulk.open" :action="bulk.action" :ids="[...selected]" @done="stopSelecting" />
   </div>
 </template>
-
-<style scoped>
-.rise-enter-active,
-.rise-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.rise-enter-from,
-.rise-leave-to {
-  opacity: 0;
-  transform: translateY(14px);
-}
-</style>
