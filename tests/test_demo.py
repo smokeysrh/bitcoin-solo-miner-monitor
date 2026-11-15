@@ -88,3 +88,24 @@ def test_every_metric_has_a_rollup_column():
     # guards the column list insert_rollup_rows derives from the metric registry
     cols = {c for m in mx.METRICS for c in mx.rollup_columns(m)}
     assert "hashrate_hs" in cols and "hashrate_hs_max" in cols
+
+
+async def test_demo_scenario_changes_a_miners_pool_and_triggers_the_safety_alert(demo_ctx):
+    """Card #2442: the demo banner can show the pool/payout change alert (scenario ``pool_change``)."""
+    for device in await demo_ctx.store.list_devices():
+        demo_ctx.fleet._spawn(device)  # the demo fleet is not started here; polling is driven by the scenario itself
+    app = create_app(ctx=demo_ctx)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as c:
+        assert await demo_ctx.store.list_events(types=["pool_settings_changed"]) == []
+        r = await c.post("/api/v1/demo/scenario", json={"scenario": "pool_change"})
+        assert r.status_code == 200, r.text
+        assert r.json()["scenario"] == "pool_change"
+        [event] = await demo_ctx.store.list_events(types=["pool_settings_changed"])
+        assert event.severity.value == "critical" and event.ack_ts is None
+        assert {change["setting"] for change in event.data["changes"]} >= {"pool_address", "payout_address"}
+        view = demo_ctx.fleet.view(event.device_id)
+        assert view.name == r.json()["device"] and view.pool_change.event_id == event.id
+
+        again = await c.post("/api/v1/demo/scenario", json={"scenario": "pool_change"})  # a second click is a new change
+        assert again.status_code == 200, again.text
+        assert len(await demo_ctx.store.list_events(types=["pool_settings_changed"])) == 2

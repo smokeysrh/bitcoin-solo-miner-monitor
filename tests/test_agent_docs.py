@@ -73,3 +73,11 @@ def test_every_cli_command_the_agent_docs_mention_exists():
         for word in ("status", "list", "odds", "doctor", "token", "mcp", "demo", "start", "agent-guide"):
             if f"bsmm {word}" in text:
                 assert word in commands, f"docs mention `bsmm {word}` but the CLI has no such command"
+
+
+def test_the_guide_tells_agents_how_pool_and_payout_alerts_are_read_and_resolved():
+    guide = agent_guide("http://x:8420")
+    entry = next(text for text in guide["common_tasks"].values() if "pool_settings_changed" in text)
+    assert "/api/v1/events" in entry and "accept-pool-change" in entry and "control" in entry
+    assert entry in llms_txt("http://x:8420")
+    assert guide["mcp"]["tools"] == MCP_TOOLS  # reading needs no new tool, and nothing that writes to a miner exists
