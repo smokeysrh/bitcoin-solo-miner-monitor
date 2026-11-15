@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { Activity, Braces, ChevronLeft, ExternalLink, Flashlight, LineChart, Network, Pause, Play, RefreshCw, RotateCcw, Settings2, SlidersHorizontal, WifiOff, Cpu, LayoutDashboard } from 'lucide-vue-next'
+import { Activity, Braces, ChevronLeft, ExternalLink, LineChart, Network, RefreshCw, Settings2, WifiOff, Cpu, LayoutDashboard } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useNowSec } from '@/composables/useNowSec'
 import { useFmt } from '@/composables/useFmt'
-import { useMinerActions } from '@/composables/useMinerActions'
+import { useMinerMonitor } from '@/composables/useMinerMonitor'
 import { useLive } from '@/stores/live'
 import { useUi } from '@/stores/ui'
 import DetailActivity from '@/components/miners/detail/DetailActivity.vue'
@@ -13,7 +13,6 @@ import DetailOverview from '@/components/miners/detail/DetailOverview.vue'
 import DetailPools from '@/components/miners/detail/DetailPools.vue'
 import DetailRaw from '@/components/miners/detail/DetailRaw.vue'
 import DetailSettings from '@/components/miners/detail/DetailSettings.vue'
-import DetailTuning from '@/components/miners/detail/DetailTuning.vue'
 import Badge, { type Tone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -28,7 +27,7 @@ const router = useRouter()
 const ui = useUi()
 const fmt = useFmt()
 const now = useNowSec()
-const actions = useMinerActions()
+const monitor = useMinerMonitor()
 
 const device = computed(() => live.byId(props.id))
 const busy = ref<string | null>(null)
@@ -47,17 +46,14 @@ const statusMeta: Record<string, { label: string; tone: Tone }> = {
   disabled: { label: 'Monitoring off', tone: 'neutral' },
 }
 
-const tabs = computed<TabDef[]>(() => {
-  const d = device.value
-  const list: TabDef[] = [
-    { value: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { value: 'charts', label: 'Charts', icon: LineChart },
-    { value: 'pools', label: 'Pools', icon: Network },
-  ]
-  if (d && (d.capabilities.includes('set_frequency') || d.capabilities.includes('set_fan'))) list.push({ value: 'tuning', label: 'Tuning', icon: SlidersHorizontal })
-  list.push({ value: 'settings', label: 'Settings', icon: Settings2 }, { value: 'activity', label: 'Activity', icon: Activity }, { value: 'raw', label: 'Raw data', icon: Braces })
-  return list
-})
+const tabs: TabDef[] = [
+  { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { value: 'charts', label: 'Charts', icon: LineChart },
+  { value: 'pools', label: 'Pools', icon: Network },
+  { value: 'settings', label: 'Settings', icon: Settings2 },
+  { value: 'activity', label: 'Activity', icon: Activity },
+  { value: 'raw', label: 'Raw data', icon: Braces },
+]
 
 // the browser tab (and history) should say which miner this is, not just "Miner"
 watch(
@@ -110,20 +106,8 @@ async function wrap(key: string, fn: () => Promise<unknown>): Promise<void> {
           <p v-if="device.status === 'degraded' && device.status_reason" class="mt-2 text-sm text-warn">{{ device.status_reason }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="secondary" :loading="busy === 'poll'" @click="wrap('poll', () => actions.pollNow(device!))">
+          <Button size="sm" variant="secondary" :loading="busy === 'poll'" @click="wrap('poll', () => monitor.pollNow(device!))">
             <template #icon><RefreshCw class="size-4" /></template>Refresh
-          </Button>
-          <Button v-if="actions.can(device, 'identify')" size="sm" variant="secondary" :loading="busy === 'identify'" @click="wrap('identify', () => actions.identify(device!))">
-            <template #icon><Flashlight class="size-4" /></template>Flash
-          </Button>
-          <Button v-if="actions.can(device, 'pause') && device.status === 'paused'" size="sm" variant="secondary" :loading="busy === 'resume'" @click="wrap('resume', () => actions.resume(device!))">
-            <template #icon><Play class="size-4" /></template>Resume
-          </Button>
-          <Button v-else-if="actions.can(device, 'pause')" size="sm" variant="secondary" :loading="busy === 'pause'" @click="wrap('pause', () => actions.pause(device!))">
-            <template #icon><Pause class="size-4" /></template>Pause
-          </Button>
-          <Button v-if="actions.can(device, 'restart')" size="sm" variant="secondary" :loading="busy === 'restart'" data-testid="restart" @click="wrap('restart', () => actions.restart(device!))">
-            <template #icon><RotateCcw class="size-4" /></template>Restart
           </Button>
           <Button v-if="webUrl" size="sm" variant="ghost" :href="webUrl" target="_blank" rel="noopener noreferrer">
             <template #icon><ExternalLink class="size-4" /></template>Its own page
@@ -141,7 +125,7 @@ async function wrap(key: string, fn: () => Promise<unknown>): Promise<void> {
             <li>Did its address change? Open the Settings tab to update it, or scan the network again.</li>
           </ul>
           <div class="mt-3 flex gap-2">
-            <Button size="sm" variant="secondary" @click="actions.pollNow(device)">Check again now</Button>
+            <Button size="sm" variant="secondary" @click="monitor.pollNow(device)">Check again now</Button>
             <Button size="sm" variant="ghost" @click="ui.addMinerOpen = true">Scan the network</Button>
           </div>
         </div>
@@ -151,7 +135,6 @@ async function wrap(key: string, fn: () => Promise<unknown>): Promise<void> {
         <template #overview><DetailOverview :device="device" /></template>
         <template #charts><DetailCharts :device="device" /></template>
         <template #pools><DetailPools :device="device" /></template>
-        <template #tuning><DetailTuning :device="device" /></template>
         <template #settings><DetailSettings :device="device" /></template>
         <template #activity><DetailActivity :device="device" /></template>
         <template #raw><DetailRaw :device="device" /></template>

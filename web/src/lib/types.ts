@@ -7,17 +7,7 @@ export type DeviceStatus = 'online' | 'degraded' | 'offline' | 'paused' | 'unkno
 export type Severity = 'info' | 'success' | 'warning' | 'critical'
 export type Scope = 'read' | 'control' | 'admin'
 
-export type Capability =
-  | 'restart'
-  | 'identify'
-  | 'pause'
-  | 'set_pool'
-  | 'set_fan'
-  | 'set_frequency'
-  | 'set_voltage'
-  | 'set_hostname'
-  | 'scoreboard'
-  | 'history'
+export type Capability = 'scoreboard' | 'history'
 
 export interface PoolInfo {
   role: string
@@ -104,7 +94,6 @@ export interface Device {
   group: string | null
   notes: string | null
   enabled: boolean
-  allow_control: boolean
   poll_interval_s: number | null
   model_override: string | null
   created_at: number
@@ -713,49 +702,6 @@ export interface UpdateStatus {
   error?: string | null
 }
 
-export interface TuningInfo {
-  allowed: boolean
-  tuning_enabled_in_settings: boolean
-  options: {
-    frequency_mhz: number[]
-    core_voltage_mv: number[]
-    default_frequency_mhz: number | null
-    default_core_voltage_mv: number | null
-    max_power_w: number | null
-    max_temp_c: number | null
-  } | null
-  current: {
-    frequency_mhz: number | null
-    core_voltage_mv: number | null
-    power_w: number | null
-    hashrate_hs: number | null
-    efficiency_j_th: number | null
-    temp_asic_c: number | null
-  } | null
-}
-
-export interface AuditEntry {
-  id: number
-  ts: number
-  actor: string
-  action: string
-  device_id: string | null
-  params: Record<string, unknown>
-  result: { ok?: boolean; message?: string; error?: string }
-}
-
-export interface ActionResult {
-  ok: boolean
-  action?: string
-  device?: string
-  device_id?: string
-  name?: string
-  dry_run?: boolean
-  params?: Record<string, unknown>
-  message?: string
-  error?: string
-}
-
 export interface HistoryResult {
   step: number
   source: string
@@ -788,7 +734,6 @@ export interface Settings {
   }
   mining: { addresses: string[] }
   retention: { raw_days: number; minute_days: number; hour_days: number; event_days: number }
-  safety: { allow_control: boolean; allow_tuning: boolean; max_temp_c: number }
   alerts: {
     temp_warn_c: number
     temp_crit_c: number

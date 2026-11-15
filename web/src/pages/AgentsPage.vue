@@ -57,7 +57,7 @@ const cli = `bsmm agent-guide      # the full instructions, as text\nbsmm status
       <KeyRound class="mt-0.5 size-5 shrink-0 text-warn" aria-hidden="true" />
       <div class="text-sm">
         <p class="font-medium text-fg">This dashboard is password protected, so your agent needs a token.</p>
-        <p class="mt-1 text-muted">Create one with just the power it needs. “Read” is enough to look around; “Control” also lets it restart miners.</p>
+        <p class="mt-1 text-muted">Create one with just the power it needs. “Read” is enough to look around; “Control” also lets it scan, add and edit miners in your list.</p>
         <Button to="/settings/security" size="sm" variant="secondary" class="mt-3">Create a token</Button>
       </div>
     </div>
@@ -95,14 +95,11 @@ const cli = `bsmm agent-guide      # the full instructions, as text\nbsmm status
     <div class="grid gap-[var(--gap-grid)] lg:grid-cols-2">
       <MetricCard title="What an agent can do" :icon="Sparkles">
         <ul v-if="tools.length" class="flex flex-wrap gap-1.5" data-testid="tool-list"><li v-for="t in tools" :key="t"><Badge class="font-mono text-[11px]">{{ t }}</Badge></li></ul>
-        <p v-else class="text-sm text-muted">Look at miners, odds and the network; scan and add miners; restart and pause; change pools; connect a node; set up notifications.</p>
+        <p v-else class="text-sm text-muted">Look at miners, odds and the network; scan, add, edit and remove miners; mark alerts seen; send test notifications; check for updates; dismiss insights.</p>
       </MetricCard>
       <MetricCard title="Guard rails" :icon="ShieldCheck">
         <ul class="space-y-2.5 text-sm leading-relaxed text-muted">
           <li class="flex gap-2.5"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-ok" aria-hidden="true" />A token only does what its power allows: read, control or admin.</li>
-          <li class="flex gap-2.5"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-ok" aria-hidden="true" />Speed and voltage changes are off unless you allow them in <RouterLink to="/settings/safety" class="text-accent-text underline underline-offset-2 hover:no-underline">Safety</RouterLink>, and only miner-approved values are accepted.</li>
-          <li class="flex gap-2.5"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-ok" aria-hidden="true" />Every change an agent makes is logged on the miner’s Activity tab.</li>
-          <li class="flex gap-2.5"><span class="mt-2 size-1.5 shrink-0 rounded-full bg-ok" aria-hidden="true" />Anything can be previewed first with a dry run, so nothing has to be a surprise.</li>
         </ul>
       </MetricCard>
     </div>

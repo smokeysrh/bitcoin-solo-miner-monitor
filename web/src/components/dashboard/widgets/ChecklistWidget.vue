@@ -65,7 +65,7 @@ const steps = computed<Step[]>(() => [
   {
     id: 'password',
     title: 'Protect the dashboard',
-    why: 'A password stops anyone else on your network restarting your miners.',
+    why: 'A password stops anyone else on your network changing your settings and miner list.',
     done: !insights.has('no-password') && live.deviceCount > 0,
     cta: 'Set password',
     run: () => void router.push('/settings/security'),
