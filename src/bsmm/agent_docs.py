@@ -107,7 +107,7 @@ def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> di
         "auth": {
             "mode": auth_mode,
             "how": "Send 'Authorization: Bearer <token>' (or header X-API-Key). When mode is 'none' no credentials are needed.",
-            "scopes": {"read": "look only", "control": "scan / add, edit or remove miners in HashHurdr's own list / acknowledge alerts / test notifications / check for updates / dismiss insights", "admin": "settings, sources, channels, rules, tokens"},
+            "scopes": {"read": "look only", "control": "scan / add, edit or remove miners in HashHurdr's own list / acknowledge alerts / accept a pool change / custom or test notifications / check for updates / dismiss insights", "admin": "settings, sources, channels, rules, tokens"},
             "create_token_on_server": "bsmm token create --name agent --scope read",
         },
         "setup_preflight": SETUP_PREFLIGHT,

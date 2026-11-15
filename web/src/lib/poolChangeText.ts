@@ -25,7 +25,7 @@ export const poolChangeText = {
   acceptButton: 'This was me: accept',
   acceptBusy: 'Accepting…',
   confirmTitle: 'Accept this change?',
-  confirmMessage: 'HashHurdr will treat the new settings as normal and stop showing this notice. Nothing is changed on the miner.',
+  confirmMessage: 'HashHurdr will record the settings the miner reports right now as normal and clear this notice. Nothing is changed on the miner.',
   confirmLabel: 'Accept change',
   readOnlyNote: 'Only someone with control access can accept this change.',
   acceptedToast: (miner: string): string => `Accepted the new settings for ${miner}`,
