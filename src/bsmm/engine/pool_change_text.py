@@ -1,15 +1,16 @@
 """Every user-visible word of the pool and payout settings alert that the backend produces, in one place.
 
-PLACEHOLDER WORDING (card #2442, phase 1): plain functional text. The final copy is drafted separately and replaces the
-values below; nothing else in the code base spells these sentences out. Each constant is listed in ``STRINGS.md`` with
-where it appears, its variables and its length limits. Do not copy these strings anywhere else.
+The wording below is the final copy (card #2442); nothing else in the code base spells these sentences out. Do not copy
+these strings anywhere else.
 """
 
 from __future__ import annotations
 
 # --- the built-in alert rule (Settings > Alerts, GET /api/v1/alerts/rule-types) ------------------------------------------
 RULE_LABEL = "Pool or payout settings change"
-RULE_DESCRIPTION = "A miner reports a pool address, port or payout address that differs from the one HashHurdr has on record."
+RULE_DESCRIPTION = (
+    "A miner reports a pool address, port or payout address that differs from what HashHurdr has on record."
+)
 
 # --- the event (activity log, GET /api/v1/events) and the notification built from it ---------------------------------------
 #: ``{miner}`` is the miner's name.
@@ -41,5 +42,5 @@ ACCEPT_DESCRIPTION = (
 #: ``not_found(EVENT_NOT_FOUND, EVENT_NOT_FOUND_HINT)`` renders "<EVENT_NOT_FOUND> was not found."
 EVENT_NOT_FOUND = "That pool settings event"
 EVENT_NOT_FOUND_HINT = "List them with GET /api/v1/events?type=pool_settings_changed&unacked=true"
-NOT_PENDING_MESSAGE = "That change was already answered, or a newer change replaced it."
+NOT_PENDING_MESSAGE = "That change was already answered, or a newer one replaced it."
 NOT_PENDING_HINT = "Read the miner again with GET /api/v1/devices/{id} and use the event id in its pool_change."

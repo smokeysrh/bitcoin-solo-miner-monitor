@@ -1,17 +1,16 @@
 // Every user-visible word of the pool and payout settings alert in the web app, in one place.
 //
-// PLACEHOLDER WORDING (card #2442, phase 1): plain functional text. The final copy is drafted separately and replaces the
-// values below; nothing else in the code base spells these sentences out. Each entry is listed in STRINGS.md with where it
-// appears, its variables and its length limits. Do not copy these strings anywhere else.
+// The wording below is the final copy (card #2442); nothing else in the code base spells these sentences out. Do not copy
+// these strings anywhere else.
 
 export const poolChangeText = {
   /** badge on a miner tile and in the miner table (a few words; it sits next to the status) */
-  badge: 'Settings changed',
+  badge: 'Pool or payout changed',
   badgeTitle: 'This miner reports pool or payout settings that differ from the ones HashHurdr has on record.',
 
   /** notice at the top of the miner page */
   noticeTitle: 'Pool or payout settings changed',
-  noticeIntro: 'HashHurdr has the earlier values on record. Compare them with the values the miner reports now.',
+  noticeIntro: "Compare Before and Now. If this was not you, fix it in the miner's own settings page.",
   since: (ago: string): string => `Seen ${ago}`,
   beforeLabel: 'Before',
   nowLabel: 'Now',
@@ -29,7 +28,7 @@ export const poolChangeText = {
   confirmMessage: 'HashHurdr will treat the new settings as normal and stop showing this notice. Nothing is changed on the miner.',
   confirmLabel: 'Accept change',
   readOnlyNote: 'Only someone with control access can accept this change.',
-  acceptedToast: (miner: string): string => `Accepted the new pool settings for ${miner}`,
+  acceptedToast: (miner: string): string => `Accepted the new settings for ${miner}`,
   acceptFailedToast: 'Could not accept the change',
 
   /** the demo banner button that triggers the scenario */
