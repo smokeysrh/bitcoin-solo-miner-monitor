@@ -845,10 +845,11 @@ class Fleet:
         rt.pool_change = opened
 
     async def accept_pool_change(self, device_id: str, event_id: int) -> DeviceView:
-        """The user says the settings the miner reports now are normal: they become HashHurdr's baseline, the event is resolved.
+        """The user says the settings HashHurdr last confirmed are normal: they become its baseline.
 
-        Those are the unanswered settings, or the recorded ones when the miner has gone back to them. Only HashHurdr's
-        own record changes. No driver is used, so nothing is sent to the miner.
+        The event is resolved. Those settings are the unanswered changed ones, or the recorded baseline after a
+        confirmed return to it. The miner's current report is not read. Only HashHurdr's own record changes. No
+        driver is used, so nothing is sent to the miner.
         """
         rt = self.runtimes.get(device_id)
         if rt is None:
