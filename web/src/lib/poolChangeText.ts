@@ -6,7 +6,7 @@
 export const poolChangeText = {
   /** badge on a miner tile and in the miner table (a few words; it sits next to the status) */
   badge: 'Pool or payout changed',
-  badgeTitle: 'This miner reports pool or payout settings that differ from the ones HashHurdr has on record.',
+  badgeTitle: "This miner's pool or payout settings changed, and the notice is still waiting for your answer.",
 
   /** notice at the top of the miner page */
   noticeTitle: 'Pool or payout settings changed',
