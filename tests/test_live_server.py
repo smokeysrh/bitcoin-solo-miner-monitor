@@ -54,16 +54,13 @@ async def test_mcp_tools_work_end_to_end(lan):
     dev = await _miner(ctx, hosts)
     async with serve(create_app(ctx=ctx)) as base, Client(f"{base}/mcp") as mcp:
         tools = {t.name for t in (await mcp.list_tools()).tools}
-        assert {"get_overview", "list_miners", "scan_network", "restart_miner", "get_odds", "configure_source",
-                "create_notification_channel", "run_bulk_action", "get_diagnostics"} <= tools
+        assert {"get_overview", "list_miners", "scan_network", "get_odds", "configure_source",
+                "create_notification_channel", "get_diagnostics"} <= tools
         res = await mcp.call_tool("list_miners", {})
         text = json.dumps(res.model_dump(mode="json"))
         assert dev.id in text and "Bitaxe Gamma" in text
         ov = await mcp.call_tool("get_overview", {})
         assert "hashrate_hs" in json.dumps(ov.model_dump(mode="json"))
-        # a write that the safety layer should handle: bulk previews by default
-        prev = await mcp.call_tool("run_bulk_action", {"action": "restart", "all_miners": True})
-        assert '"dry_run": true' in json.dumps(prev.model_dump(mode="json")).replace("\\", "").replace('"dry_run":true', '"dry_run": true')
         # errors come back readable
         bad = await mcp.call_tool("get_miner", {"miner_id": "dev_nope"})
         assert bad.is_error and "was not found" in json.dumps(bad.model_dump(mode="json"))
@@ -91,7 +88,7 @@ async def test_mcp_endpoint_is_protected_like_the_rest_of_the_api(lan):
                 await session.initialize()
                 ok = await session.call_tool("list_miners", {})
                 assert not ok.is_error
-                # the token only has `read` scope, so the control tools must be refused by the REST layer
-                no = await session.call_tool("restart_miner", {"miner_id": next(iter(ctx.fleet.runtimes))})
+                # the token only has `read` scope, so a tool that changes the miner list must be refused by the REST layer
+                no = await session.call_tool("add_miner", {"host": "nowhere.test"})
                 assert no.is_error and "scope" in json.dumps(no.model_dump(mode="json"))
     assert pytest is not None and asyncio is not None

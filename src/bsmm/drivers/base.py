@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
 import httpx
 
-from bsmm.models import Capability, Device, DeviceInfo, ProbeResult, Telemetry
+from bsmm.models import Device, DeviceInfo, ProbeResult, Telemetry
 
 
 class DriverError(Exception):
@@ -25,16 +24,8 @@ class BadResponse(DriverError):
     code = "bad_response"
 
 
-class Unsupported(DriverError):
-    code = "unsupported"
-
-
 class AuthRequired(DriverError):
     code = "auth_required"
-
-
-class ActionFailed(DriverError):
-    code = "action_failed"
 
 
 class IdentityMismatch(BadResponse):
@@ -47,25 +38,6 @@ def check_identity(expected: Device | DeviceInfo, observed: DeviceInfo) -> None:
     serial_conflict = expected.serial and observed.serial and expected.serial != observed.serial
     if mac_conflict or serial_conflict:
         raise IdentityMismatch("miner identity changed at this address; remove the old miner and adopt the replacement separately")
-
-
-@dataclass(slots=True)
-class ActionResult:
-    ok: bool
-    message: str = ""
-    data: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class TuningOptions:
-    """What a device allows for frequency / voltage (so the UI and agents stay inside safe limits)."""
-
-    frequency_mhz: list[int] = field(default_factory=list)
-    core_voltage_mv: list[int] = field(default_factory=list)
-    default_frequency_mhz: int | None = None
-    default_core_voltage_mv: int | None = None
-    max_power_w: float | None = None
-    max_temp_c: float | None = None
 
 
 class Driver(ABC):
@@ -111,57 +83,6 @@ class Driver(ABC):
     async def refresh_info(self) -> DeviceInfo | None:
         """Re-read static facts (firmware, model). Optional."""
         return self.info
-
-    async def verify_identity(self) -> None:
-        """Drivers exposing stable identity override this with a fresh read before control."""
-        return None
-
-    # -- control (all optional; the capability list says which are real) ---------------------------
-
-    @property
-    def capabilities(self) -> set[Capability]:
-        return set(self.info.capabilities) if self.info else set()
-
-    async def validate_action(self, action: str, params: dict[str, Any]) -> None:
-        """Read-only validation. Unsupported drivers must not promise successful previews."""
-        raise Unsupported(f"{action} is not supported by this device")
-
-    async def restart(self) -> ActionResult:
-        raise Unsupported("restart is not supported by this device")
-
-    async def identify(self) -> ActionResult:
-        raise Unsupported("identify is not supported by this device")
-
-    async def pause(self) -> ActionResult:
-        raise Unsupported("pause is not supported by this device")
-
-    async def resume(self) -> ActionResult:
-        raise Unsupported("resume is not supported by this device")
-
-    async def set_pool(
-        self,
-        *,
-        url: str,
-        port: int,
-        user: str,
-        password: str = "x",  # noqa: S107 - the conventional stratum password
-        role: str = "primary",
-        tls: bool | None = None,
-    ) -> ActionResult:
-        raise Unsupported("changing pools is not supported by this device")
-
-    async def set_fan(
-        self, *, auto: bool | None = None, speed_pct: int | None = None, temp_target_c: int | None = None
-    ) -> ActionResult:
-        raise Unsupported("fan control is not supported by this device")
-
-    async def set_tuning(
-        self, *, frequency_mhz: int | None = None, core_voltage_mv: int | None = None
-    ) -> ActionResult:
-        raise Unsupported("tuning is not supported by this device")
-
-    async def tuning_options(self) -> TuningOptions | None:
-        return None
 
     async def close(self) -> None:  # pragma: no cover - drivers with sockets override
         return None

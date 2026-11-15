@@ -1,7 +1,6 @@
 """A fake AxeOS / ESP-Miner device that speaks the real HTTP API.
 
-Used by the test-suite, by ``bsmm dev-sim`` (develop without hardware) and for safely trying every
-control action (restart, pool change, tuning...) without touching a real miner.
+Used by the test-suite and by ``bsmm dev-sim`` (develop without hardware). It only answers reads.
 """
 
 from __future__ import annotations
@@ -71,8 +70,6 @@ class AxeOSSim:
             "hostname": self.hostname,
         }
         self.paused = False
-        self.restarts = 0
-        self.identified = 0
         self.shares_accepted = 0
         self.shares_rejected = 0
         self.best_diff = self.rng.uniform(2e8, 4e9)
@@ -225,47 +222,6 @@ class AxeOSSim:
                 }
             )
 
-        async def restart(request: Request) -> JSONResponse:
-            if (bad := await sim._guard(request)) is not None:
-                return bad
-            sim.restarts += 1
-            sim.started = time.time()
-            return JSONResponse({"message": "System will restart shortly."})
-
-        async def identify(request: Request) -> JSONResponse:
-            if (bad := await sim._guard(request)) is not None:
-                return bad
-            sim.identified += 1
-            return JSONResponse({"message": "Hi!"})
-
-        async def pause(request: Request) -> JSONResponse:
-            if (bad := await sim._guard(request)) is not None:
-                return bad
-            sim.paused = True
-            return JSONResponse({"message": "Mining paused"})
-
-        async def resume(request: Request) -> JSONResponse:
-            if (bad := await sim._guard(request)) is not None:
-                return bad
-            sim.paused = False
-            return JSONResponse({"message": "Mining resumed"})
-
-        async def patch(request: Request) -> JSONResponse | PlainTextResponse:
-            if (bad := await sim._guard(request)) is not None:
-                return bad
-            try:
-                body = await request.json()
-            except Exception:
-                return PlainTextResponse("Invalid JSON", status_code=400)
-            if not isinstance(body, dict):
-                return PlainTextResponse("Invalid settings", status_code=400)
-            allowed = set(sim.settings) | {"stratumPassword", "fallbackStratumPassword", "stratumTLS", "fallbackStratumTLS"}
-            for k, v in body.items():
-                if k not in allowed:
-                    return PlainTextResponse(f"Unknown setting {k}", status_code=400)
-                sim.settings[k] = v
-            return JSONResponse({"status": "success"})
-
         async def scoreboard(request: Request) -> JSONResponse:
             if (bad := await sim._guard(request)) is not None:
                 return bad
@@ -279,11 +235,6 @@ class AxeOSSim:
                 Route("/", index),
                 Route("/api/system/info", info),
                 Route("/api/system/asic", asic),
-                Route("/api/system/restart", restart, methods=["POST"]),
-                Route("/api/system/identify", identify, methods=["POST"]),
-                Route("/api/system/pause", pause, methods=["POST"]),
-                Route("/api/system/resume", resume, methods=["POST"]),
-                Route("/api/system", patch, methods=["PATCH"]),
                 Route("/api/system/scoreboard", scoreboard),
             ]
         )

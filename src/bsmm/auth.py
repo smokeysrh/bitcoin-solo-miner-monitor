@@ -1,7 +1,7 @@
 """Authentication: optional password for the web UI, scoped API tokens for scripts and AI agents.
 
-Scopes, lowest to highest: ``read`` (look but don't touch), ``control`` (restart / change settings on
-miners), ``admin`` (everything incl. managing tokens and passwords). With auth switched off the app
+Scopes, lowest to highest: ``read`` (look but don't touch), ``control`` (scan, and add, edit or remove miners in the
+app's own list), ``admin`` (everything incl. managing tokens and passwords). With auth switched off the app
 behaves as a single trusted admin, which is what a LAN-only hobby dashboard usually wants; the setup
 wizard offers to turn the password on and says why.
 """

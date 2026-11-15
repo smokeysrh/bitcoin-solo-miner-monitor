@@ -4,7 +4,7 @@ Covers every miner that runs the open-source ESP-Miner HTTP API: Bitaxe (Max, Ul
 GT, Hex), NerdAxe / NerdQAxe+ / NerdQAxe++, Lucky Miner, Magic Miner and friends. Reference:
 https://github.com/bitaxeorg/ESP-Miner/blob/master/main/http_server/openapi.yaml
 
-Reading only needs ``GET /api/system/info`` once per poll. Writes follow the same OpenAPI document.
+Reading only needs ``GET /api/system/info`` once per poll. This driver is read-only: it sends GET requests and nothing else.
 """
 
 from __future__ import annotations
@@ -17,13 +17,9 @@ import httpx
 
 from bsmm.bitcoin_address import split_stratum_user
 from bsmm.drivers.base import (
-    ActionFailed,
-    ActionResult,
     BadResponse,
     Driver,
     DriverError,
-    TuningOptions,
-    Unsupported,
     check_identity,
 )
 from bsmm.drivers.catalog import identify_axeos
@@ -263,23 +259,9 @@ def parse_system_info(data: dict[str, Any], ts: float | None = None) -> Telemetr
     return t
 
 
-def _firmware_at_least(version: str | None, major: int, minor: int) -> bool:
-    if not version:
-        return False
-    m = re.search(r"(\d+)\.(\d+)", version)
-    return m is not None and (int(m.group(1)), int(m.group(2))) >= (major, minor)
-
-
-def capabilities_for(data: dict[str, Any], family: str) -> list[Capability]:
-    """Which actions to offer. Conservative: only what the firmware demonstrably supports."""
-    caps = [Capability.RESTART]
-    official = "idfVersion" in data or "boardVersion" in data or family == "nerdqaxe"
-    if official:
-        caps += [Capability.SET_POOL, Capability.SET_FAN, Capability.SET_FREQUENCY, Capability.SET_VOLTAGE, Capability.SET_HOSTNAME]
-        if _firmware_at_least(str(data.get("version", "")), 2, 5) or family == "nerdqaxe":
-            caps.append(Capability.IDENTIFY)
-    if "miningPaused" in data:
-        caps.append(Capability.PAUSE)
+def capabilities_for(data: dict[str, Any]) -> list[Capability]:
+    """Read-only features this firmware reports."""
+    caps: list[Capability] = []
     if "hashRate_1m" in data or "blockHeight" in data:
         caps.append(Capability.SCOREBOARD)
     return caps
@@ -308,7 +290,7 @@ def build_info(host: str, port: int, data: dict[str, Any], asic: dict[str, Any] 
         asic_model=str(chip).upper() if chip else None,
         asic_count=count,
         board_version=str(data["boardVersion"]) if data.get("boardVersion") is not None else None,
-        capabilities=capabilities_for(data, guess.family),
+        capabilities=capabilities_for(data),
         extra=extra,
     )
 
@@ -325,7 +307,6 @@ class AxeOSDriver(Driver):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._asic_cache: tuple[float, dict[str, Any] | None] | None = None
-        self._unsupported: set[str] = set()
 
     @property
     def base(self) -> str:
@@ -372,14 +353,6 @@ class AxeOSDriver(Driver):
         self._check_identity(build_info(self.host, self.port, data))
         return parse_system_info(data)
 
-    async def verify_identity(self) -> None:
-        await self.poll()
-        raw_mac = (self.last_raw or {}).get("macAddr")
-        # Missing identity retains endpoint compatibility; a supplied unusable MAC cannot
-        # authorize control just because read-only polling treats it as unknown.
-        if raw_mac is not None and raw_mac != "" and normalize_mac(raw_mac) is None:
-            raise ActionFailed("firmware reported an unusable MAC; refusing control because miner identity cannot be verified")
-
     async def refresh_info(self) -> DeviceInfo | None:
         data = await request_json(self.client, "GET", f"{self.base}/api/system/info", timeout=self.timeout)
         if not is_axeos_payload(data):
@@ -401,164 +374,6 @@ class AxeOSDriver(Driver):
             asic = None
         self._asic_cache = (now, asic)
         return asic
-
-    async def tuning_options(self) -> TuningOptions | None:
-        asic = await self._asic()
-        if not asic:
-            return None
-        freqs = [int(x) for x in asic.get("frequencyOptions", []) if to_int(x) is not None]
-        volts = [int(x) for x in asic.get("voltageOptions", []) if to_int(x) is not None]
-        raw = self.last_raw or {}
-        return TuningOptions(
-            frequency_mhz=freqs,
-            core_voltage_mv=volts,
-            default_frequency_mhz=to_int(asic.get("defaultFrequency")),
-            default_core_voltage_mv=to_int(asic.get("defaultVoltage")),
-            max_power_w=to_float(raw.get("maxPower")),
-            max_temp_c=to_float(raw.get("overheat_temp")) or 75.0,
-        )
-
-    # control ---------------------------------------------------------------------------------
-
-    async def validate_action(self, action: str, params: dict[str, Any]) -> None:
-        allowed = {
-            "set_pool": {"url", "port", "user", "password", "role", "tls"},
-            "set_fan": {"auto", "speed_pct", "temp_target_c"},
-            "set_tuning": {"frequency_mhz", "core_voltage_mv"},
-        }
-        if action not in allowed:
-            if action in {"restart", "identify", "pause", "resume"}:
-                if params:
-                    raise ActionFailed(f"{action} takes no parameters")
-                return
-            await super().validate_action(action, params)
-            return
-        if set(params) - allowed[action]:
-            raise ActionFailed("unknown action parameters")
-        if action == "set_pool":
-            self._pool_patch(**params)
-        elif action == "set_fan":
-            self._fan_patch(**params)
-        else:
-            await self._tuning_patch(**params)
-
-    async def _write(self, method: str, path: str, body: Any = None, *, what: str) -> ActionResult:
-        if what in self._unsupported:
-            raise Unsupported(f"{what} is not supported by this firmware")
-        try:
-            resp = await request_json(self.client, method, f"{self.base}{path}", timeout=self.timeout, json_body=body, expect_json=False)
-        except BadResponse as e:
-            if "HTTP 404" in str(e) or "HTTP 405" in str(e):
-                self._unsupported.add(what)
-                raise Unsupported(f"{what} is not supported by this firmware") from e
-            raise ActionFailed(str(e)) from e
-        return ActionResult(True, f"{what} sent", {"response": (resp or "")[:300]})
-
-    async def restart(self) -> ActionResult:
-        return await self._write("POST", "/api/system/restart", None, what="restart")
-
-    async def identify(self) -> ActionResult:
-        return await self._write("POST", "/api/system/identify", None, what="identify")
-
-    async def pause(self) -> ActionResult:
-        return await self._write("POST", "/api/system/pause", None, what="pause")
-
-    async def resume(self) -> ActionResult:
-        return await self._write("POST", "/api/system/resume", None, what="resume")
-
-    async def patch_settings(self, patch: dict[str, Any], *, what: str = "settings") -> ActionResult:
-        if not patch:
-            raise ActionFailed("nothing to change")
-        return await self._write("PATCH", "/api/system", patch, what=what)
-
-    async def set_pool(
-        self,
-        *,
-        url: str,
-        port: int,
-        user: str,
-        password: str = "x",  # noqa: S107 - the conventional stratum password
-        role: str = "primary",
-        tls: bool | None = None,
-    ) -> ActionResult:
-        patch = self._pool_patch(url=url, port=port, user=user, password=password, role=role, tls=tls)
-        return await self.patch_settings(patch, what=f"set_pool:{role}")
-
-    @staticmethod
-    def _pool_patch(*, url: str = "", port: int = 0, user: str = "", password: str = "x",  # noqa: S107
-                    role: str = "primary", tls: bool | None = None) -> dict[str, Any]:
-        if not isinstance(url, str) or not url.strip() or type(port) is not int or not 1 <= port <= 65535 or not isinstance(user, str) or not user.strip():
-            raise ActionFailed("a pool needs a host, a port (1-65535) and a user")
-        if role not in ("primary", "fallback") or not isinstance(password, str) or (tls is not None and type(tls) is not bool):
-            raise ActionFailed("invalid pool role, password or TLS setting")
-        host, embedded_port, _ = _split_pool_url(url, None)
-        if not host:
-            raise ActionFailed("a pool needs a host, a port (1-65535) and a user")
-        prefix = "stratum" if role == "primary" else "fallbackStratum"
-        patch: dict[str, Any] = {
-            f"{prefix}URL": host,
-            f"{prefix}Port": int(port) if port else embedded_port,
-            f"{prefix}User": user,
-            f"{prefix}Password": password or "x",
-        }
-        if tls is not None:
-            patch[f"{prefix}TLS"] = 1 if tls else 0
-        return patch
-
-    async def set_fan(
-        self, *, auto: bool | None = None, speed_pct: int | None = None, temp_target_c: int | None = None
-    ) -> ActionResult:
-        return await self.patch_settings(self._fan_patch(auto=auto, speed_pct=speed_pct, temp_target_c=temp_target_c), what="set_fan")
-
-    @staticmethod
-    def _fan_patch(*, auto: bool | None = None, speed_pct: int | None = None,
-                   temp_target_c: int | None = None) -> dict[str, Any]:
-        patch: dict[str, Any] = {}
-        if auto is not None:
-            if type(auto) is not bool:
-                raise ActionFailed("automatic fan control must be true or false")
-            patch["autofanspeed"] = 1 if auto else 0
-        if speed_pct is not None:
-            if type(speed_pct) is not int or not 0 <= speed_pct <= 100:
-                raise ActionFailed("fan speed must be 0-100 %")
-            patch["manualFanSpeed"] = int(speed_pct)
-        if temp_target_c is not None:
-            if type(temp_target_c) is not int or not 30 <= temp_target_c <= 85:
-                raise ActionFailed("temperature target must be between 30 and 85 C")
-            patch["temptarget"] = int(temp_target_c)
-        if not patch:
-            raise ActionFailed("nothing to change")
-        return patch
-
-    async def set_tuning(
-        self, *, frequency_mhz: int | None = None, core_voltage_mv: int | None = None
-    ) -> ActionResult:
-        """Change ASIC frequency / core voltage, but only to values the device itself lists as valid."""
-        patch = await self._tuning_patch(frequency_mhz=frequency_mhz, core_voltage_mv=core_voltage_mv)
-        return await self.patch_settings(patch, what="set_tuning")
-
-    async def _tuning_patch(self, *, frequency_mhz: int | None = None,
-                            core_voltage_mv: int | None = None) -> dict[str, Any]:
-        if frequency_mhz is None and core_voltage_mv is None:
-            raise ActionFailed("nothing to change")
-        opts = await self.tuning_options()
-        if opts is None or not opts.frequency_mhz or not opts.core_voltage_mv:
-            raise Unsupported("this firmware does not publish its safe tuning ranges, so tuning is disabled")
-        patch: dict[str, Any] = {}
-        if frequency_mhz is not None:
-            if type(frequency_mhz) is not int or frequency_mhz not in opts.frequency_mhz:
-                raise ActionFailed(f"{frequency_mhz} MHz is not one of the device's supported frequencies {opts.frequency_mhz}")
-            patch["frequency"] = int(frequency_mhz)
-        if core_voltage_mv is not None:
-            if type(core_voltage_mv) is not int or core_voltage_mv not in opts.core_voltage_mv:
-                raise ActionFailed(f"{core_voltage_mv} mV is not one of the device's supported voltages {opts.core_voltage_mv}")
-            patch["coreVoltage"] = int(core_voltage_mv)
-        return patch
-
-    async def set_hostname(self, hostname: str) -> ActionResult:
-        if not re.fullmatch(r"[A-Za-z0-9-]{1,32}", hostname or ""):
-            raise ActionFailed("hostname may only contain letters, digits and '-'")
-        return await self.patch_settings({"hostname": hostname}, what="set_hostname")
 
     async def scoreboard(self) -> list[dict[str, Any]]:
         data = await request_json(self.client, "GET", f"{self.base}/api/system/scoreboard", timeout=self.timeout)

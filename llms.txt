@@ -1,6 +1,6 @@
 # HashHurdr
 
-> HashHurdr, the Bitcoin Solo Miner Monitor: a self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings and controls depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds, sends alerts, and lets an agent control miners within safe limits. Version 1.4.2.
+> HashHurdr, the Bitcoin Solo Miner Monitor: a self-hosted dashboard, REST API and MCP server for compatible AxeOS and cgminer-API Bitcoin miners. Readings depend on firmware. It discovers miners on the LAN, monitors hashrate, temperature, power and shares, connects to the user's own Bitcoin node and solo pool (Public Pool, ckpool), estimates block odds and sends alerts. Version 1.4.2.
 
 This server: http://YOUR-SERVER:8420
 Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/agent/guide.
@@ -57,8 +57,6 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 - What is my chance in the next 10 minutes? -> GET /api/v1/odds: horizons.ten_minutes (seconds=600), also in bsmm odds and MCP get_odds. This is a fixed-window Poisson chance of at least one block, not the chance of the very next network block. Bitcoin targets 10-minute blocks; the exact future block time is unknown. Your miner has no memory, so nobody is ever due.
 - Is anything wrong? -> GET /api/v1/alerts/active and GET /api/v1/insights
 - Which blocks did solo pools find lately? -> GET /api/v1/blocks/solo (the latest 20 from mempool.space, newest first; `yours` marks a block that paid one of the user's addresses; `available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)
-- Restart a miner -> POST /api/v1/devices/{id}/actions/restart (needs 'control' scope)
-- Point miners at my own pool/node -> POST /api/v1/devices/actions {"action":"set_pool","all":true,"params":{...}} previews by default; send dry_run=false to apply
 - A found node refuses the app (401/403) -> Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable, cookie_unreadable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step
 - History / charts -> GET /api/v1/fleet/history?range=24h&metrics=hashrate_hs,power_w
 - Live updates -> GET /api/v1/stream?topics=device,event,fleet (Server-Sent Events)
@@ -67,20 +65,16 @@ Everything below is also available as JSON at http://YOUR-SERVER:8420/api/v1/age
 
 ## Safety rules for agents
 
-- Ask before hardware controls, restarts, pool or payout changes, tuning, firmware changes, deleting data or other destructive actions. Confirm the target; read payout changes back through a private confirmation view.
-- Control actions are audited and can be switched off in Settings > Safety (allow_control). Frequency/voltage changes are OFF until the user enables allow_tuning.
-- Bulk actions preview by default (dry_run: true). Show the user the preview before sending dry_run=false.
+- Ask before deleting data or doing another destructive action. Confirm the target.
 - Secrets (RPC passwords, bot tokens, webhook URLs) are write-only: they are never returned by any endpoint.
 - Do not guess node credentials, wallet addresses or passwords. Ask for missing information through secure app fields; keep secrets and addresses out of chat and logs.
 - Network scans are limited to private address ranges.
-- Restarting a miner interrupts hashing; downtime depends on firmware. Lost hashing time reduces the chance of finding a block.
 - Solo mining is a lottery, so keep the odds talk light. Every hash is a fresh ticket: never promise a block and never say the user is due. When available, horizons.ten_minutes (Next 10 minutes) estimates chance over a fixed 600-second window; the next network block can arrive at any time.
 
 ## Conventions
 
 - Field names carry units: `hashrate_hs` (H/s), `power_w`, `temp_asic_c`, `efficiency_j_th`.
 - Errors are always `{"error": {"code", "message", "hint", "status"}}`.
-- Bulk miner actions preview with `dry_run: true`; check the endpoint schema before assuming another operation supports a preview.
 - Live updates: `GET http://YOUR-SERVER:8420/api/v1/stream?topics=device,fleet,event` (Server-Sent Events).
 
 ## Docs

@@ -1,4 +1,4 @@
-"""Issue #75: a placeholder or group MAC is unknown, never a different miner, and never authorizes control."""
+"""Issue #75: a placeholder or group MAC is unknown, never a different miner."""
 import json
 from pathlib import Path
 
@@ -10,7 +10,7 @@ from starlette.routing import Route
 
 from bsmm.drivers import axeos
 from bsmm.drivers.axeos import AxeOSDriver, build_info, normalize_mac
-from bsmm.drivers.base import ActionFailed, DriverError, IdentityMismatch
+from bsmm.drivers.base import IdentityMismatch
 from bsmm.models import DeviceInfo, ProbeResult
 from bsmm.sim.axeos import AxeOSSim
 
@@ -76,7 +76,7 @@ async def test_bg02_unusable_mac_polls_without_changing_saved_identity(bg02, fir
     assert calls == [("GET", "/api/system/info")] * 3
 
 
-@pytest.mark.parametrize("operation", ["poll", "refresh_info", "verify_identity"])
+@pytest.mark.parametrize("operation", ["poll", "refresh_info"])
 @pytest.mark.parametrize("other", ["30:00:00:00:00:02", "32:00:00:00:00:01"])
 async def test_valid_mac_conflict_still_refuses(bg02, firmware, operation, other):
     client, _ = firmware
@@ -102,7 +102,7 @@ async def test_legacy_unusable_saved_mac_is_only_normalized_for_comparison(bg02,
         assert driver.info is info
 
 
-@pytest.mark.parametrize("operation", ["poll", "refresh_info", "verify_identity"])
+@pytest.mark.parametrize("operation", ["poll", "refresh_info"])
 @pytest.mark.parametrize("saved_mac", [SAVED_MAC, "00:00:00:00:00:00"])
 async def test_serial_conflict_survives_mac_normalization(bg02, firmware, monkeypatch, operation, saved_mac):
     # AxeOS currently has no serial parser. Supply DeviceInfo at that boundary to
@@ -117,21 +117,6 @@ async def test_serial_conflict_survives_mac_normalization(bg02, firmware, monkey
     assert driver.info is info and info.serial == "original"
 
 
-@pytest.mark.parametrize("mac", INVALID_MACS)
-@pytest.mark.parametrize("saved", [SAVED_MAC, None])
-async def test_precontrol_fresh_read_refuses_unusable_mac(bg02, firmware, mac, saved):
-    client, calls = firmware
-    info = build_info("miner.test", 80, {**bg02, "macAddr": saved})
-    driver = AxeOSDriver("miner.test", 80, client=client, info=info)
-    # A preceding good poll must not authorize a later unusable identity.
-    bg02["macAddr"] = saved
-    await driver.poll()
-    bg02["macAddr"] = mac
-    with pytest.raises(ActionFailed, match="unusable MAC"):
-        await driver.verify_identity()
-    assert calls == [("GET", "/api/system/info")] * 2
-
-
 @pytest.mark.parametrize("missing", ["absent", None, ""])
 @pytest.mark.parametrize("saved", [SAVED_MAC, None])
 async def test_missing_identity_keeps_previous_endpoint_compatibility(bg02, firmware, missing, saved):
@@ -143,11 +128,10 @@ async def test_missing_identity_keeps_previous_endpoint_compatibility(bg02, firm
     else:
         bg02["macAddr"] = missing
     assert (await driver.poll()).online
-    await driver.verify_identity()
-    assert calls == [("GET", "/api/system/info")] * 2
+    assert calls == [("GET", "/api/system/info")]
 
 
-async def test_fleet_bg02_monitoring_recovers_but_control_never_writes(lan, bg02):
+async def test_fleet_bg02_monitoring_recovers(lan, bg02):
     ctx, hosts = lan
     calls = []
 
@@ -157,7 +141,6 @@ async def test_fleet_bg02_monitoring_recovers_but_control_never_writes(lan, bg02
 
     hosts["miner.test"] = Starlette(routes=[
         Route("/api/system/info", reply),
-        Route("/api/system/restart", reply, methods=["POST"]),
     ])
     info = build_info("miner.test", 80, {**bg02, "macAddr": SAVED_MAC})
     device = (await ctx.fleet.add_from_probe(ProbeResult(info=info))).device
@@ -166,15 +149,13 @@ async def test_fleet_bg02_monitoring_recovers_but_control_never_writes(lan, bg02
     view = ctx.fleet.view(device.id)
     assert view.status == "online" and view.last_error is None
     assert view.telemetry.hashrate_hs == pytest.approx(7.314046e12, rel=1e-6)
-    with pytest.raises(ActionFailed, match="unusable MAC"):
-        await ctx.fleet.run_action(device.id, "restart")
-    assert calls == [("GET", "/api/system/info")] * 2
+    assert calls == [("GET", "/api/system/info")]
     assert (await ctx.store.get_device(device.id)).mac == SAVED_MAC
     assert ctx.fleet.runtimes[device.id].device.mac == SAVED_MAC
 
 
 @pytest.mark.parametrize("reported", ["00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF", "01:00:5E:00:00:01", "FD:E0:CC:3F:A0:01"])
-async def test_fleet_zero_and_group_mac_miner_stays_online_and_refuses_control(lan, reported):
+async def test_fleet_zero_and_group_mac_miner_stays_online(lan, reported):
     ctx, hosts = lan
     did, sim = await miner(ctx, hosts)
     sim.mac = reported
@@ -182,10 +163,6 @@ async def test_fleet_zero_and_group_mac_miner_stays_online_and_refuses_control(l
         await ctx.fleet.poll_now(did)
     view = ctx.fleet.view(did)
     assert view.status == "online" and view.last_error is None
-    ctx.settings.current.safety.allow_control = True
-    with pytest.raises(ActionFailed, match="unusable MAC"):
-        await ctx.fleet.run_action(did, "restart")
-    assert sim.restarts == 0
     assert (await ctx.store.get_device(did)).mac == "AA:BB:CC:00:00:01"
 
 
@@ -214,10 +191,6 @@ async def test_fleet_truly_different_miner_is_still_rejected(lan, other):
         await ctx.fleet.poll_now(did)
     view = ctx.fleet.view(did)
     assert view.status != "online" and view.last_error and "identity" in view.last_error
-    ctx.settings.current.safety.allow_control = True
-    with pytest.raises(DriverError, match="identity"):
-        await ctx.fleet.run_action(did, "restart")
-    assert sim.restarts == 0
 
 
 async def test_fleet_locally_administered_unicast_mac_is_a_working_identity(lan):
@@ -226,12 +199,7 @@ async def test_fleet_locally_administered_unicast_mac_is_a_working_identity(lan)
     assert (await ctx.store.get_device(did)).mac == "02:11:22:33:44:55"
     await ctx.fleet.poll_now(did)
     assert ctx.fleet.view(did).status == "online"
-    ctx.settings.current.safety.allow_control = True
-    assert (await ctx.fleet.run_action(did, "restart"))["ok"] and sim.restarts == 1
     sim.mac = "06:11:22:33:44:55"  # differs only in a locally administered address bit
     for _ in range(3):
         await ctx.fleet.poll_now(did)
     assert ctx.fleet.view(did).status != "online"
-    with pytest.raises(DriverError, match="identity"):
-        await ctx.fleet.run_action(did, "restart")
-    assert sim.restarts == 1

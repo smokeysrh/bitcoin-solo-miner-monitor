@@ -17,7 +17,7 @@ from bsmm.api.util import csv_list, window
 from bsmm.auth import Principal
 from bsmm.context import AppContext
 from bsmm.engine.odds import build_odds
-from bsmm.models import DeviceStatus, DeviceView, FleetSummary
+from bsmm.models import DeviceView, FleetSummary
 from bsmm.net import split_host_port
 from bsmm.redaction import redact_credentials
 from bsmm.storage import metrics as mx
@@ -103,7 +103,6 @@ class UpdateDeviceBody(BaseModel):
     group: str | None = None
     notes: str | None = Field(None, max_length=2000)
     enabled: bool | None = None
-    allow_control: bool | None = None
     poll_interval_s: float | None = Field(None, ge=2, le=3600)
     model_override: str | None = Field(None, max_length=60)
     host: str | None = None
@@ -114,9 +113,9 @@ class UpdateDeviceBody(BaseModel):
     @classmethod
     def reject_null_required_fields(cls, value: Any) -> Any:
         if isinstance(value, dict):
-            required = {"name", "tags", "enabled", "allow_control", "host", "port"}
+            required = {"name", "tags", "enabled", "host", "port"}
             if any(key in value and value[key] is None for key in required):
-                raise ValueError("name, tags, enabled, allow_control, host and port cannot be null")
+                raise ValueError("name, tags, enabled, host and port cannot be null")
         return value
 
 
@@ -230,91 +229,6 @@ async def device_raw(device_id: str, ctx: AppContext = Depends(get_ctx), _: Prin
     if isinstance(raw, dict):  # identity (model, hostname, MAC) is the user's own data and stays; credentials do not
         raw = redact_credentials(raw)
     return {"driver": rt.device.driver, "raw": raw}
-
-
-@router.get("/devices/{device_id}/tuning", tags=["devices"], operation_id="getDeviceTuning",
-            summary="Safe frequency/voltage choices the miner itself allows, and what is set now")
-async def device_tuning(device_id: str, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
-    rt = ctx.fleet.runtimes.get(device_id)
-    if rt is None:
-        raise not_found(f"Miner {device_id}")
-    t = rt.telemetry
-    opts = None
-    try:
-        if rt.driver is None:
-            from bsmm.drivers.registry import driver_for
-
-            rt.driver = driver_for(rt.device, ctx.http, timeout=ctx.settings.current.polling.timeout_s)
-        opts = await rt.driver.tuning_options()
-    except Exception:  # an unreachable miner simply has no options to show
-        opts = None
-    return {
-        "allowed": bool(opts and opts.frequency_mhz and opts.core_voltage_mv) and ctx.settings.current.safety.allow_tuning,
-        "tuning_enabled_in_settings": ctx.settings.current.safety.allow_tuning,
-        "options": None if opts is None else {
-            "frequency_mhz": opts.frequency_mhz, "core_voltage_mv": opts.core_voltage_mv,
-            "default_frequency_mhz": opts.default_frequency_mhz, "default_core_voltage_mv": opts.default_core_voltage_mv,
-            "max_power_w": opts.max_power_w, "max_temp_c": opts.max_temp_c,
-        },
-        "current": None if t is None else {"frequency_mhz": t.frequency_mhz, "core_voltage_mv": t.core_voltage_mv,
-                                           "power_w": t.power_w, "hashrate_hs": t.hashrate_hs, "efficiency_j_th": t.efficiency_j_th,
-                                           "temp_asic_c": t.temp_asic_c},
-    }
-
-
-class ActionBody(BaseModel):
-    params: dict[str, Any] = Field(default_factory=dict, description="Action parameters, e.g. {url, port, user, password, role} for set_pool")
-    dry_run: bool = Field(False, description="Validate parameters (may read safe tuning ranges) without writing to the miner or audit log; identity is rechecked on execution")
-
-
-ACTION_DOC = (
-    "Actions: `restart`, `identify` (flash the screen/LED), `pause`, `resume`, `set_pool` {url, port, user, password?, role: primary|fallback, tls?}, "
-    "`set_fan` {auto?, speed_pct?, temp_target_c?}, `set_tuning` {frequency_mhz?, core_voltage_mv?} (values must be ones the miner lists, and tuning must be enabled in Settings > Safety). "
-    "Every action is audited."
-)
-
-
-@router.post("/devices/{device_id}/actions/{action}", tags=["devices"], operation_id="runDeviceAction", summary="Control a miner", description=ACTION_DOC)
-async def run_action(device_id: str, action: str, request: Request, body: ActionBody | None = None, ctx: AppContext = Depends(get_ctx),
-                     principal: Principal = Depends(require("control"))) -> dict[str, Any]:
-    if ctx.fleet.view(device_id) is None:
-        raise not_found(f"Miner {device_id}")
-    body = body or ActionBody()
-    return await ctx.fleet.run_action(device_id, action, body.params, actor=principal.name, dry_run=body.dry_run)
-
-
-class BulkBody(BaseModel):
-    action: str
-    params: dict[str, Any] = Field(default_factory=dict)
-    device_ids: list[str] | None = Field(None, description="Specific miners; omit to use `tag` or `all`")
-    tag: str | None = None
-    all: bool = False
-    dry_run: bool = True  # bulk operations preview by default; send dry_run=false to apply
-
-
-@router.post("/devices/actions", tags=["devices"], operation_id="runBulkAction",
-             summary="Run one action on many miners (previews by default)", description=ACTION_DOC + " **Bulk requests default to `dry_run: true`.**")
-async def bulk_action(body: BulkBody, ctx: AppContext = Depends(get_ctx), principal: Principal = Depends(require("control"))) -> dict[str, Any]:
-    if body.device_ids:
-        ids = body.device_ids
-    elif body.tag:
-        ids = [v.id for v in ctx.fleet.views() if body.tag in v.tags]
-    elif body.all:
-        ids = [v.id for v in ctx.fleet.views() if v.status != DeviceStatus.DISABLED]
-    else:
-        raise bad_request("Say which miners: device_ids, a tag, or all=true.")
-    results = []
-    for did in ids:
-        v = ctx.fleet.view(did)
-        if v is None:
-            results.append({"device_id": did, "ok": False, "error": "unknown miner"})
-            continue
-        try:
-            r = await ctx.fleet.run_action(did, body.action, body.params, actor=principal.name, dry_run=body.dry_run)
-            results.append({"device_id": did, "name": v.name, **r})
-        except Exception as e:  # report per miner, never abort the batch
-            results.append({"device_id": did, "name": v.name, "ok": False, "error": str(e)})
-    return {"dry_run": body.dry_run, "results": results, "ok": all(r.get("ok") for r in results)}
 
 
 @router.get("/devices/{device_id}/audit", tags=["devices"], operation_id="getDeviceAudit", summary="Who changed what on this miner")

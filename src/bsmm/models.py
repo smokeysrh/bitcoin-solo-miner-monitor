@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import time
 from enum import StrEnum
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 
 class DeviceStatus(StrEnum):
@@ -23,18 +23,21 @@ class DeviceStatus(StrEnum):
 
 
 class Capability(StrEnum):
-    """What a driver can do with a device. The UI and agents only offer what is supported."""
+    """Read-only features a driver found on a device."""
 
-    RESTART = "restart"
-    IDENTIFY = "identify"
-    PAUSE = "pause"
-    SET_POOL = "set_pool"
-    SET_FAN = "set_fan"
-    SET_FREQUENCY = "set_frequency"
-    SET_VOLTAGE = "set_voltage"
-    SET_HOSTNAME = "set_hostname"
     SCOREBOARD = "scoreboard"
     HISTORY = "history"  # device keeps its own history we can backfill from
+
+
+def _known_capabilities(value: Any) -> Any:
+    """Skip capability names saved by older releases that no longer exist, so saved miners keep loading."""
+    if not isinstance(value, list):
+        return value
+    known = {c.value for c in Capability}
+    return [item for item in value if str(item) in known]
+
+
+CapabilityList = Annotated[list[Capability], BeforeValidator(_known_capabilities)]
 
 
 class _Model(BaseModel):
@@ -151,7 +154,7 @@ class DeviceInfo(_Model):
     asic_model: str | None = None
     asic_count: int | None = None
     board_version: str | None = None
-    capabilities: list[Capability] = Field(default_factory=list)
+    capabilities: CapabilityList = Field(default_factory=list)
     extra: dict[str, Any] = Field(default_factory=dict)
 
     @property
@@ -181,12 +184,11 @@ class Device(_Model):
     asic_model: str | None = None
     asic_count: int | None = None
     board_version: str | None = None
-    capabilities: list[Capability] = Field(default_factory=list)
+    capabilities: CapabilityList = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     group: str | None = None
     notes: str | None = None
     enabled: bool = True
-    allow_control: bool = True
     poll_interval_s: float | None = None
     model_override: str | None = None
     created_at: float = Field(default_factory=time.time)

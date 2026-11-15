@@ -2,7 +2,7 @@
 
 These run the *real* drivers (AxeOS HTTP / cgminer parsing) against the simulators, but over an
 in-memory transport, so demo mode needs no network ports and exercises the same code paths as
-production. Control actions work too, they just change the simulated device.
+production.
 """
 
 from __future__ import annotations

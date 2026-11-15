@@ -1,11 +1,10 @@
 """Issue #92: one odd identity reading must not flip a working miner offline.
 
 A mismatch is an ordinary failed poll. The miner is only treated as replaced when the mismatch persists for
-``offline_after_failures`` consecutive polls, and a replaced miner still cannot be controlled.
+``offline_after_failures`` consecutive polls.
 """
 import pytest
 
-from bsmm.drivers.base import DriverError
 from bsmm.models import DeviceStatus
 
 from .test_fleet import events, poll
@@ -69,11 +68,6 @@ async def test_persistent_mismatch_is_flagged_after_the_threshold(lan):
     assert "identity" in (rt.last_error or "")
     offline = await ctx.store.list_events(types=["device_offline"])
     assert len(offline) == 1 and "identity changed" in (offline[0].body or "")
-    # Replacement protection for control is unchanged.
-    ctx.settings.current.safety.allow_control = True
-    with pytest.raises(DriverError, match="identity"):
-        await ctx.fleet.run_action(did, "restart")
-    assert sim.restarts == 0
 
 
 @pytest.mark.parametrize("transient", ["", None, "00:00:00:00:00:00", "FD:E0:CC:3F:A0:01"])

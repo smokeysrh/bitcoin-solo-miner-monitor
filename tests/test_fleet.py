@@ -2,9 +2,8 @@ import time
 
 import pytest
 
-from bsmm.drivers.base import Unsupported
 from bsmm.engine.fleet import build_summary, derive_status
-from bsmm.models import Capability, DeviceStatus, Severity, Telemetry
+from bsmm.models import DeviceStatus, Severity, Telemetry
 from bsmm.settings import Settings
 from bsmm.sim.axeos import AxeOSSim
 
@@ -78,24 +77,6 @@ async def test_offline_after_n_failures_then_recovery(lan):
     assert "device_online" in kinds
     ev = (await ctx.store.list_events(types=["device_offline"]))[0]
     assert ev.severity == Severity.CRITICAL and "G is offline" in ev.title
-
-
-async def test_restart_grace_suppresses_offline_alarm(lan):
-    ctx, hosts = lan
-    sim = AxeOSSim("gamma", seed=3, mac="AA:BB:CC:00:00:33")
-    res = await add(ctx, hosts, "g.test", sim)
-    rt = await poll(ctx, res.device.id)
-    ctx.settings.current.safety.allow_control = True
-    out = await ctx.fleet.run_action(res.device.id, "restart", actor="test")
-    assert out["ok"] and sim.restarts == 1
-    del hosts["g.test"]
-    for _ in range(4):
-        await poll(ctx, res.device.id)
-    assert rt.status == DeviceStatus.DEGRADED and rt.status_reason == "Restarting"
-    assert "device_offline" not in await events(ctx)
-    hosts["g.test"] = sim.app()
-    await poll(ctx, res.device.id)
-    assert rt.status == DeviceStatus.ONLINE
 
 
 async def test_event_detection_restart_fallback_best_share(lan):
@@ -173,57 +154,6 @@ async def test_samples_are_written_and_queryable(lan):
     assert any(v for v in h.series["hashrate_hs"])
 
 
-async def test_control_guard_rails(lan):
-    ctx, hosts = lan
-    sim = AxeOSSim("gamma", seed=9, mac="AA:BB:CC:00:00:99")
-    res = await add(ctx, hosts, "g.test", sim)
-    await poll(ctx, res.device.id)
-    dev_id = res.device.id
-    # tuning is off by default
-    with pytest.raises(PermissionError, match="Frequency/voltage"):
-        await ctx.fleet.run_action(dev_id, "set_tuning", {"frequency_mhz": 550})
-    await ctx.settings.update({"safety": {"allow_tuning": True}})
-    out = await ctx.fleet.run_action(dev_id, "set_tuning", {"frequency_mhz": 550, "core_voltage_mv": 1200})
-    assert out["ok"] and sim.settings["frequency"] == 550
-    # a global kill switch
-    await ctx.settings.update({"safety": {"allow_control": False}})
-    with pytest.raises(PermissionError, match="switched off in Settings"):
-        await ctx.fleet.run_action(dev_id, "restart")
-    await ctx.settings.update({"safety": {"allow_control": True}})
-    # per-device kill switch
-    await ctx.fleet.update(dev_id, {"allow_control": False})
-    with pytest.raises(PermissionError, match="switched off for"):
-        await ctx.fleet.run_action(dev_id, "restart")
-    await ctx.fleet.update(dev_id, {"allow_control": True})
-    # unknown / unsupported
-    with pytest.raises(ValueError, match="unknown action"):
-        await ctx.fleet.run_action(dev_id, "format_disk")
-    ctx.fleet.runtimes[dev_id].device.capabilities.remove(Capability.RESTART)
-    with pytest.raises(Unsupported):
-        await ctx.fleet.run_action(dev_id, "restart")
-    # dry run touches nothing
-    calls = len(sim.calls)
-    ctx.fleet.runtimes[dev_id].device.capabilities.append(Capability.SET_POOL)
-    dry = await ctx.fleet.run_action(dev_id, "set_pool", {"url": "x", "port": 1, "user": "u", "password": "secret"}, dry_run=True)
-    assert dry["dry_run"] and dry["params"]["password"] == "***" and len(sim.calls) == calls
-    # everything above was audited (secrets redacted)
-    audit = await ctx.store.list_audit()
-    assert any(a["action"] == "set_tuning" and a["result"]["ok"] for a in audit)
-
-
-async def test_tuning_blocked_when_device_is_hot(lan):
-    ctx, hosts = lan
-    sim = AxeOSSim("gamma", seed=10, mac="AA:BB:CC:00:00:AA")
-    res = await add(ctx, hosts, "g.test", sim)
-    rt = await poll(ctx, res.device.id)
-    await ctx.settings.update({"safety": {"allow_tuning": True, "max_temp_c": 60}})
-    rt.telemetry.temp_asic_c = 72.0  # type: ignore[union-attr]
-    from bsmm.drivers.base import ActionFailed
-
-    with pytest.raises(ActionFailed, match="cool it down"):
-        await ctx.fleet.run_action(res.device.id, "set_tuning", {"frequency_mhz": 550})
-
-
 async def test_update_and_remove_device(lan):
     ctx, hosts = lan
     res = await add(ctx, hosts, "g.test", AxeOSSim("gamma", seed=11, mac="AA:BB:CC:00:00:BB"))
@@ -231,6 +161,8 @@ async def test_update_and_remove_device(lan):
     assert dev.name == "Renamed" and dev.tags == ["rack1"] and dev.extra["power_override_w"] == 18.5
     with pytest.raises(ValueError, match="cannot change"):
         await ctx.fleet.update(res.device.id, {"driver": "evil"})
+    with pytest.raises(ValueError, match="cannot change: allow_control"):
+        await ctx.fleet.update(res.device.id, {"allow_control": False})  # control switches are gone
     with pytest.raises(ValueError, match="name cannot be empty"):
         await ctx.fleet.update(res.device.id, {"name": "  "})
     assert await ctx.fleet.remove(res.device.id)

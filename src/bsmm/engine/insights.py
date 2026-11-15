@@ -55,7 +55,7 @@ async def build_insights(ctx: AppContext) -> list[dict[str, Any]]:
                       action={"label": "Set up notifications", "type": "route", "target": "/settings/notifications"}))
     if s.auth.mode == "none" and views and ctx.config.host not in ("127.0.0.1", "localhost"):
         out.append(_i("no-password", "tip", "Protect the dashboard with a password",
-                      "Anyone on your network can open this page and restart your miners. A password (or token) takes ten seconds to set.",
+                      "Anyone on your network who opens this page has full access to your settings and miner list. A password takes ten seconds to set.",
                       action={"label": "Set a password", "type": "route", "target": "/settings/security"}))
     if abs(s.energy.price_per_kwh - 0.12) < 1e-9 and views and not await ctx.store.kv_get("insight.energy_confirmed", False):
         out.append(_i("energy-default", "tip", "Set your electricity price",

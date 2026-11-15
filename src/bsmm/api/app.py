@@ -102,7 +102,7 @@ def _allowed_host(value: str, names: set[str]) -> bool:
         return False
 
 DESCRIPTION = """
-HashHurdr, the Bitcoin Solo Miner Monitor: dashboard, monitoring and control for **solo Bitcoin miners**. Discovers miners on your network, watches
+HashHurdr, the Bitcoin Solo Miner Monitor: dashboard and monitoring for **solo Bitcoin miners**. Discovers miners on your network, watches
 your node and pool, computes the odds of finding a block, and alerts you.
 
 **New here (human or AI agent)?** Call `GET /api/v1/meta`, then read `GET /api/v1/agent/guide` or `/llms.txt`.
@@ -114,13 +114,13 @@ Errors always look like `{"error": {"code", "message", "hint", "status"}}`.
 TAGS = [
     {"name": "system", "description": "Health, version, diagnostics, backup, updates."},
     {"name": "fleet", "description": "Fleet totals, history, insights and the live stream."},
-    {"name": "devices", "description": "Your miners: add, rename, read, control."},
+    {"name": "devices", "description": "Your miners: add, rename, read."},
     {"name": "discovery", "description": "Find miners and your node/pool on the network."},
     {"name": "bitcoin", "description": "Network state, your node, pool, odds, blocks."},
     {"name": "sources", "description": "Configure the node, pool and public data sources."},
     {"name": "alerts", "description": "Alert rules, active alerts and the activity log."},
     {"name": "notifications", "description": "Where alerts are sent (ntfy, Telegram, Discord, email...)."},
-    {"name": "settings", "description": "Preferences, polling, energy price, safety switches."},
+    {"name": "settings", "description": "Preferences, polling, energy price."},
     {"name": "auth", "description": "Password, sessions and API tokens."},
     {"name": "agents", "description": "Machine-readable guidance for AI agents."},
     {"name": "demo", "description": "Only in demo mode."},
