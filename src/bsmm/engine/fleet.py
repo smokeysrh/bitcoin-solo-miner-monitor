@@ -771,13 +771,21 @@ class Fleet:
     # -- pool and payout settings (safety alert; reads only, HashHurdr's own record is the only thing written) ------------
 
     async def _load_pool_changes(self) -> None:
-        """After a restart, show the badge again for every change that is still waiting for the user's answer."""
+        """After a restart, show the badge again for every change that is still waiting for the user's answer.
+
+        What the notice shows comes from the event, so it is the same whether the miner still reports the new settings
+        or has gone back to the recorded ones.
+        """
         for row in await self.store.list_pool_changes():
             rt = self.runtimes.get(row.device_id)
-            if rt is None or row.observed is None or row.event_id is None:
+            if rt is None or row.event_id is None:
+                continue
+            event = await self.store.get_event(row.event_id)
+            if event is None:  # event retention keeps it while the change waits, so this is not expected
+                log.warning("pool settings event %s of device %s is missing; its notice cannot be shown", row.event_id, row.device_id)
                 continue
             rt.pool_change = PoolChange(event_id=row.event_id, since_ts=row.changed_ts or row.baseline_ts,
-                                        changes=pool_watch.diff(row.baseline, row.observed))
+                                        changes=pool_watch.changes_of(event.model_dump(mode="json")))
 
     async def _watch_pool_settings(self, rt: DeviceRuntime, t: Telemetry) -> None:
         """Compare what the miner reports with HashHurdr's baseline; raise one event for a confirmed change.
@@ -786,13 +794,16 @@ class Fleet:
         ``offline_after_failures`` polls in a row (the count that also decides when a miner is offline) before they count:
         one odd reading, an empty pool list, or a poll that failed does not. The event and the record change in one
         transaction, so a failure leaves nothing half done and the next poll tries again.
+
+        A confirmed change stays open until the user answers it, also when the miner reports the baseline again. That
+        return is recorded once (``observed`` is cleared, the event stays), after which a steady reading of either the
+        baseline or the unanswered settings is the usual poll that writes nothing.
         """
         current = pool_watch.fingerprint(t.pools)
         if not current:  # the miner reported no pool at all: no evidence either way, and it ends any run of readings
             rt.pool_sightings.reset()
             return
         now = time.time()
-        pending = rt.pool_change
         known = await self.store.get_pool_watch(rt.device.id)
         if known is not None and current == known.confirmed:  # the usual poll: nothing to write, so no transaction
             rt.pool_sightings.reset()
@@ -809,28 +820,29 @@ class Fleet:
             if rt.pool_sightings.note(current) < self.settings.current.polling.offline_after_failures:
                 return
             rt.pool_sightings.reset()
-            if row.event_id is not None:  # the answer to an earlier change is replaced by this one (or by a return to normal)
-                await self.store.ack_event(row.event_id)
             changes = pool_watch.diff(row.baseline, current)
-            if current == row.baseline or not changes:
-                await self.store.save_pool_watch(row.model_copy(update={"observed": None, "event_id": None, "changed_ts": None}))
-                pending = None
-            else:
-                event = await self.events.emit(
-                    pool_watch.EVENT_TYPE, pool_watch.event_title(rt.device.name), severity=Severity.CRITICAL,
-                    device_id=rt.device.id, body=pool_watch.describe_changes(changes, short=False),
-                    data={"changes": [c.model_dump() for c in changes]},
-                )
-                if event is None or event.id is None:
-                    raise RuntimeError("the pool settings event was not stored")
-                await self.store.save_pool_watch(row.model_copy(update={"observed": current, "event_id": event.id, "changed_ts": now}))
-                pending = PoolChange(event_id=event.id, since_ts=now, changes=changes)
-        rt.pool_change = pending
+            if not changes:  # back on the recorded settings: an open change stays open, only the return is noted
+                if row.observed is not None:
+                    await self.store.save_pool_watch(row.model_copy(update={"observed": None}))
+                return
+            if row.event_id is not None:  # the answer to an earlier change is replaced by this one
+                await self.store.ack_event(row.event_id)
+            event = await self.events.emit(
+                pool_watch.EVENT_TYPE, pool_watch.event_title(rt.device.name), severity=Severity.CRITICAL,
+                device_id=rt.device.id, body=pool_watch.describe_changes(changes, short=False),
+                data={"changes": [c.model_dump() for c in changes]},
+            )
+            if event is None or event.id is None:
+                raise RuntimeError("the pool settings event was not stored")
+            await self.store.save_pool_watch(row.model_copy(update={"observed": current, "event_id": event.id, "changed_ts": now}))
+            opened = PoolChange(event_id=event.id, since_ts=now, changes=changes)
+        rt.pool_change = opened
 
     async def accept_pool_change(self, device_id: str, event_id: int) -> DeviceView:
-        """The user says the new pool settings are intended: they become HashHurdr's baseline and the event is resolved.
+        """The user says the settings the miner reports now are normal: they become HashHurdr's baseline, the event is resolved.
 
-        Only HashHurdr's own record changes. No driver is used, so nothing is sent to the miner.
+        Those are the unanswered settings, or the recorded ones when the miner has gone back to them. Only HashHurdr's
+        own record changes. No driver is used, so nothing is sent to the miner.
         """
         rt = self.runtimes.get(device_id)
         if rt is None:
@@ -845,10 +857,11 @@ class Fleet:
     async def _accept_pool_change_locked(self, rt: DeviceRuntime, event_id: int) -> DeviceView:
         async with self.store.db.tx():
             row = await self.store.get_pool_watch(rt.device.id)
-            if row is None or row.observed is None or row.event_id != event_id:
+            if row is None or row.event_id != event_id:
                 raise pool_watch.PoolChangeNotPending(event_id)
+            reported = row.observed if row.observed is not None else row.baseline  # after a return: the recorded settings
             await self.store.save_pool_watch(row.model_copy(update={
-                "baseline": row.observed, "baseline_ts": time.time(), "observed": None, "event_id": None, "changed_ts": None}))
+                "baseline": reported, "baseline_ts": time.time(), "observed": None, "event_id": None, "changed_ts": None}))
             await self.store.ack_event(event_id)
         rt.pool_change = None
         rt.pool_sightings.reset()

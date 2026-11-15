@@ -154,7 +154,8 @@ def event_title(miner: str) -> str:
     return text.EVENT_TITLE.format(miner=miner)
 
 
-def _changes_of(ev: dict[str, Any]) -> list[PoolChangeItem]:
+def changes_of(ev: dict[str, Any]) -> list[PoolChangeItem]:
+    """The changes a ``pool_settings_changed`` event carries (an unreadable entry is logged and left out)."""
     raw = (ev.get("data") or {}).get("changes") or []
     changes: list[PoolChangeItem] = []
     for item in raw:
@@ -167,7 +168,7 @@ def _changes_of(ev: dict[str, Any]) -> list[PoolChangeItem]:
 
 def notification_content(ev: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
     """Title, body and data of the notification for a ``pool_settings_changed`` event. Payout addresses are shortened."""
-    changes = _changes_of(ev)
+    changes = changes_of(ev)
     short = [c.model_copy(update={"old": _maybe_short(c, c.old, short=True), "new": _maybe_short(c, c.new, short=True)})
              for c in changes]
     title = str(ev.get("title") or text.RULE_LABEL)
