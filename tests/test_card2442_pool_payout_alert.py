@@ -7,6 +7,7 @@ HashHurdr only reads. It remembers, per miner, the pool host, port and payout ad
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import sqlite3
@@ -484,6 +485,84 @@ async def test_a_change_made_while_stopped_is_reported_once_after_the_restart(la
     finally:
         await fleet.stop()
     assert len(await pool_events(ctx)) == 1
+
+
+GATED_WINDOW_S = 2.0  # how long the startup rebuild is held while the miner's poll tasks are woken
+CONFIRM_WITHIN_S = 5.0  # generous bound for the polls that confirm a change; they take milliseconds
+WAKE_TICK_S = 0.005
+THIRD = {**CHANGED_PRIMARY, "host": "third.example.net"}  # what the miner reports in the startup test below
+
+
+async def wake_until(fleet, predicate, seconds: float) -> bool:
+    """Wake the real poll tasks of ``fleet`` over and over until ``predicate`` holds or the time is up."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + seconds
+    while not await predicate() and loop.time() < deadline:
+        for rt in fleet.runtimes.values():
+            rt.wake.set()
+        await asyncio.sleep(WAKE_TICK_S)
+    return await predicate()
+
+
+@pytest.mark.parametrize("via_route", [True, False], ids=["route", "fleet"])
+async def test_a_startup_rebuild_never_replaces_a_newer_pool_change(api, monkeypatch, via_route):
+    """The rebuild after a restart reads the waiting change and its event. A poll must not be able to confirm a newer
+    change in between and then have the older one put back, which would leave the notice showing a change that can no
+    longer be answered."""
+    c, ctx, hosts = api
+    did, sim, first = await raised(ctx, hosts)  # a change that waits for an answer, as at a restart
+    sim.settings["stratumURL"] = "third.example.net"  # a different change, which the polls confirm after the restart
+    monkeypatch.setattr("bsmm.engine.fleet.random.uniform", lambda low, high: 0.0)  # the first poll starts at once
+    rebuilding, release = asyncio.Event(), asyncio.Event()
+    get_event = ctx.store.get_event
+
+    async def held(event_id):  # the rebuild is slow to read the event of the waiting change
+        rebuilding.set()
+        await release.wait()
+        return await get_event(event_id)
+
+    monkeypatch.setattr(ctx.store, "get_event", held)
+    fleet = Fleet(ctx.store, ctx.settings, ctx.bus, ctx.events, ctx.http)  # what a restart builds from the saved data
+    starting = asyncio.create_task(fleet.start())
+    try:
+        await asyncio.wait_for(rebuilding.wait(), CONFIRM_WITHIN_S)
+
+        async def newer_event_exists():
+            return len(await pool_events(ctx)) == 2
+
+        await wake_until(fleet, newer_event_exists, GATED_WINDOW_S)  # polls that run while the rebuild waits
+        release.set()
+        await asyncio.wait_for(starting, CONFIRM_WITHIN_S)
+
+        async def notice_shows_newest_event():
+            found = await pool_events(ctx)
+            pending = fleet.view(did).pool_change
+            return len(found) == 2 and pending is not None and pending.event_id == found[0].id
+
+        assert await wake_until(fleet, notice_shows_newest_event, CONFIRM_WITHIN_S), (
+            "the notice must show the newer change, not the one it replaced")
+        second, older = await pool_events(ctx)
+        assert older.id == first.id and older.ack_ts is not None and second.ack_ts is None
+        tasks = [rt.task for rt in fleet.runtimes.values() if rt.task]
+        for task in tasks:  # nothing polls from here on, so the miner's request log only changes if Accept sends something
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        calls_before = list(sim.calls)
+        if via_route:
+            monkeypatch.setattr(ctx, "fleet", fleet)
+            response = await c.post(ACCEPT.format(second.id))
+            assert response.status_code == 200, response.text
+        else:
+            assert (await fleet.accept_pool_change(did, second.id)).pool_change is None
+        assert sim.calls == calls_before, "accepting must not send a single request to the miner"
+        row = await ctx.store.get_pool_watch(did)
+        assert row.baseline == [THIRD, FALLBACK] and row.observed is None and row.event_id is None
+        assert fleet.view(did).pool_change is None
+        assert (await ctx.store.get_event(second.id)).ack_ts is not None
+    finally:
+        release.set()
+        await asyncio.gather(starting, return_exceptions=True)
+        await fleet.stop()
 
 
 # --- Accept: only HashHurdr's own record changes -------------------------------------------------------------------------
