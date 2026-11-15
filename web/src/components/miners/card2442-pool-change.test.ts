@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import { pendingConfirm } from '@/composables/useConfirm'
 import { api } from '@/lib/api'
 import type { DeviceView } from '@/lib/types'
 import { useLive } from '@/stores/live'
+import { useSession } from '@/stores/session'
 import MinerTile from './MinerTile.vue'
 import PoolChangeNotice from './PoolChangeNotice.vue'
 
@@ -35,7 +37,7 @@ function device(over: Partial<DeviceView> = {}): DeviceView {
       since_ts: 1000,
       changes: [
         { slot: 'primary', setting: 'payout_address', old: OLD_ADDR, new: NEW_ADDR },
-        { slot: 'primary', setting: 'pool_address', old: 'pool.example.net', new: 'evil.example.net' },
+        { slot: 'primary', setting: 'pool_address', old: 'pool.example.net', new: 'other-pool.example.net' },
         { slot: 'fallback', setting: 'pool_port', old: '3333', new: null },
       ],
     },
@@ -43,10 +45,20 @@ function device(over: Partial<DeviceView> = {}): DeviceView {
   } as unknown as DeviceView
 }
 
-const RouterLinkStub = { template: '<a><slot /></a>' }
+function mountTile(d: DeviceView) {
+  const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/miners/:id', component: { template: '<div />' } }] })
+  return mount(MinerTile, { props: { device: d }, global: { plugins: [router] } })
+}
+
+function signIn(scope: 'read' | 'control'): void {
+  const session = useSession()
+  session.state = 'ready'
+  session.me = { name: 'tester', scope, via: 'token' }
+}
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  signIn('control')
   vi.stubGlobal('fetch', vi.fn(() => { throw new Error('Unexpected transport: mock the pool change endpoint') }))
 })
 afterEach(() => {
@@ -58,12 +70,13 @@ afterEach(() => {
 
 describe('card 2442: pool or payout settings changed', () => {
   it('shows a badge on the miner tile only while a change is unresolved', () => {
-    const open = mount(MinerTile, { props: { device: device() }, global: { stubs: { RouterLink: RouterLinkStub } } })
+    const open = mountTile(device())
     expect(open.find('[data-testid="pool-change-badge"]').exists()).toBe(true)
-    const quiet = mount(MinerTile, { props: { device: device({ pool_change: null }) }, global: { stubs: { RouterLink: RouterLinkStub } } })
+    const quiet = mountTile(device({ pool_change: null }))
     expect(quiet.find('[data-testid="pool-change-badge"]').exists()).toBe(false)
-    const old = mount(MinerTile, { props: { device: device({ pool_change: undefined }) }, global: { stubs: { RouterLink: RouterLinkStub } } })
-    expect(old.find('[data-testid="pool-change-badge"]').exists()).toBe(false)
+    const legacy = device() // a server from before this feature sends no pool_change at all
+    delete legacy.pool_change
+    expect(mountTile(legacy).find('[data-testid="pool-change-badge"]').exists()).toBe(false)
   })
 
   it('lists every changed setting with its full old and new value', () => {
@@ -72,13 +85,20 @@ describe('card 2442: pool or payout settings changed', () => {
     expect(text).toContain(OLD_ADDR)
     expect(text).toContain(NEW_ADDR)
     expect(text).toContain('pool.example.net')
-    expect(text).toContain('evil.example.net')
+    expect(text).toContain('other-pool.example.net')
     expect(wrapper.findAll('[data-testid="pool-change-row"]')).toHaveLength(3)
   })
 
   it('renders nothing when there is no unresolved change', () => {
     const wrapper = mount(PoolChangeNotice, { props: { device: device({ pool_change: null }) } })
     expect(wrapper.find('[data-testid="pool-change-notice"]').exists()).toBe(false)
+  })
+
+  it('offers no Accept button to a read-only session', () => {
+    signIn('read')
+    const wrapper = mount(PoolChangeNotice, { props: { device: device() } })
+    expect(wrapper.find('[data-testid="pool-change-notice"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="accept-pool-change"]').exists()).toBe(false)
   })
 
   it('accepts only after the user confirms, with one call to HashHurdr and an updated miner view', async () => {

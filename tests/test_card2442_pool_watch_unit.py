@@ -129,7 +129,7 @@ def test_notification_text_shortens_payout_addresses_but_not_pool_hosts_or_ports
         "device_id": "dev_1",
         "data": {"changes": [
             {"slot": "primary", "setting": "payout_address", "old": ADDR_A, "new": ADDR_B},
-            {"slot": "primary", "setting": "pool_address", "old": "pool.example.net", "new": "evil.example.net"},
+            {"slot": "primary", "setting": "pool_address", "old": "pool.example.net", "new": "other-pool.example.net"},
             {"slot": "primary", "setting": "pool_port", "old": "3333", "new": "4444"},
         ]},
     }
@@ -138,5 +138,5 @@ def test_notification_text_shortens_payout_addresses_but_not_pool_hosts_or_ports
     for address in (ADDR_A, ADDR_B):
         assert address not in text, "the notification must not carry a full address"
         assert address[:8] in text and address[-6:] in text
-    assert "evil.example.net" in text and "pool.example.net" in text and "4444" in text
+    assert "other-pool.example.net" in text and "pool.example.net" in text and "4444" in text
     assert "Garage" in title

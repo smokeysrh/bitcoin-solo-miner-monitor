@@ -42,8 +42,8 @@ PASSWORD = "pw-hunter2-never-show"
 PRIMARY = {"slot": "primary", "host": "192.168.1.10", "port": 2018, "payout": ADDR_A}
 FALLBACK = {"slot": "fallback", "host": "solo.ckpool.org", "port": 3333, "payout": ADDR_A}
 BASELINE = [PRIMARY, FALLBACK]
-CHANGED_PRIMARY = {"slot": "primary", "host": "evil.example.net", "port": 4444, "payout": ADDR_B}
-CHANGED = {"stratumURL": "evil.example.net", "stratumPort": 4444, "stratumUser": f"{ADDR_B}.sim1"}
+CHANGED_PRIMARY = {"slot": "primary", "host": "other-pool.example.net", "port": 4444, "payout": ADDR_B}
+CHANGED = {"stratumURL": "other-pool.example.net", "stratumPort": 4444, "stratumUser": f"{ADDR_B}.sim1"}
 ORIGINAL = {"stratumURL": "192.168.1.10", "stratumPort": 2018, "stratumUser": f"{ADDR_A}.sim1"}
 
 
@@ -176,13 +176,13 @@ async def test_removing_a_miner_removes_its_baseline(lan):
 @pytest.mark.parametrize(
     ("patch", "expected"),
     [
-        ({"stratumURL": "evil.example.net"}, [("primary", "pool_address", "192.168.1.10", "evil.example.net")]),
+        ({"stratumURL": "other-pool.example.net"}, [("primary", "pool_address", "192.168.1.10", "other-pool.example.net")]),
         ({"stratumPort": 4444}, [("primary", "pool_port", "2018", "4444")]),
         ({"stratumUser": f"{ADDR_B}.sim1"}, [("primary", "payout_address", ADDR_A, ADDR_B)]),
         ({"fallbackStratumURL": "other.example.net"}, [("fallback", "pool_address", "solo.ckpool.org", "other.example.net")]),
         ({"fallbackStratumPort": 4444}, [("fallback", "pool_port", "3333", "4444")]),
         ({"fallbackStratumUser": f"{ADDR_B}.x"}, [("fallback", "payout_address", ADDR_A, ADDR_B)]),
-        ({"stratumURL": "  EVIL.Example.NET "}, [("primary", "pool_address", "192.168.1.10", "evil.example.net")]),
+        ({"stratumURL": "  OTHER-POOL.Example.NET "}, [("primary", "pool_address", "192.168.1.10", "other-pool.example.net")]),
         ({"stratumUser": f"{ADDR_B.upper()}.sim1"}, [("primary", "payout_address", ADDR_A, ADDR_B)]),
     ],
 )
@@ -317,7 +317,7 @@ async def test_a_confirmed_change_raises_one_critical_event_with_full_old_and_ne
     await poll(ctx, did)
     [ev] = await pool_events(ctx)
     assert ev.severity == Severity.CRITICAL and ev.device_id == did and ev.ack_ts is None
-    assert changes_of(ev) == [("primary", "pool_address", "192.168.1.10", "evil.example.net"),
+    assert changes_of(ev) == [("primary", "pool_address", "192.168.1.10", "other-pool.example.net"),
                               ("primary", "pool_port", "2018", "4444"), ("primary", "payout_address", ADDR_A, ADDR_B)]
     pending = ctx.fleet.view(did).pool_change
     assert pending is not None and pending.event_id == ev.id
@@ -497,7 +497,7 @@ async def test_the_dashboard_api_keeps_full_values_while_the_notification_shorte
     for address in (ADDR_A, ADDR_B):
         assert address not in text, "a notification must not carry a full payout address"
         assert address[:8] in text and address[-6:] in text
-    assert "evil.example.net" in text and "4444" in text
+    assert "other-pool.example.net" in text and "4444" in text
 
     listed = (await c.get("/api/v1/events", params={"type": EVENT_TYPE})).json()["events"]
     assert [e["id"] for e in listed] == [ev.id]
