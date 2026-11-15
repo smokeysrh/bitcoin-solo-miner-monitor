@@ -389,7 +389,7 @@ async def list_tokens(ctx: AppContext = Depends(get_ctx), _: Principal = Depends
 
 
 @router.post("/auth/tokens", tags=["auth"], operation_id="createToken", summary="Create an API token for a script or AI agent (admin)",
-             description="The token is returned **once**. Scopes: `read` (look), `control` (scan, add and edit miners), `admin` (settings, tokens).")
+             description="The token is returned **once**. Scopes: `read` (look), `control` (scan, add, edit or remove miners in HashHurdr's own list, mark alerts seen, send test notifications, check for updates, dismiss insights), `admin` (settings, sources, notification channels, alert rules, tokens).")
 async def create_token(body: TokenBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("admin"))) -> dict[str, Any]:
     exp = time.time() + body.expires_days * 86400 if body.expires_days else None
     token_id, token = await ctx.store.create_token(body.name, body.scope, exp)

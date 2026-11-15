@@ -52,7 +52,7 @@ Read the running app's `/llms.txt` or `/api/v1/agent/guide` first. Set authentic
 
 For discovery without adoption, use `bsmm discover --cidr 192.168.1.0/24 --json` with the user's actual private range. Show the miner and source candidates, then wait for confirmation. The guide's API flow can adopt selected `host:port` keys from that scan.
 
-`bsmm setup --yes` skips confirmation and can adopt all newly found miners and connect a discovered Public Pool. Use it only after the user approves that behavior and scan range. It scans again, so use the API flow when approval is limited to specific candidates. `--yes` also skips the password prompt: arrange authentication first. Its output can contain a new admin token; keep it out of chat and logs, then use a read-scoped token for monitoring. Ask before miner controls, pool or payout changes, tuning, firmware changes or deletion.
+`bsmm setup --yes` skips confirmation and can adopt all newly found miners and connect a discovered Public Pool. Use it only after the user approves that behavior and scan range. It scans again, so use the API flow when approval is limited to specific candidates. `--yes` also skips the password prompt: arrange authentication first. Its output can contain a new admin token; keep it out of chat and logs, then use a read-scoped token for monitoring. Ask before deleting data or doing another destructive action.
 
 ### Upgrades and backups
 

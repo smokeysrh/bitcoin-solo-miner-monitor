@@ -4,7 +4,7 @@ A wrong model name is worse than no name, so identification only uses what the d
 
 The rules live in [`src/bsmm/drivers/catalog.py`](../src/bsmm/drivers/catalog.py) and are covered by `tests/test_catalog.py`. The approach, the ESP-Miner board table and the Lucky Miner / Avalon rules come from the `feature/home-miner-identification` work on the 0.9 code base, which found that the old guesses called a Bitaxe Gamma (board 602) a Hex, a Lucky Miner LV08 a Magic Miner, and every cgminer device an Avalon.
 
-Support follows firmware and protocol: AxeOS HTTP and compatible cgminer TCP replies. The tables below describe identification rules. Simulator tests exercise generated replies; recorded fixtures exercise captured replies. Physical hardware checks apply to the device and firmware actually checked. A familiar model name alone cannot guarantee every reading or control on another firmware build.
+Support follows firmware and protocol: AxeOS HTTP and compatible cgminer TCP replies. The tables below describe identification rules. Simulator tests exercise generated replies; recorded fixtures exercise captured replies. Physical hardware checks apply to the device and firmware actually checked. A familiar model name alone does not tell you every reading on another firmware build.
 
 ## AxeOS family (Bitaxe, NerdQAxe, Lucky Miner, Magic Miner)
 
