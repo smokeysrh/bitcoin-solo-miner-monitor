@@ -55,7 +55,7 @@ async function savePassword(): Promise<void> {
 async function turnOff(): Promise<void> {
   const ok = await confirmDialog({
     title: 'Remove password protection?',
-    message: 'Anyone who can reach this page, on your network, will be able to restart your miners and change their pools.',
+    message: 'Anyone who can reach this page, on your network, has full access to your settings and miner list.',
     confirmLabel: 'Remove protection',
     tone: 'danger',
   })
@@ -132,13 +132,13 @@ async function revoke(t: ApiToken): Promise<void> {
 }
 const scopeHelp: Record<Scope, string> = {
   read: 'Can look at everything but change nothing. Safest for dashboards and most agents.',
-  control: 'Can also restart, pause and change pools on miners. Still cannot change settings.',
+  control: "Can also scan, add, edit and remove miners in HashHurdr's list. Still cannot change settings.",
   admin: 'Can do everything, including settings and creating other tokens.',
 }
 </script>
 
 <template>
-  <SettingsCard title="Password" description="Without one, anyone on your network who opens this page can control your miners. A password takes ten seconds.">
+  <SettingsCard title="Password" description="Without one, anyone on your network who opens this page has full access to your settings and miner list. A password takes ten seconds.">
     <div class="mb-5 flex flex-wrap items-center gap-3">
       <Badge :tone="protectedNow ? 'ok' : 'warn'" dot>{{ protectedNow ? 'Password protected' : 'Open to your network' }}</Badge>
       <Button v-if="protectedNow && admin" variant="ghost" size="sm" @click="turnOff">Remove protection</Button>
@@ -187,7 +187,7 @@ const scopeHelp: Record<Scope, string> = {
     <form v-else class="space-y-4" @submit.prevent="createToken">
       <Field label="Name"><template #default="{ id }"><Input :id="id" v-model="tokenForm.name" placeholder="Claude on my laptop" data-testid="token-name" /></template></Field>
       <Field label="Power" :hint="scopeHelp[tokenForm.scope]">
-        <template #default="{ id, describedBy }"><Select :id="id" v-model="tokenForm.scope" :described-by="describedBy" :options="[{ value: 'read', label: 'Read only' }, { value: 'control', label: 'Read and control miners' }, { value: 'admin', label: 'Full access' }]" /></template>
+        <template #default="{ id, describedBy }"><Select :id="id" v-model="tokenForm.scope" :described-by="describedBy" :options="[{ value: 'read', label: 'Read only' }, { value: 'control', label: 'Read and edit miner list' }, { value: 'admin', label: 'Full access' }]" /></template>
       </Field>
       <Field label="Expires after (days)" hint="Leave empty for no expiry."><template #default="{ id }"><Input :id="id" v-model="tokenForm.days" type="number" :min="1" :max="3650" suffix="days" /></template></Field>
       <p v-if="tokenError" class="text-sm text-bad" role="alert">{{ tokenError }}</p>

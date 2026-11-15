@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, ExternalLink, EllipsisVertical, Eye, Flashlight, Pause, Play, RefreshCw, RotateCcw, Trash2 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { ArrowDown, ArrowUp, ExternalLink, EllipsisVertical, Eye, RefreshCw, Trash2 } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
-import { useMinerActions } from '@/composables/useMinerActions'
+import { useMinerMonitor } from '@/composables/useMinerMonitor'
 import { tempLevel } from '@/lib/format'
 import type { DeviceView } from '@/lib/types'
+import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import Badge, { type Tone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
@@ -18,22 +18,19 @@ export type SortKey = 'name' | 'status' | 'hashrate' | 'temp' | 'power' | 'effic
 
 const props = defineProps<{
   devices: DeviceView[]
-  selectable?: boolean
-  selected: Set<string>
   sortKey: SortKey
   sortDir: 'asc' | 'desc'
 }>()
-const emit = defineEmits<{ toggle: [id: string]; toggleAll: [on: boolean]; sort: [key: SortKey] }>()
+const emit = defineEmits<{ sort: [key: SortKey] }>()
 
 const fmt = useFmt()
 const settings = useSettings()
-const actions = useMinerActions()
+const session = useSession()
+const monitor = useMinerMonitor()
 const router = useRouter()
 
 /** aria-sort belongs on the column header cell, not on the button inside it */
 const sortAttr = (key: SortKey): 'ascending' | 'descending' | undefined => (props.sortKey === key ? (props.sortDir === 'asc' ? 'ascending' : 'descending') : undefined)
-
-const allSelected = computed(() => props.devices.length > 0 && props.devices.every((d) => props.selected.has(d.id)))
 
 const statusMeta: Record<string, { label: string; tone: Tone }> = {
   online: { label: 'Online', tone: 'ok' },
@@ -61,18 +58,12 @@ function tempTone(d: DeviceView): string {
 }
 
 function rowMenu(d: DeviceView): MenuItem[] {
-  const paused = d.status === 'paused'
   const items: MenuItem[] = [
     { label: 'Open details', icon: Eye, run: () => void router.push(`/miners/${d.id}`) },
-    { label: 'Refresh now', icon: RefreshCw, run: () => void actions.pollNow(d) },
+    { label: 'Refresh now', icon: RefreshCw, run: () => void monitor.pollNow(d) },
   ]
   if (d.web_url || d.host) items.push({ label: "Open the miner's own page", icon: ExternalLink, run: () => window.open(d.web_url ?? `http://${d.host}${d.port && d.port !== 80 ? ':' + d.port : ''}`, '_blank', 'noopener') })
-  const control: MenuItem[] = []
-  if (actions.can(d, 'identify')) control.push({ label: 'Flash to identify', icon: Flashlight, run: () => void actions.identify(d) })
-  if (actions.can(d, 'pause')) control.push(paused ? { label: 'Resume mining', icon: Play, run: () => void actions.resume(d) } : { label: 'Pause mining', icon: Pause, run: () => void actions.pause(d) })
-  if (actions.can(d, 'restart')) control.push({ label: 'Restart', icon: RotateCcw, run: () => void actions.restart(d) })
-  if (control.length) items.push({ separator: true }, ...control)
-  if (actions.can(d, 'restart') || d.allow_control) items.push({ separator: true }, { label: 'Stop monitoring', icon: Trash2, danger: true, run: () => void actions.remove(d) })
+  if (session.canControl) items.push({ separator: true }, { label: 'Stop monitoring', icon: Trash2, danger: true, run: () => void monitor.remove(d) })
   return items
 }
 </script>
@@ -83,9 +74,6 @@ function rowMenu(d: DeviceView): MenuItem[] {
       <table class="w-full min-w-[720px] border-collapse text-sm" data-testid="miner-table">
         <thead>
           <tr class="border-b border-line text-xs text-subtle">
-            <th v-if="selectable" class="w-10 py-3 pl-4">
-              <input type="checkbox" class="size-4 accent-[var(--accent)]" :checked="allSelected" aria-label="Select all miners" @change="emit('toggleAll', ($event.target as HTMLInputElement).checked)" />
-            </th>
             <th class="py-3 pr-3 pl-4 text-left font-medium" :aria-sort="sortAttr('name')">
               <button class="inline-flex items-center gap-1 hover:text-fg" @click="emit('sort', 'name')">
                 Miner <component :is="sortDir === 'asc' ? ArrowUp : ArrowDown" v-if="sortKey === 'name'" class="size-3" />
@@ -108,12 +96,9 @@ function rowMenu(d: DeviceView): MenuItem[] {
           <tr
             v-for="d in devices"
             :key="d.id"
-            :class="['group border-b border-line/60 transition-colors last:border-0 hover:bg-surface-2/70', selected.has(d.id) && 'bg-accent-softer']"
+            class="group border-b border-line/60 transition-colors last:border-0 hover:bg-surface-2/70"
             :data-testid="`miner-row-${d.id}`"
           >
-            <td v-if="selectable" class="py-3 pl-4">
-              <input type="checkbox" class="size-4 accent-[var(--accent)]" :checked="selected.has(d.id)" :aria-label="`Select ${d.name}`" @change="emit('toggle', d.id)" />
-            </td>
             <td class="max-w-[260px] py-3 pr-3 pl-4">
               <RouterLink :to="`/miners/${d.id}`" class="flex items-center gap-2.5">
                 <StatusDot :status="d.status" class="md:hidden" />

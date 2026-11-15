@@ -70,26 +70,11 @@ test('rename a miner and see it everywhere', async ({ page }) => {
   await expect(page.getByTestId('device-title')).toHaveText(original)
 })
 
-test('restarting a miner asks first, then confirms', async ({ page }) => {
-  await page.goto('/miners')
-  await page.locator('[data-testid^="miner-tile-"]').first().click()
-  await page.getByTestId('restart').click()
-  await expect(page.getByRole('dialog')).toContainText('Restart')
-  await page.getByRole('button', { name: 'Restart', exact: true }).last().click()
-  await expect(page.getByText(/is restarting/)).toBeVisible()
-})
-
-test('miners table view sorts and bulk-selects', async ({ page }) => {
+test('miners table view sorts', async ({ page }) => {
   await page.goto('/miners')
   await page.getByRole('radio', { name: 'Table' }).click()
   await expect(page.getByTestId('miner-table')).toBeVisible()
   await page.getByRole('button', { name: /^Hashrate/ }).click()
-  await page.getByTestId('select-mode').click()
-  await page.getByLabel('Select all miners').check()
-  await expect(page.getByTestId('bulk-bar')).toContainText('5 selected')
-  await page.getByRole('button', { name: 'Flash' }).click()
-  await expect(page.getByRole('dialog')).toContainText('Flash miners')
-  await page.keyboard.press('Escape')
 })
 
 test('command palette jumps to a page and to a miner', async ({ page }) => {

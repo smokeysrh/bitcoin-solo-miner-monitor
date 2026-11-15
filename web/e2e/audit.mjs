@@ -12,7 +12,7 @@ const CHROME = process.env.CHROME
 await requireDemo(BASE)
 mkdirSync(OUT, { recursive: true })
 
-const ROUTES = (process.env.ROUTES ?? '/,/miners,/bitcoin,/odds,/analytics,/alerts,/alerts?tab=rules,/agents,/settings/general,/settings/appearance,/settings/sources,/settings/notifications,/settings/energy,/settings/safety,/settings/security,/settings/data,/settings/about,/kiosk,/setup').split(',')
+const ROUTES = (process.env.ROUTES ?? '/,/miners,/bitcoin,/odds,/analytics,/alerts,/alerts?tab=rules,/agents,/settings/general,/settings/appearance,/settings/sources,/settings/notifications,/settings/energy,/settings/security,/settings/data,/settings/about,/kiosk,/setup').split(',')
 const SIZES = [
   { name: 'desktop', width: 1440, height: 900 },
   { name: 'phone', width: 390, height: 844 },

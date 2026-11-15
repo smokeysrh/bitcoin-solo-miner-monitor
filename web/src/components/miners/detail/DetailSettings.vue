@@ -2,7 +2,7 @@
 import { Trash2 } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMinerActions } from '@/composables/useMinerActions'
+import { useMinerMonitor } from '@/composables/useMinerMonitor'
 import { api, describeError, type UpdateDeviceBody } from '@/lib/api'
 import type { DeviceView } from '@/lib/types'
 import { useLive } from '@/stores/live'
@@ -21,7 +21,7 @@ const live = useLive()
 const toasts = useToasts()
 const session = useSession()
 const router = useRouter()
-const actions = useMinerActions()
+const monitor = useMinerMonitor()
 /** Why the app thinks this is the model it says: the facts the miner reported about itself. */
 const evidence = computed(() => {
   const e = props.device.extra.model_evidence
@@ -36,7 +36,6 @@ interface Form {
   notes: string
   model_override: string
   poll_interval_s: number | null
-  allow_control: boolean
   enabled: boolean
   host: string
   port: number | null
@@ -52,7 +51,6 @@ function fromDevice(d: DeviceView): Form {
     notes: d.notes ?? '',
     model_override: d.model_override ?? '',
     poll_interval_s: d.poll_interval_s,
-    allow_control: d.allow_control,
     enabled: d.enabled,
     host: d.host,
     port: d.port,
@@ -100,7 +98,6 @@ async function save(): Promise<void> {
   if (form.notes !== b.notes) body.notes = form.notes || null
   if (form.model_override.trim() !== b.model_override) body.model_override = form.model_override.trim() || null
   if (form.poll_interval_s !== b.poll_interval_s) body.poll_interval_s = form.poll_interval_s
-  if (form.allow_control !== b.allow_control) body.allow_control = form.allow_control
   if (form.enabled !== b.enabled) body.enabled = form.enabled
   if (form.host.trim() !== b.host) body.host = form.host.trim()
   if (form.port !== b.port && form.port) body.port = form.port
@@ -125,7 +122,7 @@ async function save(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (await actions.remove(props.device)) await router.replace('/miners')
+  if (await monitor.remove(props.device)) await router.replace('/miners')
 }
 </script>
 
@@ -141,7 +138,7 @@ async function remove(): Promise<void> {
             <template #default="{ id, describedBy }"><Input :id="id" v-model="form.group" :described-by="describedBy" :disabled="!editable" /></template>
           </Field>
         </div>
-        <Field label="Tags" hint="Alert rules and bulk actions can target tags.">
+        <Field label="Tags" hint="Alert rules can target tags.">
           <template #default="{ id }"><TagInput :id="id" v-model="form.tags" :suggestions="allTags" /></template>
         </Field>
         <Field label="Notes" hint="Anything you want to remember: firmware quirks, where it sits, the PSU it uses.">
@@ -174,7 +171,6 @@ async function remove(): Promise<void> {
 
         <div class="divide-y divide-line border-t border-line">
           <ToggleRow v-model="form.enabled" title="Monitor this miner" description="Switch off to stop checking it without deleting its history." :disabled="!editable" />
-          <ToggleRow v-model="form.allow_control" title="Allow control from this app" description="When off, the app only watches this miner. Restarts, pool and tuning changes are blocked." :disabled="!editable" />
         </div>
 
         <p v-if="error" class="rounded-xl border border-bad/30 bg-bad-soft px-3 py-2.5 text-sm text-bad" role="alert">{{ error }}</p>

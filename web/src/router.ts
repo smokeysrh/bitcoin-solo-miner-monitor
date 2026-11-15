@@ -32,7 +32,6 @@ export const routes: RouteRecordRaw[] = [
       { path: 'sources', name: 'settings-sources', component: () => import('@/pages/settings/SourcesSettings.vue'), meta: { title: 'Node & pool' } },
       { path: 'notifications', name: 'settings-notifications', component: () => import('@/pages/settings/NotificationsSettings.vue'), meta: { title: 'Notifications' } },
       { path: 'energy', name: 'settings-energy', component: () => import('@/pages/settings/EnergySettings.vue'), meta: { title: 'Energy & money' } },
-      { path: 'safety', name: 'settings-safety', component: () => import('@/pages/settings/SafetySettings.vue'), meta: { title: 'Safety' } },
       { path: 'security', name: 'settings-security', component: () => import('@/pages/settings/SecuritySettings.vue'), meta: { title: 'Security' } },
       { path: 'data', name: 'settings-data', component: () => import('@/pages/settings/DataSettings.vue'), meta: { title: 'Data & backup' } },
       { path: 'about', name: 'settings-about', component: () => import('@/pages/settings/AboutSettings.vue'), meta: { title: 'About & health' } },
