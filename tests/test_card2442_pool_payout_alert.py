@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import json
 import sqlite3
+import time
 from pathlib import Path
 
 import httpx
@@ -344,18 +345,98 @@ async def test_a_second_different_change_raises_a_new_event_and_resolves_the_old
     assert second.ack_ts is None and ctx.fleet.view(did).pool_change.event_id == second.id
 
 
-async def test_settings_that_return_to_the_baseline_resolve_the_event(lan):
+async def test_a_change_stays_open_when_the_miner_reports_the_recorded_settings_again(lan):
     ctx, hosts = lan
     did, sim, ev = await raised(ctx, hosts)
     sim.settings.update(ORIGINAL)
-    await polls(ctx, did, THRESHOLD - 1)
-    assert ctx.fleet.view(did).pool_change is not None  # one or two good readings do not settle it
-    await poll(ctx, did)
-    assert ctx.fleet.view(did).pool_change is None
-    [only] = await pool_events(ctx)
-    assert only.id == ev.id and only.ack_ts is not None
+    await polls(ctx, did, THRESHOLD * 3)  # well past the confirmation count
+    [only] = await pool_events(ctx)  # no second event
+    assert only.id == ev.id and only.ack_ts is None, "only the user answers a change"
+    pending = ctx.fleet.view(did).pool_change
+    assert pending is not None and pending.event_id == ev.id and pending.changes
+    assert [(c.slot, c.setting, c.old, c.new) for c in pending.changes] == changes_of(ev)  # still shows what was seen
     row = await ctx.store.get_pool_watch(did)
-    assert row.baseline == BASELINE and row.observed is None and row.event_id is None
+    assert row.baseline == BASELINE and row.event_id == ev.id
+
+
+async def test_a_steady_return_writes_nothing_on_ordinary_polls(lan, monkeypatch):
+    ctx, hosts = lan
+    did, sim, _ = await raised(ctx, hosts)
+    sim.settings.update(ORIGINAL)
+    await polls(ctx, did)  # the return is confirmed once
+    writes = []
+    save = ctx.store.save_pool_watch
+
+    async def counting(row):
+        writes.append(row)
+        await save(row)
+
+    monkeypatch.setattr(ctx.store, "save_pool_watch", counting)
+    await polls(ctx, did, THRESHOLD * 4)
+    assert writes == [], "a miner steadily reporting the recorded settings must not cost a write per poll"
+    assert ctx.fleet.view(did).pool_change is not None
+
+
+@pytest.mark.parametrize("via_route", [True, False], ids=["route", "fleet"])
+async def test_answering_a_change_the_miner_went_back_from_keeps_the_recorded_settings(api, via_route):
+    c, ctx, hosts = api
+    did, sim, ev = await raised(ctx, hosts)
+    sim.settings.update(ORIGINAL)
+    await polls(ctx, did, THRESHOLD * 2)
+    calls_before = list(sim.calls)
+    if via_route:
+        response = await c.post(ACCEPT.format(ev.id))
+        assert response.status_code == 200, response.text
+    else:
+        assert (await ctx.fleet.accept_pool_change(did, ev.id)).pool_change is None
+    assert sim.calls == calls_before, "accepting must not send a single request to the miner"
+    row = await ctx.store.get_pool_watch(did)
+    assert row.baseline == BASELINE, "the abandoned settings never become the record"
+    assert row.observed is None and row.event_id is None and row.changed_ts is None
+    [stored] = await pool_events(ctx)
+    assert stored.id == ev.id and stored.ack_ts is not None
+    assert ctx.fleet.view(did).pool_change is None
+    await polls(ctx, did, THRESHOLD * 2)
+    assert [e.id for e in await pool_events(ctx)] == [ev.id]
+    assert ctx.fleet.view(did).pool_change is None
+    assert (await ctx.store.get_pool_watch(did)).baseline == BASELINE
+
+
+async def test_a_change_the_miner_went_back_from_is_still_open_after_a_restart(lan):
+    ctx, hosts = lan
+    did, sim, ev = await raised(ctx, hosts)
+    sim.settings.update(ORIGINAL)
+    await polls(ctx, did, THRESHOLD)
+    fleet = Fleet(ctx.store, ctx.settings, ctx.bus, ctx.events, ctx.http)  # what a restart builds from the saved data
+    [dev] = await ctx.store.list_devices()
+    rt = fleet._spawn(dev)
+    await fleet._load_pool_changes()
+    try:
+        pending = fleet.view(did).pool_change
+        assert pending is not None and pending.event_id == ev.id and pending.changes
+        assert [(c.slot, c.setting, c.old, c.new) for c in pending.changes] == changes_of(ev)
+        for _ in range(THRESHOLD * 2):
+            await fleet._poll_once(rt)
+        assert fleet.view(did).pool_change is not None
+    finally:
+        await fleet.stop()
+    [only] = await pool_events(ctx)
+    assert only.id == ev.id and only.ack_ts is None
+
+
+async def test_a_different_change_after_a_return_raises_its_own_event(lan):
+    ctx, hosts = lan
+    did, sim, first = await raised(ctx, hosts)
+    sim.settings.update(ORIGINAL)
+    await polls(ctx, did, THRESHOLD * 2)
+    assert (await pool_events(ctx))[0].ack_ts is None  # still waiting for an answer
+    sim.settings["stratumURL"] = "third.example.net"
+    await polls(ctx, did)
+    second, older = await pool_events(ctx)
+    assert older.id == first.id and older.ack_ts is not None  # replaced by the newer change
+    assert second.ack_ts is None and changes_of(second) == [("primary", "pool_address", "192.168.1.10", "third.example.net")]
+    assert ctx.fleet.view(did).pool_change.event_id == second.id
+    assert (await ctx.store.get_pool_watch(did)).baseline == BASELINE
 
 
 async def test_a_restart_does_not_repeat_the_alert(lan):
@@ -453,6 +534,34 @@ async def test_accept_needs_an_event_of_this_kind(api):
     assert (await c.post(ACCEPT.format(999_999))).status_code == 404
     [added] = await ctx.store.list_events(types=["device_added"])
     assert (await c.post(ACCEPT.format(added.id))).status_code == 404
+
+
+@pytest.mark.parametrize("went_back", [False, True], ids=["still_changed", "went_back"])
+async def test_a_waiting_change_stays_answerable_after_event_retention(api, went_back):
+    c, ctx, hosts = api
+    did, sim, ev = await raised(ctx, hosts)
+    if went_back:
+        sim.settings.update(ORIGINAL)
+        await polls(ctx, did, THRESHOLD * 2)
+    [added] = await ctx.store.list_events(types=["device_added"])
+    long_ago = time.time() - 400 * 86400  # far older than any allowed retention (event_days is at least 7)
+    await ctx.store.db.execute("UPDATE events SET ts = ? WHERE id IN (?, ?)", (long_ago, ev.id, added.id))
+
+    await ctx.store.prune_events(keep_days=7)  # the call housekeeping makes with retention.event_days
+
+    assert await ctx.store.get_event(added.id) is None, "ordinary old events are still pruned"
+    assert await ctx.store.get_event(ev.id) is not None, "the event of a waiting change is kept"
+    assert ctx.fleet.view(did).pool_change.event_id == ev.id
+    calls_before = list(sim.calls)
+    response = await c.post(ACCEPT.format(ev.id))
+    assert response.status_code == 200, response.text
+    assert sim.calls == calls_before, "accepting must not send a single request to the miner"
+    row = await ctx.store.get_pool_watch(did)
+    assert row.baseline == (BASELINE if went_back else [CHANGED_PRIMARY, FALLBACK])
+    assert row.observed is None and row.event_id is None
+    assert ctx.fleet.view(did).pool_change is None
+    await ctx.store.prune_events(keep_days=7)  # once answered, the old event follows the normal retention
+    assert await ctx.store.get_event(ev.id) is None
 
 
 async def test_accept_is_a_control_scope_action(api):
