@@ -5,8 +5,10 @@ import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
 import { useNowSec } from '@/composables/useNowSec'
 import { tempLevel } from '@/lib/format'
+import { poolChangeText } from '@/lib/poolChangeText'
 import type { DeviceView } from '@/lib/types'
 import { useSettings } from '@/stores/settings'
+import Badge from '@/components/ui/Badge.vue'
 import Sparkline from '@/components/ui/Sparkline.vue'
 import StatusDot from '@/components/ui/StatusDot.vue'
 
@@ -31,7 +33,7 @@ const down = computed(() => (props.device.status_since ? fmt.formatDuration(now.
       'card card-hover group relative block overflow-hidden p-[var(--pad-card)] outline-none focus-visible:ring-2 focus-visible:ring-focus',
     ]"
     :data-testid="`miner-tile-${device.id}`"
-    :aria-label="`${device.name}, ${device.status}`"
+    :aria-label="`${device.name}, ${device.status}${device.pool_change ? ', ' + poolChangeText.badge : ''}`"
   >
     <span
       v-if="device.status === 'degraded' || offline"
@@ -45,6 +47,7 @@ const down = computed(() => (props.device.status_since ? fmt.formatDuration(now.
           <span class="truncate">{{ device.name }}</span>
         </p>
         <p class="mt-0.5 truncate text-xs text-subtle">{{ device.model_override ?? device.model }}<template v-if="device.tags.length"> · {{ device.tags.join(', ') }}</template></p>
+        <Badge v-if="device.pool_change" tone="bad" size="sm" class="mt-1.5" :title="poolChangeText.badgeTitle" data-testid="pool-change-badge">{{ poolChangeText.badge }}</Badge>
       </div>
       <Sparkline v-if="!dense" :values="device.spark_hashrate_hs" :width="84" :height="30" :color="sparkColor" label="Recent hashrate" />
     </div>

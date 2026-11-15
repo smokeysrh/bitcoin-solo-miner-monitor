@@ -13,6 +13,7 @@ import DetailOverview from '@/components/miners/detail/DetailOverview.vue'
 import DetailPools from '@/components/miners/detail/DetailPools.vue'
 import DetailRaw from '@/components/miners/detail/DetailRaw.vue'
 import DetailSettings from '@/components/miners/detail/DetailSettings.vue'
+import PoolChangeNotice from '@/components/miners/PoolChangeNotice.vue'
 import Badge, { type Tone } from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -114,6 +115,8 @@ async function wrap(key: string, fn: () => Promise<unknown>): Promise<void> {
           </Button>
         </div>
       </header>
+
+      <PoolChangeNotice :device="device" />
 
       <div v-if="device.status === 'offline'" class="flex gap-3 rounded-2xl border border-bad/30 bg-bad-soft p-4" role="alert">
         <WifiOff class="mt-0.5 size-5 shrink-0 text-bad" aria-hidden="true" />

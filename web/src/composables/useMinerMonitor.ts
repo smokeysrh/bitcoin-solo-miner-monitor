@@ -1,12 +1,13 @@
 import { api, describeError } from '@/lib/api'
+import { poolChangeText } from '@/lib/poolChangeText'
 import type { DeviceView } from '@/lib/types'
 import { useLive } from '@/stores/live'
 import { useToasts } from '@/stores/toasts'
 import { confirmDialog } from './useConfirm'
 
 /**
- * What you can do with a miner in HashHurdr's own list: read it again now, or stop monitoring it.
- * Neither touches the miner itself.
+ * What you can do with a miner in HashHurdr's own list: read it again now, stop monitoring it, or accept a change of its
+ * pool settings. None of these touches the miner itself.
  */
 export function useMinerMonitor() {
   const live = useLive()
@@ -40,5 +41,26 @@ export function useMinerMonitor() {
     }
   }
 
-  return { remove, pollNow }
+  /** Ask first, then tell HashHurdr that the new settings are intended. Returns true once HashHurdr's record is updated. */
+  async function acceptPoolChange(d: DeviceView): Promise<boolean> {
+    const change = d.pool_change
+    if (!change) return false
+    const ok = await confirmDialog({
+      title: poolChangeText.confirmTitle,
+      message: poolChangeText.confirmMessage,
+      confirmLabel: poolChangeText.confirmLabel,
+    })
+    if (!ok) return false
+    try {
+      const r = await api.acceptPoolChange(change.event_id)
+      live.upsertDevice(r.device)
+      toasts.success(poolChangeText.acceptedToast(d.name))
+      return true
+    } catch (e) {
+      toasts.error(poolChangeText.acceptFailedToast, describeError(e))
+      return false
+    }
+  }
+
+  return { remove, pollNow, acceptPoolChange }
 }

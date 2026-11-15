@@ -13,7 +13,7 @@ from typing import Any
 
 from bsmm.config import RuntimeConfig
 from bsmm.drivers.base import check_identity
-from bsmm.models import AlertRule, Channel, Device, DeviceInfo, Event, Severity, Source
+from bsmm.models import AlertRule, Channel, Device, DeviceInfo, Event, PoolWatchRow, Severity, Source
 from bsmm.notify.channels import CHANNEL_CLASSES
 from bsmm.storage.db import Database
 from bsmm.storage.samples import SampleStore
@@ -272,6 +272,10 @@ class Store:
             event.id = cur.lastrowid
         return event
 
+    async def get_event(self, event_id: int) -> Event | None:
+        row = await self.db.fetchone("SELECT * FROM events WHERE id = ?", (event_id,))
+        return self._event(row) if row else None
+
     async def list_events(
         self,
         *,
@@ -322,6 +326,44 @@ class Store:
 
     async def prune_events(self, keep_days: float = 180) -> int:
         return await self.db.execute("DELETE FROM events WHERE ts < ?", (time.time() - keep_days * 86400,))
+
+    # -- pool settings baseline (HashHurdr's own record; nothing here is ever written to a miner) ---------------------
+
+    @staticmethod
+    def _pool_watch(row: sqlite3.Row) -> PoolWatchRow:
+        return PoolWatchRow(
+            device_id=row["device_id"],
+            baseline=_l(row["baseline"], []),
+            baseline_ts=row["baseline_ts"],
+            observed=_l(row["observed"], None) if row["observed"] is not None else None,
+            event_id=row["event_id"],
+            changed_ts=row["changed_ts"],
+        )
+
+    async def get_pool_watch(self, device_id: str) -> PoolWatchRow | None:
+        row = await self.db.fetchone("SELECT * FROM pool_watch WHERE device_id = ?", (device_id,))
+        return self._pool_watch(row) if row else None
+
+    async def list_pool_changes(self) -> list[PoolWatchRow]:
+        """Miners whose reported settings differ from the baseline and wait for the user's answer."""
+        rows = await self.db.fetchall("SELECT * FROM pool_watch WHERE observed IS NOT NULL AND event_id IS NOT NULL")
+        return [self._pool_watch(r) for r in rows]
+
+    async def save_pool_watch(self, row: PoolWatchRow) -> None:
+        await self.db.execute(
+            "INSERT INTO pool_watch (device_id, baseline, baseline_ts, observed, event_id, changed_ts) "
+            "VALUES (:device_id,:baseline,:baseline_ts,:observed,:event_id,:changed_ts) "
+            "ON CONFLICT(device_id) DO UPDATE SET baseline=excluded.baseline, baseline_ts=excluded.baseline_ts, "
+            "observed=excluded.observed, event_id=excluded.event_id, changed_ts=excluded.changed_ts",
+            {
+                "device_id": row.device_id,
+                "baseline": _j(row.baseline),
+                "baseline_ts": row.baseline_ts,
+                "observed": _j(row.observed) if row.observed is not None else None,
+                "event_id": row.event_id,
+                "changed_ts": row.changed_ts,
+            },
+        )
 
     # -- alert rules / state -----------------------------------------------------------------------
 

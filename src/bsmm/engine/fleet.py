@@ -24,6 +24,7 @@ from bsmm import mining
 from bsmm.bitcoin_address import parse_address
 from bsmm.drivers.base import Driver, DriverError, check_identity
 from bsmm.drivers.registry import driver_for, probe_host
+from bsmm.engine import pool_watch
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.models import (
@@ -31,7 +32,9 @@ from bsmm.models import (
     DeviceStatus,
     DeviceView,
     FleetSummary,
+    PoolChange,
     PoolUsage,
+    PoolWatchRow,
     ProbeResult,
     Severity,
     Telemetry,
@@ -90,6 +93,10 @@ class DeviceRuntime:
     offline_since: float | None = None
     #: consecutive poll iterations that failed after the miner answered (storage/event errors)
     monitor_failures: int = 0
+    #: a change of the pool or payout settings that the user has not answered yet (shown as a badge)
+    pool_change: PoolChange | None = None
+    #: consecutive polls reporting the same not-yet-confirmed pool settings (the same idea as ``failures``)
+    pool_sightings: pool_watch.PoolSightings = field(default_factory=pool_watch.PoolSightings)
 
 
 @dataclass(slots=True)
@@ -246,6 +253,7 @@ class Fleet:
             await self.store.kv_set("luck.since", time.time())
         for dev in await self.store.list_devices():
             self._spawn(dev)
+        await self._load_pool_changes()
         self._bg = [
             asyncio.create_task(self._writer_loop(), name="sample-writer"),
             asyncio.create_task(self._housekeeping_loop(), name="fleet-housekeeping"),
@@ -487,6 +495,7 @@ class Fleet:
             hashrate_smooth_hs=rt.hashrate_smooth,
             spark_hashrate_hs=spark,
             last_poll_ms=rt.last_poll_ms,
+            pool_change=rt.pool_change,
         )
 
     def views(self) -> list[DeviceView]:
@@ -600,6 +609,7 @@ class Fleet:
         now = time.time()
         rt.failures += 1
         rt.last_error = str(error) or error.__class__.__name__
+        rt.pool_sightings.reset()  # a poll that failed ends any run of identical pool readings
         # An identity mismatch counts like any other failed poll: one odd reading must not flip a working miner
         # offline (#92). A replaced miner still mismatches on every poll, so it reaches the threshold anyway.
         if rt.failures >= cfg.offline_after_failures and rt.status != DeviceStatus.OFFLINE:
@@ -756,6 +766,97 @@ class Fleet:
         elif t.firmware and not dev.firmware:
             dev.firmware = t.firmware
             await self.store.save_device(dev)
+        await self._watch_pool_settings(rt, t)
+
+    # -- pool and payout settings (safety alert; reads only, HashHurdr's own record is the only thing written) ------------
+
+    async def _load_pool_changes(self) -> None:
+        """After a restart, show the badge again for every change that is still waiting for the user's answer."""
+        for row in await self.store.list_pool_changes():
+            rt = self.runtimes.get(row.device_id)
+            if rt is None or row.observed is None or row.event_id is None:
+                continue
+            rt.pool_change = PoolChange(event_id=row.event_id, since_ts=row.changed_ts or row.baseline_ts,
+                                        changes=pool_watch.diff(row.baseline, row.observed))
+
+    async def _watch_pool_settings(self, rt: DeviceRuntime, t: Telemetry) -> None:
+        """Compare what the miner reports with HashHurdr's baseline; raise one event for a confirmed change.
+
+        The first reading becomes the baseline without an alert. Settings that differ must then be reported by
+        ``offline_after_failures`` polls in a row (the count that also decides when a miner is offline) before they count:
+        one odd reading, an empty pool list, or a poll that failed does not. The event and the record change in one
+        transaction, so a failure leaves nothing half done and the next poll tries again.
+        """
+        current = pool_watch.fingerprint(t.pools)
+        if not current:  # the miner reported no pool at all: no evidence either way, and it ends any run of readings
+            rt.pool_sightings.reset()
+            return
+        now = time.time()
+        pending = rt.pool_change
+        known = await self.store.get_pool_watch(rt.device.id)
+        if known is not None and current == known.confirmed:  # the usual poll: nothing to write, so no transaction
+            rt.pool_sightings.reset()
+            return
+        async with self.store.db.tx():
+            row = await self.store.get_pool_watch(rt.device.id)  # read again inside the transaction that may change it
+            if row is None:
+                await self.store.save_pool_watch(PoolWatchRow(device_id=rt.device.id, baseline=current, baseline_ts=now))
+                rt.pool_sightings.reset()
+                return
+            if current == row.confirmed:
+                rt.pool_sightings.reset()
+                return
+            if rt.pool_sightings.note(current) < self.settings.current.polling.offline_after_failures:
+                return
+            rt.pool_sightings.reset()
+            if row.event_id is not None:  # the answer to an earlier change is replaced by this one (or by a return to normal)
+                await self.store.ack_event(row.event_id)
+            changes = pool_watch.diff(row.baseline, current)
+            if current == row.baseline or not changes:
+                await self.store.save_pool_watch(row.model_copy(update={"observed": None, "event_id": None, "changed_ts": None}))
+                pending = None
+            else:
+                event = await self.events.emit(
+                    pool_watch.EVENT_TYPE, pool_watch.event_title(rt.device.name), severity=Severity.CRITICAL,
+                    device_id=rt.device.id, body=pool_watch.describe_changes(changes, short=False),
+                    data={"changes": [c.model_dump() for c in changes]},
+                )
+                if event is None or event.id is None:
+                    raise RuntimeError("the pool settings event was not stored")
+                await self.store.save_pool_watch(row.model_copy(update={"observed": current, "event_id": event.id, "changed_ts": now}))
+                pending = PoolChange(event_id=event.id, since_ts=now, changes=changes)
+        rt.pool_change = pending
+
+    async def accept_pool_change(self, device_id: str, event_id: int) -> DeviceView:
+        """The user says the new pool settings are intended: they become HashHurdr's baseline and the event is resolved.
+
+        Only HashHurdr's own record changes. No driver is used, so nothing is sent to the miner.
+        """
+        rt = self.runtimes.get(device_id)
+        if rt is None:
+            raise KeyError(device_id)
+        async with rt.lock:
+            if rt.removing or self.runtimes.get(device_id) is not rt:
+                raise KeyError(device_id)
+            if self._stopping:
+                raise PermissionError("The monitor is stopping.")
+            return await _complete(asyncio.create_task(self._accept_pool_change_locked(rt, event_id)))
+
+    async def _accept_pool_change_locked(self, rt: DeviceRuntime, event_id: int) -> DeviceView:
+        async with self.store.db.tx():
+            row = await self.store.get_pool_watch(rt.device.id)
+            if row is None or row.observed is None or row.event_id != event_id:
+                raise pool_watch.PoolChangeNotPending(event_id)
+            await self.store.save_pool_watch(row.model_copy(update={
+                "baseline": row.observed, "baseline_ts": time.time(), "observed": None, "event_id": None, "changed_ts": None}))
+            await self.store.ack_event(event_id)
+        rt.pool_change = None
+        rt.pool_sightings.reset()
+        view = self.view(rt.device.id)
+        if view is None:  # cannot happen while the device lock is held; kept explicit instead of an assert
+            raise KeyError(rt.device.id)
+        self.bus.publish("device", {"id": view.id, "view": view.model_dump(mode="json")})
+        return view
 
     # -- background loops ----------------------------------------------------------------------------------------------
 

@@ -20,6 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from bsmm.engine import pool_change_text, pool_watch
 from bsmm.engine.bus import EventBus
 from bsmm.engine.fleet import Fleet
 from bsmm.engine.network import NetworkService
@@ -110,6 +111,8 @@ RULE_SPECS: dict[str, RuleSpec] = {s.kind: s for s in (
              event_type="difficulty_adjusted", cooldown_s=0),
     RuleSpec("firmware_changed", "Firmware changes", "A miner is running different firmware than before.", "event", Severity.INFO, False,
              event_type="firmware_changed", cooldown_s=0),
+    RuleSpec(pool_watch.EVENT_TYPE, pool_change_text.RULE_LABEL, pool_change_text.RULE_DESCRIPTION, "event", Severity.CRITICAL, True,
+             event_type=pool_watch.EVENT_TYPE, cooldown_s=0),
 )}
 
 
@@ -584,8 +587,10 @@ class AlertEngine:
             if rule.cooldown_s > 0 and now - last < rule.cooldown_s:
                 continue
             sev = rule.severity
-            n = Notification(title=str(ev.get("title", rule.name)), body=str(ev.get("body") or ""), severity=sev, type=rule.kind,
-                             device_id=ev.get("device_id"), data=ev.get("data") or {})
+            title, body, data = str(ev.get("title", rule.name)), str(ev.get("body") or ""), ev.get("data") or {}
+            if etype == pool_watch.EVENT_TYPE:  # notifications carry shortened payout addresses; the event keeps them in full
+                title, body, data = pool_watch.notification_content(ev)
+            n = Notification(title=title, body=body, severity=sev, type=rule.kind, device_id=ev.get("device_id"), data=data)
             await self.notifier.dispatch(n, rule.channel_ids or None)
             # A dispatch attempt is acknowledged only after it completes. Provider failures
             # are recorded by Notifier; cancellation before this point is replayable.

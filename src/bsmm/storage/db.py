@@ -192,8 +192,24 @@ def _v2() -> str:
                      for table, _, _ in mx.LEVELS for m in mx.METRICS if m.kind != "counter")
 
 
+def _v3() -> str:
+    # HashHurdr's own record of each miner's pool settings (card #2442). New table only: no existing row is touched, and a
+    # miner without a row simply gets its baseline from its next reading. ``baseline`` and ``observed`` hold JSON lists of
+    # {slot, host, port, payout}; ``observed`` and ``event_id`` are set only while a change awaits the user's answer.
+    return """
+CREATE TABLE pool_watch (
+  device_id TEXT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+  baseline TEXT NOT NULL,
+  baseline_ts REAL NOT NULL,
+  observed TEXT,
+  event_id INTEGER,
+  changed_ts REAL
+);
+"""
+
+
 #: (version, script). Never edit a released migration; append a new one.
-MIGRATIONS: list[tuple[int, str]] = [(1, _v1()), (2, _v2())]
+MIGRATIONS: list[tuple[int, str]] = [(1, _v1()), (2, _v2()), (3, _v3())]
 #: Highest schema this build understands; a database above it is refused, never downgraded.
 SUPPORTED_SCHEMA_VERSION = MIGRATIONS[-1][0]
 

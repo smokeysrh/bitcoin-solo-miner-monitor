@@ -3,6 +3,7 @@ import { Eye, FlaskConical, WifiOff, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api, describeError } from '@/lib/api'
+import { poolChangeText } from '@/lib/poolChangeText'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useToasts } from '@/stores/toasts'
@@ -23,6 +24,7 @@ const scenarios = [
   { id: 'online', label: 'Bring it back' },
   { id: 'hot', label: 'Overheat one' },
   { id: 'cool', label: 'Cool it down' },
+  { id: 'pool_change', label: poolChangeText.demoScenarioLabel },
 ]
 
 async function run(id: string): Promise<void> {

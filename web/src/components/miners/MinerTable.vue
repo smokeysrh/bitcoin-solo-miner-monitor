@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
 import { useMinerMonitor } from '@/composables/useMinerMonitor'
 import { tempLevel } from '@/lib/format'
+import { poolChangeText } from '@/lib/poolChangeText'
 import type { DeviceView } from '@/lib/types'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
@@ -105,6 +106,7 @@ function rowMenu(d: DeviceView): MenuItem[] {
                 <span class="min-w-0">
                   <span class="block truncate font-medium text-fg group-hover:text-accent-text">{{ d.name }}</span>
                   <span class="block truncate text-xs text-subtle">{{ d.model_override ?? d.model }} · <span class="font-mono">{{ d.host }}</span></span>
+                  <Badge v-if="d.pool_change" tone="bad" size="sm" class="mt-1" :title="poolChangeText.badgeTitle" data-testid="pool-change-badge">{{ poolChangeText.badge }}</Badge>
                 </span>
               </RouterLink>
             </td>

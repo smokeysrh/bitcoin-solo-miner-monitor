@@ -102,6 +102,22 @@ export interface Device {
   extra: Record<string, unknown>
 }
 
+export interface PoolChangeItem {
+  slot: string
+  setting: 'pool_address' | 'pool_port' | 'payout_address'
+  /** full value; null when the pool was not there before */
+  old: string | null
+  /** full value; null when the pool is gone */
+  new: string | null
+}
+
+/** A change of the pool or payout settings a miner reports that the user has not answered yet. */
+export interface PoolChange {
+  event_id: number
+  since_ts: number
+  changes: PoolChangeItem[]
+}
+
 export interface DeviceView extends Device {
   status: DeviceStatus
   status_since: number | null
@@ -113,6 +129,7 @@ export interface DeviceView extends Device {
   hashrate_smooth_hs: number | null
   spark_hashrate_hs: (number | null)[]
   last_poll_ms: number | null
+  pool_change?: PoolChange | null
 }
 
 export interface PoolUsage {

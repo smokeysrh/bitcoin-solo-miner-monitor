@@ -9,9 +9,10 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from bsmm.api.deps import get_ctx, require
-from bsmm.api.errors import bad_request, not_found
+from bsmm.api.errors import ApiError, bad_request, not_found
 from bsmm.auth import Principal
 from bsmm.context import AppContext
+from bsmm.engine import pool_change_text, pool_watch
 from bsmm.engine.alerts import RULE_SPECS
 from bsmm.models import Channel, Severity
 from bsmm.notify.channels import CHANNEL_CLASSES, Notification
@@ -49,6 +50,19 @@ async def ack_event(event_id: int, ctx: AppContext = Depends(get_ctx), _: Princi
 @router.post("/events/ack-all", tags=["alerts"], operation_id="ackAllEvents", summary="Mark every event as seen")
 async def ack_all(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("control"))) -> dict[str, int]:
     return {"acknowledged": await ctx.store.ack_all_events()}
+
+
+@router.post("/events/{event_id}/accept-pool-change", tags=["alerts"], operation_id="acceptPoolSettingsChange",
+             summary=pool_change_text.ACCEPT_SUMMARY, description=pool_change_text.ACCEPT_DESCRIPTION)
+async def accept_pool_change(event_id: int, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("control"))) -> dict[str, Any]:
+    event = await ctx.store.get_event(event_id)
+    if event is None or event.type != pool_watch.EVENT_TYPE or event.device_id is None:
+        raise not_found(pool_change_text.EVENT_NOT_FOUND, pool_change_text.EVENT_NOT_FOUND_HINT)
+    try:
+        view = await ctx.fleet.accept_pool_change(event.device_id, event_id)
+    except pool_watch.PoolChangeNotPending as e:
+        raise ApiError(409, "pool_change_not_pending", pool_change_text.NOT_PENDING_MESSAGE, pool_change_text.NOT_PENDING_HINT) from e
+    return {"ok": True, "device": view}
 
 
 # ------------------------------------------------------------------------------------------ rules

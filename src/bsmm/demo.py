@@ -17,7 +17,15 @@ from bsmm.drivers.axeos import build_info
 from bsmm.drivers.cgminer import classify, parse_avalon_estats, section
 from bsmm.drivers.sim import get_axeos_sim, get_cgminer_sim, reset_sims
 from bsmm.models import DeviceInfo, Event, Severity
-from bsmm.sim.axeos import PROFILES
+from bsmm.sim.axeos import PROFILES, AxeOSSim
+
+#: Pool settings the "pool_change" demo scenario switches a demo miner to, one after the other (a second click is a new
+#: change). Demo data only: example host names and two published test-vector addresses, never a real wallet.
+DEMO_POOL_VARIANTS: tuple[dict[str, Any], ...] = (
+    {"stratumURL": "demo-pool-a.example.net", "stratumPort": 3333, "stratumUser": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4.demo1"},
+    {"stratumURL": "demo-pool-b.example.net", "stratumPort": 4334,
+     "stratumUser": "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3.demo1"},
+)
 
 DEMO_FLEET: list[dict[str, Any]] = [
     {"name": "Garage Gamma", "kind": "axeos", "profile": "gamma", "seed": 11, "tags": ["garage"], "key": "demo-gamma", "power": 18.0, "ths": 1.15},
@@ -121,3 +129,17 @@ async def seed_demo(ctx: AppContext) -> None:
     await ctx.store.kv_set("luck.expected_blocks", hashes / (140_577_680_051_919.6 * 4_295_032_833.0000153))
     await ctx.store.kv_set("luck.since", now - 12 * 86400)
     await ctx.store.kv_set("blocks.last_checked", 972_175)
+
+
+async def run_pool_change_scenario(ctx: AppContext, device_id: str, sim: AxeOSSim) -> None:
+    """Demo scenario ``pool_change``: a demo miner starts reporting another pool and payout address.
+
+    The miner is read once first, so a baseline exists even when the scenario is run right after start-up. The demo
+    miner is then switched and read until the change is confirmed, which raises the safety alert at once instead of
+    after a few poll intervals. Only the in-process simulator changes; nothing leaves the process.
+    """
+    await ctx.fleet.poll_now(device_id)
+    current = sim.settings["stratumURL"]
+    sim.settings.update(next(variant for variant in DEMO_POOL_VARIANTS if variant["stratumURL"] != current))
+    for _ in range(ctx.settings.current.polling.offline_after_failures):
+        await ctx.fleet.poll_now(device_id)
