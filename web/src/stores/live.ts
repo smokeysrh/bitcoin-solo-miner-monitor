@@ -56,7 +56,9 @@ export const useLive = defineStore('live', () => {
   const hashling = useHashling()
 
   // A miner that starts hashing after it came back gets no event: Hashling watches the views for it (sync: no gap).
-  watch(devicesById, () => hashling.observeDevices(), { flush: 'sync' })
+  // Not while a full load is reconciling its snapshot with the updates it replays: `loadAll` observes once afterwards.
+  let reconciling = false
+  watch(devicesById, () => { if (!reconciling) hashling.observeDevices() }, { flush: 'sync' })
 
   /** Apply a stream update now and, if a full load is in flight, remember it to replay after that load. */
   function track(apply: () => void): void {
@@ -82,21 +84,27 @@ export const useLive = defineStore('live', () => {
       if (seq !== loadSeq) return // a newer load superseded this one
       const map: Record<string, DeviceView> = {}
       for (const d of devs) map[d.id] = d
-      devicesById.value = map
-      summary.value = ov.summary
-      odds.value = ov.odds
-      network.value = { ...ov.network, pools: pool.pools, recent_blocks: blocks }
-      recentBlocks.value = blocks
-      alerts.value = ov.alerts
-      hashling.seedAlerts(ov.alerts) // alerts already active when the page loads are history, not news
-      events.value = ov.events
-      blocksFound.value = ov.blocks_found
-      leaderboard.value = ov.leaderboard
-      loaded.value = true
-      loadError.value = null
-      lastUpdate.value = Date.now()
-      sinceLoad = null
-      for (const replay of buffered) replay()
+      reconciling = true // the snapshot may predate the replayed updates: Hashling judges only the state after them
+      try {
+        devicesById.value = map
+        summary.value = ov.summary
+        odds.value = ov.odds
+        network.value = { ...ov.network, pools: pool.pools, recent_blocks: blocks }
+        recentBlocks.value = blocks
+        alerts.value = ov.alerts
+        hashling.seedAlerts(ov.alerts) // alerts already active when the page loads are history, not news
+        events.value = ov.events
+        blocksFound.value = ov.blocks_found
+        leaderboard.value = ov.leaderboard
+        loaded.value = true
+        loadError.value = null
+        lastUpdate.value = Date.now()
+        sinceLoad = null
+        for (const replay of buffered) replay()
+      } finally {
+        reconciling = false
+      }
+      hashling.observeDevices()
     } catch (e) {
       if (seq !== loadSeq) return
       sinceLoad = null
