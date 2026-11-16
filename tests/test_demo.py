@@ -109,3 +109,22 @@ async def test_demo_scenario_changes_a_miners_pool_and_triggers_the_safety_alert
         again = await c.post("/api/v1/demo/scenario", json={"scenario": "pool_change"})  # a second click is a new change
         assert again.status_code == 200, again.text
         assert len(await demo_ctx.store.list_events(types=["pool_settings_changed"])) == 2
+
+
+async def test_demo_block_scenario_works_on_every_click(demo_ctx):
+    """Card #2362: the demo network height never moves, so a second click used to hit the block the first one
+    recorded, emitted nothing and showed no celebration. Each click is a new block with its own event."""
+    app = create_app(ctx=demo_ctx)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost") as c:
+        assert await demo_ctx.store.list_events(types=["block_found"]) == []
+        first = await c.post("/api/v1/demo/scenario", json={"scenario": "block"})
+        second = await c.post("/api/v1/demo/scenario", json={"scenario": "block"})
+        assert first.status_code == 200, first.text
+        assert second.status_code == 200, second.text
+        assert second.json()["height"] == first.json()["height"] + 1
+
+        events = await demo_ctx.store.list_events(types=["block_found"])
+        assert len(events) == 2
+        assert {e.data["height"] for e in events} == {first.json()["height"], second.json()["height"]}
+        assert len({e.data["hash"] for e in events}) == 2
+        assert len(await demo_ctx.store.list_blocks_found()) == 2

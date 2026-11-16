@@ -31,6 +31,8 @@ ops_router = APIRouter()  # mounted at the root (/metrics, /llms.txt)
 #: A reading counts as current for this many poll periods (at least MIN_FRESH_S seconds).
 FRESH_POLL_PERIODS = 3
 MIN_FRESH_S = 30.0
+# How many successive heights the demo "block" scenario tries before it gives up (one per earlier click, plus one).
+DEMO_BLOCK_HEIGHT_ATTEMPTS = 1000
 #: Statuses whose retained telemetry is not a current reading.
 _NO_CURRENT_READING = frozenset({DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.DISABLED})
 #: Cumulative or best-ever values stay exposed with the last observation time rather than being hidden.
@@ -174,11 +176,16 @@ async def demo_scenario(body: ScenarioBody, ctx: AppContext = Depends(get_ctx), 
     if body.scenario == "block":
         from bsmm.sources.base import BlockInfo
 
-        h = (ctx.network.state.height or 972_175) + 1
-        block = BlockInfo(hash=f"{h:064x}", height=h, ts=__import__("time").time(), tx_count=3500, pool_name="You", reward_sats=321_500_000,
-                          coinbase_addresses=ctx.fleet.all_addresses()[:1])
-        await ctx.network.record_block_found(block, block.coinbase_addresses[0] if block.coinbase_addresses else None, source="demo")
-        return {"ok": True, "scenario": "block"}
+        # The demo network height never moves, so every click would otherwise pick the same height and hash and hit the block
+        # already recorded by the click before. Take the first height above the network's that is not recorded yet.
+        first = (ctx.network.state.height or 972_175) + 1
+        for h in range(first, first + DEMO_BLOCK_HEIGHT_ATTEMPTS):
+            block = BlockInfo(hash=f"{h:064x}", height=h, ts=time.time(), tx_count=3500, pool_name="You", reward_sats=321_500_000,
+                              coinbase_addresses=ctx.fleet.all_addresses()[:1])
+            if await ctx.network.record_block_found(block, block.coinbase_addresses[0] if block.coinbase_addresses else None, source="demo"):
+                return {"ok": True, "scenario": "block", "height": h}
+        raise ApiError(409, "demo_blocks_exhausted", "The demo has already found its blocks.",
+                       "Restart the demo (`bsmm serve --demo`) to find more.")
     views = ctx.fleet.views()
     target = next((v for v in views if body.device in (v.id, v.name)), None) if body.device else (views[2] if len(views) > 2 else (views[0] if views else None))
     if target is None:
