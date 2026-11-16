@@ -29,6 +29,8 @@ let nextId = 1
 
 /** A miner's latest poll reading (`telemetry.hashrate_hs`): what "hashing" is judged by, not the smoothed value. */
 const reading = (hs: number | null): DeviceView['telemetry'] => ({ hashrate_hs: hs }) as never
+/** The same, with the server's reading time (`telemetry.ts`, Unix seconds): the only clock that orders device views. */
+const readingAt = (hs: number | null, ts: number): DeviceView['telemetry'] => ({ hashrate_hs: hs, ts }) as never
 /** By default a healthy miner: online, with a positive current reading. */
 function dev(id: string, name: string, over: Partial<DeviceView> = {}): DeviceView {
   return { id, name, status: 'online', status_reason: null, hashrate_smooth_hs: 1e12, telemetry: reading(1e12), tags: [], model: 'Bitaxe', model_override: null, host: '192.168.1.50', ...over } as unknown as DeviceView
@@ -189,6 +191,65 @@ describe('card 2458 G1: a miner that stops hashing without a new status event ge
     await update(live, dev('a', 'Garage', { status: 'paused', status_reason: 'Mining is paused on the device', hashrate_smooth_hs: null, telemetry: reading(0) }))
     await update(live, dev('b', 'Office', { status: 'offline', hashrate_smooth_hs: null, telemetry: null }))
     await update(live, dev('a', 'Garage', { hashrate_smooth_hs: 1.2e12 }))
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+})
+
+// ----------------------------------------------------------------------------------------------------------------- R3
+
+describe('card 2458 R3: an older device reading does not re-arm a stop that was already shown', () => {
+  // Views can arrive out of order: the server publishes a poll's event before its view, and a Refresh answer is applied as it
+  // comes. Only the server's own times order them: `telemetry.ts` for a reading and `ts` for an event, never the browser clock.
+  const T0 = NOW_S - 1000
+  const working = (ts: number): DeviceView => dev('a', 'Garage', { telemetry: readingAt(1e12, ts) })
+  const stoppedAt = (ts: number): DeviceView =>
+    dev('a', 'Garage', { status: 'degraded', status_reason: 'Fan fault; Not hashing', hashrate_smooth_hs: 2e11, telemetry: readingAt(0, ts) })
+
+  it('(a) the view shows the stop, an older hashing reading arrives, the stop goes on: one Sleeping in total', async () => {
+    const { hashling, live } = boot([working(T0), dev('b', 'Office')])
+    await update(live, stoppedAt(T0 + 10))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+    hashling.dismiss()
+    await update(live, working(T0 + 5)) // a Refresh answer from a poll before the one that found the stop
+    await update(live, stoppedAt(T0 + 20)) // the same stop, one poll later
+    settle()
+    expect(hashling.items).toEqual([]) // right after the flush, so a pop-up that timed out on its own cannot hide a repeat
+  })
+
+  it('(b) the status event shows the stop first, then its own poll view and an older hashing reading: one Sleeping in total', async () => {
+    const { hashling, live } = boot([working(T0), dev('b', 'Office')])
+    // The server stamps the event after the poll's reading time (events.emit runs after `t.ts = now`).
+    hashling.offer(ev('device_degraded', 'warning', { device_id: 'a', ts: T0 + 10.4, body: 'Fan fault; Not hashing' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+    hashling.dismiss()
+    await update(live, stoppedAt(T0 + 10.3)) // the same poll's view, published after its event
+    settle()
+    expect(hashling.items).toEqual([])
+    await update(live, working(T0 + 5)) // an older Refresh answer: still before the event
+    await update(live, stoppedAt(T0 + 20)) // the stop goes on
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('(c) a genuinely newer hashing reading, then a new stop: Sleeping shows again', async () => {
+    const { hashling, live } = boot([working(T0), dev('b', 'Office')])
+    await update(live, stoppedAt(T0 + 10))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+    hashling.dismiss()
+    await update(live, working(T0 + 30)) // newer than the stop: it really works again
+    await update(live, stoppedAt(T0 + 40)) // and stops again: a new stop
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+  })
+
+  it('(d) an older stop reading that arrives after a newer hashing one is not a new stop (guard)', async () => {
+    const { hashling, live } = boot([working(T0), dev('b', 'Office')])
+    await update(live, working(T0 + 30))
+    await update(live, stoppedAt(T0 + 10)) // a Refresh answer that was slow
     settle()
     expect(hashling.items).toEqual([])
   })
