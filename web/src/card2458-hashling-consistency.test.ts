@@ -147,6 +147,23 @@ describe('card 2458 G1: a miner that stops hashing without a new status event ge
     expect(eventFirst.hashling.items).toEqual([])
   })
 
+  it('the view shows the stop first and the status event follows after the coalescing window: still one Sleeping, and a later stop shows again', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage'), dev('b', 'Office')])
+    await update(live, stopped()) // e.g. a Refresh poll: the REST upsert changes the view before the stream delivers the event
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+    hashling.dismiss()
+    // The server's event for the same stop arrives later, outside the 3 s window, with an id of its own.
+    hashling.offer(ev('device_degraded', 'warning', { device_id: 'a', body: 'Fan fault; Not hashing' }))
+    settle()
+    vi.advanceTimersByTime(HASHLING_TIMING.maxWaitMs * 3)
+    expect(hashling.items).toEqual([])
+    await update(live, dev('a', 'Garage')) // it hashes again...
+    await update(live, stopped()) // ...and stops again: a genuine new stop
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+  })
+
   it('no moment at load or for a full-load snapshot, also when the snapshot already shows a miner not hashing (guard)', async () => {
     const { hashling, live } = boot()
     vi.spyOn(api, 'overview').mockResolvedValue({ summary: { updated_at: 1 }, odds: null, network: {}, alerts: [], events: [], blocks_found: [], leaderboard: [] } as never)
@@ -193,8 +210,21 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
     setup: (props, { emit }) => () => h('div', props.options.map((o) => h('button', { type: 'button', 'data-mode': o.value, onClick: () => emit('update:modelValue', o.value) }, o.label))),
   })
 
-  /** Add one miner by address; resolves once the add has been answered. The server's `device_added` event is offered afterwards. */
-  async function addByAddress(ctx: ReturnType<typeof boot>) {
+  /**
+   * The live store's first full load has not completed (`pending`) or has failed (an error text): it offers no event to
+   * Hashling until it has, so the add's `device_added` event is never shown and nothing else may be counted on.
+   */
+  const FIRST_LOAD_NOT_DONE: Array<[string, string | null]> = [['is still pending', null], ['has failed', 'Could not load the overview']]
+  const beforeFirstLoad = (ctx: ReturnType<typeof boot>, error: string | null): void => {
+    ctx.live.loaded = false
+    ctx.live.loadError = error
+  }
+
+  /**
+   * Add one miner by address; resolves once the add has been answered. The server's `device_added` event is offered
+   * afterwards, unless `eventArrives` is false (`live.announce` drops every event before the first load has completed).
+   */
+  async function addByAddress(ctx: ReturnType<typeof boot>, eventArrives = true) {
     vi.spyOn(api, 'addDevice').mockResolvedValue({ device: dev('c', 'Rack'), created: true, note: null } as never)
     useUi().addMinerOpen = true
     const w = await mountWithRouter(AddMinerDialog, { Dialog: InlineDialog, Segmented: PlainSegmented, DiscoveryPanel: true, TagInput: true })
@@ -203,7 +233,7 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
     await w.get('form').trigger('submit')
     await flushPromises()
     expect(api.addDevice).toHaveBeenCalledTimes(1)
-    return ctx.hashling.offer(ev('device_added', 'info', { device_id: 'c' }))
+    return eventArrives ? ctx.hashling.offer(ev('device_added', 'info', { device_id: 'c' })) : null
   }
 
   it('adding by address shows Hashling\'s first-miner moment instead of the toast', async () => {
@@ -229,6 +259,15 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
     expect(ctx.toasts.items.map((t) => t.title)).toEqual(['Added Rack'])
   })
 
+  it.each(FIRST_LOAD_NOT_DONE)('while the first full load %s the moment cannot arrive, so the toast is the one notice (by address)', async (_state, error) => {
+    const ctx = boot() // pop-ups on, stream live
+    beforeFirstLoad(ctx, error)
+    await addByAddress(ctx, false)
+    settle()
+    expect(ctx.toasts.items.map((t) => t.title)).toEqual(['Added Rack'])
+    expect(ctx.hashling.items).toEqual([])
+  })
+
   it('a miner that was already monitored keeps its own notice (no Hashling moment exists for it)', async () => {
     const ctx = boot()
     vi.spyOn(api, 'addDevice').mockResolvedValue({ device: dev('a', 'Garage'), created: false, note: 'Garage is already being monitored.' } as never)
@@ -249,7 +288,7 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
     const job = (status: DiscoveryJob['status']): DiscoveryJob => ({ id: 'fixture-scan', cidrs: ['127.0.0.1/32'], status, phase: 'probing', started_at: 1,
       finished_at: status === 'running' ? null : 2, total_hosts: 1, scanned_hosts: 1, progress: 1, miners: found(), sources: [], error: null })
 
-    async function adopt(ctx: ReturnType<typeof boot>) {
+    async function adopt(ctx: ReturnType<typeof boot>, eventArrives = true) {
       vi.spyOn(api, 'suggestRanges').mockResolvedValue(['127.0.0.1/32'])
       vi.spyOn(api, 'startDiscovery').mockResolvedValue(job('running'))
       vi.spyOn(api, 'discovery').mockResolvedValue(job('finished'))
@@ -262,7 +301,7 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
       await w.get('[data-testid="adopt"]').trigger('click')
       await flushPromises()
       expect(api.adopt).toHaveBeenCalledTimes(1)
-      return ctx.hashling.offer(ev('device_added', 'info', { device_id: 'c' }))
+      return eventArrives ? ctx.hashling.offer(ev('device_added', 'info', { device_id: 'c' })) : null
     }
 
     it('shows Hashling\'s moment instead of the "Added 1 miner" toast', async () => {
@@ -279,6 +318,15 @@ describe('card 2458 G2: one add-miner action shows one success notice', () => {
       settle()
       expect(ctx.hashling.items).toEqual([])
       expect(ctx.toasts.items.map((t) => t.title)).toEqual(['Added 1 miner'])
+    })
+
+    it.each(FIRST_LOAD_NOT_DONE)('while the first full load %s the moment cannot arrive, so the toast is the one notice', async (_state, error) => {
+      const ctx = boot() // pop-ups on, stream live
+      beforeFirstLoad(ctx, error)
+      await adopt(ctx, false)
+      settle()
+      expect(ctx.toasts.items.map((t) => t.title)).toEqual(['Added 1 miner'])
+      expect(ctx.hashling.items).toEqual([])
     })
   })
 })
