@@ -39,6 +39,8 @@ CHECK_INTERVAL_S = 86400.0
 MAX_REPLY_BYTES = 256 * 1024
 MAX_VERSION_CHARS = 20
 MAX_LINK_CHARS = 200
+ERROR_UNUSABLE_REPLY = "GitHub's reply was not a usable release. Try again later"
+ERROR_REPLY_TOO_LARGE = "GitHub's reply was too big to read. Try again later"
 
 #: Tests replace this with a ``httpx.MockTransport``; the client's other settings stay the real ones.
 _transport: httpx.AsyncBaseTransport | None = None
@@ -155,9 +157,9 @@ async def check_for_update(store: Store, *, force: bool = False) -> dict[str, An
             if isinstance(reply, dict):
                 version, link = parse_version(reply.get("tag_name")), reply.get("html_url")
             if version is None:
-                error = "could not check (unusable reply)"
+                error = ERROR_UNUSABLE_REPLY
     except ResponseTooLarge:
-        error = "could not check (reply too large)"
+        error = ERROR_REPLY_TOO_LARGE
     except (httpx.HTTPError, ValueError) as e:
         error = f"could not check ({e.__class__.__name__})"
     result = _record(checked_at=time.time(), version=version, link=link, error=error)

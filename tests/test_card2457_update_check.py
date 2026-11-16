@@ -280,12 +280,19 @@ async def test_a_reply_that_is_not_a_release_object_is_no_update_info(ctx, githu
     assert set(await stored(ctx)) == RECORD_KEYS
 
 
+@pytest.mark.parametrize("content", [b"[1, 2, 3]", b'"just a string"', b"null", b'{"tag_name": 5}'])
+async def test_valid_json_that_is_not_a_release_gets_the_unusable_release_line(ctx, github, content):
+    github.answer(httpx.Response(200, content=content))
+    result = await check_for_update(ctx.store, force=True)
+    assert result["latest"] is None and result["error"] == "GitHub's reply was not a usable release. Try again later"
+
+
 async def test_a_declared_huge_reply_is_refused_without_reading_it(ctx, github):
     huge = b'{"tag_name": "v99.0.0", "pad": "' + b"x" * (MAX_REPLY_BYTES + 1) + b'"}'
     github.answer(httpx.Response(200, content=huge))
     result = await check_for_update(ctx.store, force=True)
     assert result["latest"] is None and result["update_available"] is False
-    assert result["error"] == "could not check (reply too large)"
+    assert result["error"] == "GitHub's reply was too big to read. Try again later"
     assert "xxxx" not in json.dumps(await stored(ctx))
 
 
@@ -293,7 +300,7 @@ async def test_an_endless_reply_is_read_only_up_to_the_budget_and_then_closed(ct
     body = Endless()
     github.answer(httpx.Response(200, stream=body))
     result = await check_for_update(ctx.store, force=True)
-    assert result["latest"] is None and result["error"] == "could not check (reply too large)"
+    assert result["latest"] is None and result["error"] == "GitHub's reply was too big to read. Try again later"
     assert MAX_REPLY_BYTES == 256 * 1024
     assert body.pulled <= MAX_REPLY_BYTES + 2 * CHUNK
     assert body.closed
