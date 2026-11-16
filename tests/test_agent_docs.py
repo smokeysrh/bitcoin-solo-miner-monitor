@@ -81,3 +81,20 @@ def test_the_guide_tells_agents_how_pool_and_payout_alerts_are_read_and_resolved
     assert "/api/v1/events" in entry and "accept-pool-change" in entry and "control" in entry
     assert entry in llms_txt("http://x:8420")
     assert guide["mcp"]["tools"] == MCP_TOOLS  # reading needs no new tool, and nothing that writes to a miner exists
+
+
+def test_the_guide_explains_that_a_seen_pool_change_can_still_be_waiting():
+    # Card #2445: ack-all marks the event seen, but the miner's pool_change stays until the user answers.
+    # unacked=true alone can therefore miss it, so the entry must send agents to pool_change first.
+    entry = next(text for text in agent_guide("http://x:8420")["common_tasks"].values() if "pool_settings_changed" in text)
+    assert "pool_change" in entry
+    assert "unacked=true can miss it" in entry
+    assert "read token" in entry and "control token" in entry
+    assert entry in llms_txt("http://x:8420")
+
+
+def test_the_shipped_skill_tells_agents_to_ask_before_accepting_a_pool_change():
+    skill = (ROOT / "skills" / "solo-miner-monitor" / "SKILL.md").read_text()
+    rules = skill.split("## Rules", 1)[1].split("\n## ", 1)[0]
+    assert "pool_settings_changed" in rules
+    assert "pool_change" in rules
