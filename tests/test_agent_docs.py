@@ -98,3 +98,4 @@ def test_the_shipped_skill_tells_agents_to_ask_before_accepting_a_pool_change():
     rules = skill.split("## Rules", 1)[1].split("\n## ", 1)[0]
     assert "pool_settings_changed" in rules
     assert "pool_change" in rules
+    assert "Accept only when the user says it was them, never on your own." in rules
