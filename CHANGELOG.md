@@ -16,7 +16,7 @@ This minor release puts Hashling to work on the dashboard and the wall display, 
   - Alerts that are already active when the page loads do not pop up. Pop-ups are chosen by kind of event: only the events listed in the first bullet, plus the ones named elsewhere in this section, pop up. Other events do not, and neither do custom alert rules (PR #146).
   - "Every miner is hashing" shows once when an outage clears and every enabled miner is back online and hashing (PR #146).
   - On the dashboard only, a pop-up also shows when the setup checklist is completed (once), when notifications are turned on (a channel created switched on, or switched on later), when a test notification is sent, and when a pool change is accepted (PR #146, PR #157).
-  - While pop-ups are on, they replace the small notices (toasts) for those events. With the switch off, the old notices and the old celebration dialog come back (PR #146, PR #157).
+  - While pop-ups are on, they replace the small notices (toasts) for those events. One exception: adding a miner still shows its small "Added" notice when the pop-up cannot arrive, which is while the app's live connection is down or the app has not finished loading its data yet. With the switch off, the old notices and the old celebration dialog come back (PR #146, PR #157).
 - **Found block:**
   - When a found block is confirmed on the chain, the dashboard celebration now shows Hashling with the line "The pool confirmed a real block. Somebody hold my hard hat!". A miner's own block counter on its own does not count, and that still gets the old dialog. On the wall display, a Hashling pop-up shows for 60 seconds instead of the dialog, and the confetti plays unless reduced motion is on (PR #146).
 - **Hashling without a pop-up:**
