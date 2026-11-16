@@ -104,7 +104,7 @@ export const useLive = defineStore('live', () => {
       } finally {
         reconciling = false
       }
-      hashling.observeDevices()
+      hashling.observeDevices(true) // the reconciled state is only noted: a miner already not hashing in a reloaded snapshot is not news
     } catch (e) {
       if (seq !== loadSeq) return
       sinceLoad = null

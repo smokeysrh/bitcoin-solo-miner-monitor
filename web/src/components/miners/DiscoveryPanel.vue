@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useFmt } from '@/composables/useFmt'
 import { api, describeError } from '@/lib/api'
 import type { DiscoveryJob, MinerCandidate, SourceCandidate } from '@/lib/types'
+import { useHashling } from '@/stores/hashling'
 import { useLive } from '@/stores/live'
 import { useToasts } from '@/stores/toasts'
 import Badge from '@/components/ui/Badge.vue'
@@ -19,6 +20,7 @@ const emit = defineEmits<{ adopted: [count: number]; navigate: [] }>()
 
 const fmt = useFmt()
 const toasts = useToasts()
+const hashling = useHashling()
 const router = useRouter()
 const live = useLive()
 
@@ -148,7 +150,8 @@ async function adopt(): Promise<void> {
   try {
     const res = await api.adopt(job.value.id, { keys: [...selected.value] })
     for (const d of res.added) live.upsertDevice(d)
-    if (res.added.length) toasts.success(`Added ${res.added.length} miner${res.added.length === 1 ? '' : 's'}`, res.added.map((d) => d.name).join(', '))
+    // Hashling's "miner added" moment is the notice when it will be shown; the toast is for when it will not.
+    if (res.added.length && !hashling.announcesAdded()) toasts.success(`Added ${res.added.length} miner${res.added.length === 1 ? '' : 's'}`, res.added.map((d) => d.name).join(', '))
     for (const m of res.merged) toasts.info(`${m.device} was already known`, m.note)
     emit('adopted', res.added.length)
   } catch (e) {

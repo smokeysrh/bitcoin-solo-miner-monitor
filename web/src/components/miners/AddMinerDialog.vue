@@ -3,6 +3,7 @@ import { Plus, Radar } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError, describeError } from '@/lib/api'
+import { useHashling } from '@/stores/hashling'
 import { useLive } from '@/stores/live'
 import { useToasts } from '@/stores/toasts'
 import { useUi } from '@/stores/ui'
@@ -17,6 +18,7 @@ import DiscoveryPanel from './DiscoveryPanel.vue'
 const ui = useUi()
 const live = useLive()
 const toasts = useToasts()
+const hashling = useHashling()
 const router = useRouter()
 
 const mode = ref<'scan' | 'address'>('scan')
@@ -48,8 +50,9 @@ async function addByAddress(): Promise<void> {
   try {
     const res = await api.addDevice({ host: host.value.trim(), name: name.value.trim() || undefined, tags: tags.value })
     live.upsertDevice(res.device)
-    if (res.created) toasts.success(`Added ${res.device.name}`, `${res.device.model_override ?? res.device.model} at ${res.device.host}`)
-    else toasts.info(`${res.device.name} was already monitored`, res.note ?? undefined)
+    // Hashling's "miner added" moment is the notice when it will be shown; the toast is for when it will not.
+    if (!res.created) toasts.info(`${res.device.name} was already monitored`, res.note ?? undefined)
+    else if (!hashling.announcesAdded()) toasts.success(`Added ${res.device.name}`, `${res.device.model_override ?? res.device.model} at ${res.device.host}`)
     open.value = false
     void router.push(`/miners/${res.device.id}`)
   } catch (e) {
