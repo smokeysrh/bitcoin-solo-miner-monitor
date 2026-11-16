@@ -64,6 +64,12 @@ function hashingStateOf(d: DeviceView): Hashing {
   return 'other'
 }
 
+/** When the server took the view's reading (Unix seconds), or null when there is none: no telemetry yet. */
+function readingTimeOf(d: DeviceView): number | null {
+  const ts = d.telemetry?.ts
+  return typeof ts === 'number' && Number.isFinite(ts) ? ts : null
+}
+
 /** Keep every once-only marker and the newest `SEEN_MAX` of the rolling event and alert keys, in their order. */
 function bounded(keys: readonly string[]): string[] {
   const rolling = keys.filter((k) => !k.startsWith(ONCE_PREFIX))
@@ -113,6 +119,12 @@ export const useHashling = defineStore('hashling', () => {
   let hashingById = new Map<string, Hashing>()
   /** Miners whose current stop Hashling already showed (from the view or from the event): the other input is not a second stop. */
   const stopShown = new Set<string>()
+  /**
+   * The newest server time seen per miner, in Unix seconds: a view's `telemetry.ts` or a stop event's `ts` (never the browser
+   * clock). Views arrive out of order (the server publishes a poll's event before its view, and a Refresh answer is applied as
+   * it comes), so a view with an older reading is not the miner's current state. Pruned with `hashingById`.
+   */
+  let newestTsById = new Map<string, number>()
   let nextItemId = 0
 
   function remember(key: string): void {
@@ -247,7 +259,19 @@ export const useHashling = defineStore('hashling', () => {
   /** Remember what each miner is doing (also while Hashling is off or at load, so the baseline is never news). */
   function noteHashing(devices: readonly DeviceView[], announce: boolean): void {
     const next = new Map<string, Hashing>()
+    const nextTs = new Map<string, number>()
     for (const d of devices) {
+      const ts = readingTimeOf(d)
+      const knownTs = newestTsById.get(d.id)
+      const before = hashingById.get(d.id)
+      if (ts !== null && knownTs !== undefined && ts < knownTs && before !== undefined) {
+        // An older reading than one already seen: not the miner's current state, so it neither starts nor ends a stop.
+        next.set(d.id, before)
+        nextTs.set(d.id, knownTs)
+        continue
+      }
+      const newest = ts ?? knownTs // a view with no reading time (no poll answered yet) is applied as it is and can never read as hashing
+      if (newest !== undefined) nextTs.set(d.id, newest)
       const state = hashingStateOf(d)
       next.set(d.id, state)
       if (state !== 'not-hashing') stopShown.delete(d.id) // it works again (or is gone): the next stop is a new one
@@ -257,6 +281,7 @@ export const useHashling = defineStore('hashling', () => {
       }
     }
     hashingById = next
+    newestTsById = nextTs
     for (const id of stopShown) if (!next.has(id)) stopShown.delete(id)
   }
 
@@ -277,6 +302,8 @@ export const useHashling = defineStore('hashling', () => {
       stopAlreadyShown = stopShown.has(e.device_id)
       stopShown.add(e.device_id)
       hashingById.set(e.device_id, 'not-hashing')
+      // The event is stamped just after its poll's reading, so that poll's own view and every older reading count as older.
+      if (Number.isFinite(e.ts)) newestTsById.set(e.device_id, Math.max(e.ts, newestTsById.get(e.device_id) ?? e.ts))
     }
     if (e.type === 'device_offline') {
       outageOpen = true
