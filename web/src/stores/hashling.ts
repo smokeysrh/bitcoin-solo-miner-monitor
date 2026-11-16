@@ -111,6 +111,8 @@ export const useHashling = defineStore('hashling', () => {
   let returned = false
   /** What each miner's latest view said it was doing, to see a miner go from hashing to not hashing. */
   let hashingById = new Map<string, Hashing>()
+  /** Miners whose current stop Hashling already showed (from the view or from the event): the other input is not a second stop. */
+  const stopShown = new Set<string>()
   let nextItemId = 0
 
   function remember(key: string): void {
@@ -248,11 +250,14 @@ export const useHashling = defineStore('hashling', () => {
     for (const d of devices) {
       const state = hashingStateOf(d)
       next.set(d.id, state)
+      if (state !== 'not-hashing') stopShown.delete(d.id) // it works again (or is gone): the next stop is a new one
       if (announce && enabled.value && state === 'not-hashing' && hashingById.get(d.id) === 'hashing') {
+        stopShown.add(d.id)
         enqueue({ key: `s:${d.id}:${Date.now()}`, moment: sleepingMoment(), deviceId: d.id, miner: d.name, source: null })
       }
     }
     hashingById = next
+    for (const id of stopShown) if (!next.has(id)) stopShown.delete(id)
   }
 
   // ----------------------------------------------------------------------------------------------------- inputs
@@ -265,8 +270,14 @@ export const useHashling = defineStore('hashling', () => {
     if (!enabled.value) return false
     const moment = momentFor(e)
     if (!moment) return false
-    // The event already names a miner that is not hashing: the view update that follows is not a second transition.
-    if (moment.id === 'M12' && e.device_id) hashingById.set(e.device_id, 'not-hashing')
+    // The event already names a miner that is not hashing: the view update that follows is not a second transition, and an
+    // event after a view that already showed this stop is not a second stop either.
+    let stopAlreadyShown = false
+    if (moment.id === 'M12' && e.device_id) {
+      stopAlreadyShown = stopShown.has(e.device_id)
+      stopShown.add(e.device_id)
+      hashingById.set(e.device_id, 'not-hashing')
+    }
     if (e.type === 'device_offline') {
       outageOpen = true
       returned = false // a new offline: the views may still show the miner as it was, so wait for a return
@@ -274,6 +285,7 @@ export const useHashling = defineStore('hashling', () => {
     const key = eventKey(e)
     if (seen.includes(key)) return true
     remember(key)
+    if (stopAlreadyShown) return true
     // On the dashboard the celebration dialog is the pop-up for a found block (it shows the same pose and line).
     if (moment.id === 'M13' && surface.value !== 'wall') return true
     enqueue({ key, moment, deviceId: e.device_id, miner: nameOf(e.device_id), source: null })
@@ -320,10 +332,13 @@ export const useHashling = defineStore('hashling', () => {
   /**
    * Will Hashling announce miners that were just added (the server's `device_added` event, shown as M15 or M15N)? Then the
    * ordinary "Added" toast stays quiet, as the channel toast does for M22: one notice for one action. Not while the switch
-   * is off, and not while the stream that carries the event is down, so the toast stays when the moment cannot arrive.
+   * is off, not while the stream that carries the event is down, and not before the live store's first full load has
+   * completed (it offers no event until then, and a later load replays without announcing), so the toast stays whenever
+   * the moment cannot arrive.
    */
   function announcesAdded(): boolean {
-    return enabled.value && useLive().status === 'live'
+    const live = useLive()
+    return enabled.value && live.status === 'live' && live.loaded
   }
 
   /**
