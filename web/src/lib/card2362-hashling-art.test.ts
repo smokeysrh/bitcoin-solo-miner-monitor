@@ -38,6 +38,11 @@ describe('card 2362: Hashling pose files are the kit files, byte for byte', () =
     expect(urls.map((u) => u.split('/').pop()).sort()).toEqual(Object.keys(KIT_SHA256).sort())
   })
 
+  it('is drawn with crisp pixels: the stylesheet keeps .hashling-art pixelated', () => {
+    const css = readFileSync(fileURLToPath(new URL('../styles/main.css', import.meta.url)), 'utf8')
+    expect(css).toMatch(/\.hashling-art\s*\{[^}]*image-rendering:\s*pixelated/)
+  })
+
   it('is on the 52 x 44 pixel grid the kit draws every pose on', () => {
     for (const url of urls) expect(readFileSync(publicPath(url), 'utf8')).toContain('viewBox="0 0 52 44"')
   })

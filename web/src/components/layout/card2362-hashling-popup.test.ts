@@ -98,7 +98,7 @@ describe('card 2362: the pop-up on the dashboard', () => {
     expect(width % GRID_W).toBe(0)
     expect(height % GRID_H).toBe(0)
     expect(width / GRID_W).toBe(height / GRID_H)
-    expect((img.element as HTMLImageElement).style.imageRendering).toBe('pixelated')
+    expect(img.classes()).toContain('hashling-art') // main.css keeps .hashling-art pixelated (see the art test)
     expect(card(wrapper).text()).toContain(HASHLING_MOMENTS.M23.title)
     expect(card(wrapper).text()).toContain(HASHLING_MOMENTS.M23.line)
   })

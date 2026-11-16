@@ -87,7 +87,7 @@ describe('card 2362: the logo mark blinks', () => {
     // a whole-number multiple of the 52 x 44 grid, at the same pixel size as the symbol (64 / 32 = 2)
     expect(frame.attributes('width')).toBe(String(GRID_W * 2))
     expect(frame.attributes('height')).toBe(String(GRID_H * 2))
-    expect((frame.element as HTMLImageElement).style.imageRendering).toBe('pixelated')
+    expect(frame.classes()).toContain('hashling-art') // main.css keeps .hashling-art pixelated (see the art test)
     vi.advanceTimersByTime(AUTO_BLINK_AFTER_MS + 10)
     await nextTick()
     expect(blinking(w)).toBe('true')

@@ -6,6 +6,7 @@ import { api, describeError } from '@/lib/api'
 import type { PageCard } from '@/lib/pageLayout'
 import type { HorizonKey, Odds, OddsAvailable } from '@/lib/types'
 import { useLive } from '@/stores/live'
+import HashlingNote from '@/components/brand/HashlingNote.vue'
 import Button from '@/components/ui/Button.vue'
 import CustomizablePage from '@/components/layout/CustomizablePage.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -129,6 +130,7 @@ const barWidth = (p: number): number => Math.max(2, Math.min(100, ((Math.log10(p
               At {{ fmt.hashrate(o.hashrate) }} you hold about {{ fmt.formatFraction(o.share_of_network, 7) }} of the network. On average you would wait
               <b class="text-fg">{{ fmt.formatDuration(o.expected_seconds) }}</b> for a block, but the lottery keeps no schedule: every hash is a fresh ticket, and the next one is as good as any.
             </p>
+            <HashlingNote moment="M25" :scale="1" class="mt-4" />
           </div>
         </section>
         <EmptyState v-else-if="shown && !shown.available" :icon="Dices" title="Odds need network data" :description="shown.reason">

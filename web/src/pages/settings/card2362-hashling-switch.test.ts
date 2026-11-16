@@ -47,7 +47,7 @@ async function openAppearance(me: Me, saved?: boolean): Promise<Wrapper> {
 function hashlingSwitch(w: Wrapper) {
   const label = w.findAll('label').find((l) => l.text().includes(HASHLING_UI.U02))
   expect(label, 'a row labelled "Hashling pop-ups"').toBeTruthy()
-  return w.get(`#${label!.attributes('for')}`)
+  return w.get(`[id="${label!.attributes('for')}"]`)
 }
 
 beforeEach(() => {

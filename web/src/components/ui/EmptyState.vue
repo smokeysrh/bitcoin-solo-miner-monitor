@@ -6,7 +6,8 @@ defineProps<{ icon?: Component; title: string; description?: string; compact?: b
 
 <template>
   <div :class="['flex flex-col items-center justify-center text-center', compact ? 'gap-2 px-4 py-8' : 'gap-3 px-6 py-14']">
-    <div v-if="icon" class="grid size-12 place-items-center rounded-2xl border border-accent-line bg-accent-soft text-accent-text">
+    <slot v-if="$slots.art" name="art" />
+    <div v-else-if="icon" class="grid size-12 place-items-center rounded-2xl border border-accent-line bg-accent-soft text-accent-text">
       <component :is="icon" class="size-6" aria-hidden="true" />
     </div>
     <h3 class="text-base font-bold text-fg">{{ title }}</h3>

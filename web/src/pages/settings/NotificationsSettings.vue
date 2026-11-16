@@ -17,6 +17,7 @@ import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { confirmDialog } from '@/composables/useConfirm'
 import { api, describeError } from '@/lib/api'
 import type { Channel, ChannelField, ChannelType, SendResult, Severity } from '@/lib/types'
+import { useHashling } from '@/stores/hashling'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useToasts } from '@/stores/toasts'
@@ -24,6 +25,7 @@ import { useToasts } from '@/stores/toasts'
 const session = useSession()
 const settings = useSettings()
 const toasts = useToasts()
+const hashling = useHashling()
 const admin = computed(() => session.canAdmin)
 
 const types = ref<ChannelType[]>([])
@@ -154,8 +156,8 @@ async function sendTest(c: Channel): Promise<void> {
   testingId.value = c.id
   try {
     const r = await api.testChannel(c.id)
-    if (r.ok) toasts.success(`Test sent to ${c.name}`, 'Check your phone or inbox.')
-    else toasts.error(`${c.name} did not accept it`, r.error ?? undefined)
+    if (!r.ok) toasts.error(`${c.name} did not accept it`, r.error ?? undefined)
+    else if (!hashling.show('M23')) toasts.success(`Test sent to ${c.name}`, 'Check your phone or inbox.')
   } catch (e) {
     toasts.error('Could not send the test', describeError(e))
   } finally {
@@ -167,6 +169,7 @@ async function toggle(c: Channel, on: boolean): Promise<void> {
   c.enabled = on
   try {
     await api.updateChannel(c.id, { enabled: on })
+    if (on) hashling.show('M22')
   } catch (e) {
     c.enabled = before
     toasts.error('Could not change that', describeError(e))

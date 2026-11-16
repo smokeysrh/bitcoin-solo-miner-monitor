@@ -376,6 +376,29 @@
   scroll-behavior: auto !important;
 }
 
+/* Hashling's pose files are pixel art: scaled by whole numbers, never smoothed. */
+.hashling-art {
+  image-rendering: pixelated;
+}
+
+/* The one hop Hashling makes when a pop-up arrives. HashlingPopup leaves the class off for reduced motion. */
+@keyframes hashling-hop {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-14px);
+  }
+  75% {
+    transform: translateY(-5px);
+  }
+}
+.hashling-hop {
+  animation: hashling-hop 0.7s ease-out 1;
+}
+
 /* ------------------------------------------------------------------------------------------------ components */
 
 @layer components {

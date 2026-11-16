@@ -2,6 +2,7 @@
 import { ArrowLeft, ArrowRight, BellRing, Check, Coins, PartyPopper, Radar, Sparkles } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import HashlingNote from '@/components/brand/HashlingNote.vue'
 import LogoMark from '@/components/brand/LogoMark.vue'
 import DiscoveryPanel from '@/components/miners/DiscoveryPanel.vue'
 import Button from '@/components/ui/Button.vue'
@@ -9,6 +10,7 @@ import Field from '@/components/ui/Field.vue'
 import Input from '@/components/ui/Input.vue'
 import Select from '@/components/ui/Select.vue'
 import { api, describeError } from '@/lib/api'
+import { useHashling } from '@/stores/hashling'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
@@ -19,6 +21,7 @@ const live = useLive()
 const session = useSession()
 const settings = useSettings()
 const toasts = useToasts()
+const hashling = useHashling()
 
 const steps = [
   { id: 'welcome', label: 'Welcome', icon: Sparkles },
@@ -76,7 +79,7 @@ async function setupNtfy(): Promise<void> {
     const r = await api.testChannel(ntfyChannel.value.id)
     if (!r.ok) throw new Error(r.error ?? 'ntfy did not accept the test message.')
     ntfyDone.value = true
-    toasts.success('Test sent', 'Check the ntfy app on your phone.')
+    if (!hashling.show('M23')) toasts.success('Test sent', 'Check the ntfy app on your phone.')
   } catch (e) {
     error.value = describeError(e)
   } finally {
@@ -116,7 +119,7 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
 
     <section class="card flex-1 p-6 sm:p-8" :aria-label="step.label">
       <div v-if="step.id === 'welcome'" class="animate-fade-up space-y-5">
-        <h1 class="text-gradient-accent text-3xl font-bold tracking-tight">Welcome</h1>
+        <HashlingNote moment="M18" as="h1" :scale="3" />
         <p class="text-base leading-relaxed text-muted">
           This takes about two minutes. We will find your miners, set your electricity price and, if you like, send alerts to your phone.
           Nothing is changed on your miners, and you can redo any of it later in Settings.
@@ -162,8 +165,7 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
       </div>
 
       <div v-else class="animate-fade-up space-y-5 text-center">
-        <div class="mx-auto grid size-16 place-items-center rounded-3xl bg-accent-soft text-accent-text"><PartyPopper class="size-8" aria-hidden="true" /></div>
-        <h2 class="text-2xl font-bold tracking-tight text-fg">You are set</h2>
+        <HashlingNote moment="M19" as="h2" :scale="3" centered />
         <p class="mx-auto max-w-md text-sm leading-relaxed text-muted">
           Your dashboard is ready. Next, the best upgrade is to connect your own Bitcoin node or solo pool and set a password. The checklist on the dashboard walks you through it.
         </p>

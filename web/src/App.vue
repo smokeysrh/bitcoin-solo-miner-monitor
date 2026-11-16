@@ -4,10 +4,12 @@ import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
 import Celebration from '@/components/layout/Celebration.vue'
+import HashlingPopup from '@/components/layout/HashlingPopup.vue'
 import ConfirmHost from '@/components/ui/ConfirmHost.vue'
 import Toaster from '@/components/ui/Toaster.vue'
 import Button from '@/components/ui/Button.vue'
 import { applyLook, watchSystemTheme } from '@/lib/theme'
+import { useHashling } from '@/stores/hashling'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
@@ -24,6 +26,7 @@ const router = useRouter()
 const insights = useInsights()
 const ui = useUi()
 const toasts = useToasts()
+const hashling = useHashling()
 
 // Start and stop everything that talks to the server as the session changes (sign in, expiry, sign out).
 watch(
@@ -47,6 +50,7 @@ watch(
       insights.clear()
       ui.clear()
       toasts.items = []
+      hashling.clear()
       pendingConfirm.value?.resolve(false)
       pendingConfirm.value = null
       if (state === 'login' && !route.meta.public) {
@@ -77,6 +81,7 @@ onBeforeUnmount(() => unwatchTheme?.())
     <AppShell v-else-if="session.state === 'ready'" />
     <Celebration v-if="session.state === 'ready'" />
     <Toaster v-if="session.state === 'ready'" />
+    <HashlingPopup v-if="session.state === 'ready'" />
     <ConfirmHost v-if="session.state === 'ready'" />
   </TooltipProvider>
 </template>

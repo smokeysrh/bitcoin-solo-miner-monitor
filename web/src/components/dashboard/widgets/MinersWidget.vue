@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { Cpu, Plus, Radar } from 'lucide-vue-next'
+import { Plus, Radar } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useUi } from '@/stores/ui'
+import HashlingArt from '@/components/brand/HashlingArt.vue'
 import MinerTile from '@/components/miners/MinerTile.vue'
 import Button from '@/components/ui/Button.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import { HASHLING_MOMENTS } from '@/lib/hashlingText'
 import WidgetFrame from '../WidgetFrame.vue'
 
 const MAX = 12
@@ -24,7 +26,8 @@ const shown = computed(() => sorted.value.slice(0, MAX))
     <div v-if="shown.length" class="grid gap-[var(--gap-grid)] sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" data-testid="widget-miners">
       <MinerTile v-for="d in shown" :key="d.id" :device="d" />
     </div>
-    <EmptyState v-else compact :icon="Cpu" title="No miners yet" description="Scan your network and we will find them for you. It takes about twenty seconds.">
+    <EmptyState v-else compact title="No miners yet" :description="HASHLING_MOMENTS.M20.line">
+      <template #art><HashlingArt pose="tinkering" :scale="2" /></template>
       <Button v-if="session.canControl" variant="primary" @click="ui.addMinerOpen = true">
         <template #icon><Radar class="size-4" /></template>
         Scan my network

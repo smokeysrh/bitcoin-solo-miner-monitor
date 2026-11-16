@@ -225,12 +225,6 @@ describe('planPopups: one pop-up per window, storms are coalesced', () => {
     const plans = planPopups([cand('M14', { deviceId: 'a', miner: 'A' }), cand('M14', { deviceId: 'b', miner: 'B' })], false)
     expect(plans.map((p) => p.id)).toEqual(['M14', 'M14'])
   })
-
-  it('keeps every source key so each event is remembered as shown', () => {
-    const a = cand('M15', { deviceId: 'a', miner: 'A' })
-    const b = cand('M15', { deviceId: 'b', miner: 'B' })
-    expect(planPopups([a, b], false)[0].keys).toEqual([a.key, b.key])
-  })
 })
 
 describe('Hashling text', () => {

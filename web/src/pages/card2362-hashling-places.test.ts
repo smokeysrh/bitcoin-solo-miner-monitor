@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
+import type { Component } from 'vue'
 import { api } from '@/lib/api'
 import { HASHLING_ART } from '@/lib/brand'
 import { HASHLING_MOMENTS, HASHLING_UI, fill } from '@/lib/hashlingText'
@@ -52,11 +53,11 @@ function boot(popups: boolean | undefined = true) {
   live.loaded = true
   return { live, hashling: useHashling(), toasts: useToasts() }
 }
-async function mountWithRouter(component: Parameters<typeof mount>[0], stubs: Record<string, unknown> = {}, props: Record<string, unknown> = {}): Promise<Wrapper> {
+async function mountWithRouter(component: Component, stubs: Record<string, unknown> = {}, props: Record<string, unknown> = {}): Promise<Wrapper> {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { render: () => null } }] })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(component, { props, attachTo: document.body, global: { plugins: [router], stubs } })
+  const wrapper = mount(component, { props: props as never, attachTo: document.body, global: { plugins: [router], stubs } })
   wrappers.push(wrapper)
   await flushPromises()
   return wrapper
@@ -85,7 +86,7 @@ describe('card 2362: the setup page (M18 welcome, M19 finished)', () => {
   it('welcomes with Hashling tinkering at his desk rig, in Becky\'s words', async () => {
     boot()
     const w = await mountWithRouter(SetupPage, stubs)
-    const img = w.get('main img[src="' + HASHLING_ART.tinkering + '"]')
+    const img = w.get(`img[src="${HASHLING_ART.tinkering}"]`)
     expect(img.attributes('alt')).toBe(HASHLING_UI.U01f)
     expect(w.text()).toContain(HASHLING_MOMENTS.M18.title)
     expect(w.text()).toContain(HASHLING_MOMENTS.M18.line)

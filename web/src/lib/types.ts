@@ -767,6 +767,8 @@ export interface Settings {
     view_miners: 'grid' | 'table'
     reduce_motion: boolean
     sound_on_block: boolean
+    /** Hashling's pop-ups on the dashboard and wall display. Absent in settings saved before the switch existed (that means on). */
+    hashling_popups?: boolean
     simple_mode: boolean
     dashboard: DashboardLayout | null
     /** Absent in settings saved before these layouts existed. */

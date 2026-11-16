@@ -1,6 +1,7 @@
 import { api, describeError } from '@/lib/api'
 import { poolChangeText } from '@/lib/poolChangeText'
 import type { DeviceView } from '@/lib/types'
+import { useHashling } from '@/stores/hashling'
 import { useLive } from '@/stores/live'
 import { useToasts } from '@/stores/toasts'
 import { confirmDialog } from './useConfirm'
@@ -12,6 +13,7 @@ import { confirmDialog } from './useConfirm'
 export function useMinerMonitor() {
   const live = useLive()
   const toasts = useToasts()
+  const hashling = useHashling()
 
   async function remove(d: DeviceView): Promise<boolean> {
     const ok = await confirmDialog({
@@ -54,7 +56,7 @@ export function useMinerMonitor() {
     try {
       const r = await api.acceptPoolChange(change.event_id)
       live.upsertDevice(r.device)
-      toasts.success(poolChangeText.acceptedToast(d.name))
+      if (!hashling.show('M24', { miner: d.name })) toasts.success(poolChangeText.acceptedToast(d.name))
       return true
     } catch (e) {
       toasts.error(poolChangeText.acceptFailedToast, describeError(e))

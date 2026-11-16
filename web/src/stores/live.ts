@@ -3,6 +3,7 @@ import { computed, ref, shallowRef } from 'vue'
 import { api, describeError } from '@/lib/api'
 import { LiveStream, type StreamStatus } from '@/lib/stream'
 import type { ActiveAlert, AppEvent, BlockInfo, DeviceView, FleetSummary, FoundBlock, NetworkState, Odds } from '@/lib/types'
+import { useHashling } from './hashling'
 import { useToasts } from './toasts'
 import { useUi } from './ui'
 
@@ -52,6 +53,7 @@ export const useLive = defineStore('live', () => {
    */
   let sinceLoad: Array<() => void> | null = null
   const toasts = useToasts()
+  const hashling = useHashling()
 
   /** Apply a stream update now and, if a full load is in flight, remember it to replay after that load. */
   function track(apply: () => void): void {
@@ -83,6 +85,7 @@ export const useLive = defineStore('live', () => {
       network.value = { ...ov.network, pools: pool.pools, recent_blocks: blocks }
       recentBlocks.value = blocks
       alerts.value = ov.alerts
+      hashling.seedAlerts(ov.alerts) // alerts already active when the page loads are history, not news
       events.value = ov.events
       blocksFound.value = ov.blocks_found
       leaderboard.value = ov.leaderboard
@@ -133,6 +136,7 @@ export const useLive = defineStore('live', () => {
 
   function announce(e: AppEvent): void {
     if (!loaded.value || Date.now() / 1000 - e.ts > 60) return
+    if (hashling.offer(e)) return // Hashling shows this one instead of a toast
     if (e.severity === 'critical') toasts.push({ kind: 'error', title: e.title, body: e.body ?? undefined, timeout: 10_000 })
     else if (e.severity === 'warning') toasts.push({ kind: 'warning', title: e.title, body: e.body ?? undefined })
     else if (e.type === 'new_best_share') toasts.push({ kind: 'success', title: e.title, body: e.body ?? undefined })
@@ -178,6 +182,7 @@ export const useLive = defineStore('live', () => {
           track(() => {
             alerts.value = active
           })
+          if (loaded.value) hashling.observeAlerts(active)
         },
         block_found: (b) => {
           const ui = useUi()

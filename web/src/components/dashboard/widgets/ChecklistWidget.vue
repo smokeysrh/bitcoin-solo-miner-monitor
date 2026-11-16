@@ -3,6 +3,7 @@ import { useStorage } from '@vueuse/core'
 import { Check } from 'lucide-vue-next'
 import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useHashling } from '@/stores/hashling'
 import { useInsights } from '@/stores/insights'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
@@ -15,6 +16,7 @@ const live = useLive()
 const ui = useUi()
 const router = useRouter()
 const session = useSession()
+const hashling = useHashling()
 const hidden = useStorage('bsmm.checklistHidden', false)
 
 onMounted(() => void insights.refresh())
@@ -74,6 +76,13 @@ const steps = computed<Step[]>(() => [
 
 const doneCount = computed(() => steps.value.filter((s) => s.done).length)
 const visible = computed(() => insights.loaded && !hidden.value && doneCount.value < steps.value.length && session.canControl)
+
+// The last step done while the page is open is Hashling's moment, once ever. A list that was already complete when the page
+// loaded (or whose answers were still loading) is not news: both sources must have loaded before a change counts.
+const ready = computed(() => insights.loaded && live.loaded)
+watch([ready, doneCount], ([isReady, done], [wasReady, was]) => {
+  if (isReady && wasReady && done === steps.value.length && was < steps.value.length) hashling.show('M21', {}, { once: 'checklist' })
+})
 </script>
 
 <template>
