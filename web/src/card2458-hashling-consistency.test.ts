@@ -253,6 +253,40 @@ describe('card 2458 R3: an older device reading does not re-arm a stop that was 
     settle()
     expect(hashling.items).toEqual([])
   })
+
+  /**
+   * One stop seen by a Refresh answer (the view first), a newer Refresh answer that says it works, and then the first poll's
+   * `device_degraded` event for that same stop, delivered late: the event is older than the newest accepted reading.
+   */
+  async function lateStopEventAfterRecovery(): Promise<ReturnType<typeof boot> & { owned: boolean }> {
+    const ctx: ReturnType<typeof boot> = boot([working(T0), dev('b', 'Office')])
+    await update(ctx.live, stoppedAt(T0 + 10))
+    settle()
+    expect(ctx.hashling.items.map((i) => i.momentId)).toEqual(['M12']) // the one Sleeping for this stop
+    ctx.hashling.dismiss()
+    await update(ctx.live, working(T0 + 15)) // a newer answer: it works again, so the shown stop is over
+    // The server stamps the event after its own poll's reading (T0 + 10), so it is older than the T0 + 15 reading.
+    const owned = ctx.hashling.offer(ev('device_degraded', 'warning', { device_id: 'a', ts: T0 + 10.4, body: 'Fan fault; Not hashing' }))
+    settle()
+    return { ...ctx, owned }
+  }
+
+  it('(e) a stop event older than the newest reading is stale: owned by Hashling, but no second Sleeping for the same stop', async () => {
+    const { hashling, owned } = await lateStopEventAfterRecovery()
+    expect(owned).toBe(true) // Hashling keeps it, so no warning toast escapes
+    expect(hashling.items).toEqual([]) // right after the flush, so a pop-up that timed out on its own cannot hide a repeat
+  })
+
+  it('(f) continuing (e): a newer stop after the real recovery is a genuine new stop and shows Sleeping once', async () => {
+    const { hashling, live } = await lateStopEventAfterRecovery()
+    hashling.dismiss() // nothing may be showing here; if a repeat was queued, take it away so only the new stop is judged below
+    await update(live, stoppedAt(T0 + 20))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
+  })
+
+  // (g) guard, no new case: a stop event newer than every accepted reading still shows exactly one M12. Case (b) proves it
+  // (working(T0) first, then the event at T0 + 10.4, and one M12 after the flush); case (a) and the G1 cases cover the view side.
 })
 
 // ------------------------------------------------------------------------------------------------------------------ G2
