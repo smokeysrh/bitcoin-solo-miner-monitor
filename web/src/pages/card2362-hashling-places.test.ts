@@ -53,7 +53,7 @@ function boot(popups: boolean | undefined = true) {
   live.loaded = true
   return { live, hashling: useHashling(), toasts: useToasts() }
 }
-async function mountWithRouter(component: Component, stubs: Record<string, unknown> = {}, props: Record<string, unknown> = {}): Promise<Wrapper> {
+async function mountWithRouter(component: Component, stubs: Record<string, boolean | Component> = {}, props: Record<string, unknown> = {}): Promise<Wrapper> {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { render: () => null } }] })
   await router.push('/')
   await router.isReady()
