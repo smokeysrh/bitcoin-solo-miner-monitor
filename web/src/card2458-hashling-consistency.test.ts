@@ -118,8 +118,7 @@ describe('card 2458 G1: a miner that stops hashing without a new status event ge
     await update(live, stopped({ telemetry: reading(0), hashrate_smooth_hs: 1e11 })) // still not hashing
     await update(live, dev('b', 'Office', { hashrate_smooth_hs: 1.1e12 }))
     settle()
-    vi.advanceTimersByTime(HASHLING_TIMING.maxWaitMs * 3)
-    expect(hashling.items).toEqual([])
+    expect(hashling.items).toEqual([]) // right after the flush, so a pop-up that timed out on its own cannot hide a repeat
     await update(live, attentionButHashing()) // it starts hashing again...
     await update(live, stopped()) // ...and stops again: a new transition
     settle()
@@ -153,10 +152,11 @@ describe('card 2458 G1: a miner that stops hashing without a new status event ge
     settle()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M12'])
     hashling.dismiss()
-    // The server's event for the same stop arrives later, outside the 3 s window, with an id of its own.
+    // The server's event for the same stop arrives later, well outside the 3 s window, with an id of its own.
+    vi.advanceTimersByTime(HASHLING_TIMING.maxWaitMs * 3)
     hashling.offer(ev('device_degraded', 'warning', { device_id: 'a', body: 'Fan fault; Not hashing' }))
     settle()
-    vi.advanceTimersByTime(HASHLING_TIMING.maxWaitMs * 3)
+    // Asserted right after the flush: a long wait here would let a second pop-up's own dismiss timer hide it.
     expect(hashling.items).toEqual([])
     await update(live, dev('a', 'Garage')) // it hashes again...
     await update(live, stopped()) // ...and stops again: a genuine new stop
