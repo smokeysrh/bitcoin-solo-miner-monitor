@@ -934,4 +934,71 @@ describe('card 2362: through the live stream', () => {
     settle()
     expect(hashling.items).toEqual([])
   })
+
+  // R7: a reconnect's full load holds a snapshot that may predate the stream updates seen while it was in flight. The
+  // outage is judged on the reconciled state (snapshot plus replayed updates), never on the snapshot alone.
+  describe('an outage that is waiting while a reconnect full load is in flight', () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void
+      const promise = new Promise<T>((yes) => { resolve = yes })
+      return { promise, resolve }
+    }
+    const RETURNED_AT_ZERO: Partial<DeviceView> = { status: 'online', hashrate_smooth_hs: 4e11, telemetry: reading(0) }
+
+    /** Holds a reload open, then lets Office go offline and come back at zero: M16 shown and dismissed, outage waiting. */
+    async function waitingOutageDuringReload(ctx: Awaited<ReturnType<typeof startLive>>) {
+      const snapshot = deferred<DeviceView[]>()
+      vi.mocked(api.devices).mockReturnValueOnce(snapshot.promise)
+      const loading = ctx.live.reload()
+      const push = (view: DeviceView): void => ctx.source.push('device', { id: view.id, view })
+      ctx.source.push('event', ev('device_offline', 'critical', { device_id: 'b' }))
+      push(dev('b', 'Office', { status: 'offline', hashrate_smooth_hs: null, telemetry: null }))
+      settle()
+      ctx.hashling.dismiss()
+      push(dev('b', 'Office', RETURNED_AT_ZERO))
+      ctx.source.push('event', ev('device_online', 'success', { device_id: 'b' }))
+      settle()
+      expect(ctx.hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+      ctx.hashling.dismiss()
+      return { snapshot, loading, push }
+    }
+
+    it('is not closed by an older all-hashing snapshot that the buffered zero view then supersedes', async () => {
+      const ctx = await startLive([])
+      const { snapshot, loading, push } = await waitingOutageDuringReload(ctx)
+      expect(ctx.hashling.items).toEqual([])
+      snapshot.resolve([dev('a', 'Garage'), dev('b', 'Office')]) // from before Office went down: the whole fleet hashes
+      await loading
+      await flushPromises()
+      settle()
+      expect(ctx.live.devicesById.b?.telemetry?.hashrate_hs).toBe(0) // the replay restored the newer view
+      expect(ctx.hashling.items).toEqual([])
+      push(dev('b', 'Office')) // the real later start of hashing: still exactly one M17
+      await flushPromises()
+      expect(ctx.hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+      ctx.hashling.dismiss()
+      push(dev('b', 'Office', { telemetry: reading(1.1e12) }))
+      await flushPromises()
+      settle()
+      expect(ctx.hashling.items).toEqual([])
+    })
+
+    it('is closed once, after the load, when the reconciled state shows every miner hashing', async () => {
+      const ctx = await startLive([])
+      ctx.live.devicesById = { ...ctx.live.devicesById, a: dev('a', 'Garage', { status: 'paused', telemetry: reading(0) }) }
+      const { snapshot, loading, push } = await waitingOutageDuringReload(ctx)
+      push(dev('b', 'Office')) // Garage is still paused in the view on screen, so the outage keeps waiting
+      await flushPromises()
+      expect(ctx.hashling.items).toEqual([])
+      snapshot.resolve([dev('a', 'Garage'), dev('b', 'Office', RETURNED_AT_ZERO)]) // Garage was resumed; Office older
+      await loading
+      await flushPromises()
+      expect(ctx.hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+      ctx.hashling.dismiss()
+      push(dev('b', 'Office', { telemetry: reading(1.1e12) }))
+      await flushPromises()
+      settle()
+      expect(ctx.hashling.items).toEqual([])
+    })
+  })
 })
