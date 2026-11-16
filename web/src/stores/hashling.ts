@@ -299,6 +299,13 @@ export const useHashling = defineStore('hashling', () => {
     // event after a view that already showed this stop is not a second stop either.
     let stopAlreadyShown = false
     if (moment.id === 'M12' && e.device_id) {
+      const known = newestTsById.get(e.device_id)
+      if (Number.isFinite(e.ts) && known !== undefined && e.ts < known) {
+        // The same rule as for a view: an event older than the newest reading seen is not the miner's current state, so it
+        // changes nothing and shows nothing (its stop was already seen or already over). It is remembered, so it never shows later.
+        remember(eventKey(e))
+        return true
+      }
       stopAlreadyShown = stopShown.has(e.device_id)
       stopShown.add(e.device_id)
       hashingById.set(e.device_id, 'not-hashing')
