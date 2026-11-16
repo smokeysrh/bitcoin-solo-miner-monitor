@@ -17,7 +17,7 @@ This minor release makes HashHurdr monitor-only: look, don't touch. The hurd get
   - The alert goes out through your existing notification channels. Notifications shorten payout addresses (first 8 and last 6 characters) and the dashboard shows full values. Pool passwords never appear. Switching the rule off stops its notifications, while the badge and event still appear (PR #143).
 - **On the miner:**
   - The miner shows a "Pool or payout changed" badge and a notice with Before and After. The notice says that if this was not you, fix it in the miner's own settings page. If it was you, "This was me: accept" makes HashHurdr record the settings it last confirmed as normal and clears the notice. Nothing is sent to the miner, and accepting needs control access. With no password set, everyone using the app has control access (PR #143).
-  - A change stays open until you answer it, even if the miner goes back to the old settings, and cleanup of old events never deletes a change that is still waiting. Marking the alert as seen does not clear the badge; only accepting does (PR #143).
+  - A waiting change stays waiting if the miner goes back to the recorded settings, and cleanup of old events never deletes it. If a newer, different change is confirmed before you answer, it replaces the earlier one. The earlier alert is marked as seen and can no longer be accepted, a new alert compares the settings HashHurdr has on record with the newest settings, and the badge and notice show that newest change. Marking an alert as seen does not clear the badge; only accepting does (PR #143).
   - In demo mode, a "Change a miner's pool" button shows the alert (PR #143).
 - **For developers and agents:**
   - New `POST /api/v1/events/{event_id}/accept-pool-change` (needs the `control` scope). Miner data gains a `pool_change` field, and there is a new event type `pool_settings_changed`. There is no MCP tool for accepting (PR #143).
@@ -36,6 +36,7 @@ This minor release makes HashHurdr monitor-only: look, don't touch. The hurd get
 - **API and MCP (for developers and agents):**
   - Removed `POST /api/v1/devices/{id}/actions/{action}`, `POST /api/v1/devices/actions` and `GET /api/v1/devices/{id}/tuning`. Callers now get 404 or 405 (PR #142).
   - Removed the MCP tools `restart_miner`, `identify_miner`, `run_miner_action` and `run_bulk_action` (PR #142).
+  - A miner's `capabilities` list, in REST miner responses and in the MCP `list_miners` and `get_miner` results, now only contains `scoreboard` and `history`. The eight control values `restart`, `identify`, `pause`, `set_pool`, `set_fan`, `set_frequency`, `set_voltage` and `set_hostname` are removed. Saved miners and config imports that still list them keep loading, and those entries are skipped (PR #142).
   - Settings no longer have a `safety` section, and miner data no longer has `allow_control`. Anything reading these fields will no longer find them. Requests that still send them are accepted and the fields are ignored (PR #142).
   - Old saved settings and config exports that still contain `safety` or `allow_control` still load, and those values are ignored (PR #142).
 
