@@ -90,10 +90,13 @@ const tone = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad' } as const
         <p v-if="update?.update_available" class="mt-2 text-sm text-ok">Version {{ update.latest }} is available. <a v-if="update.url" :href="update.url" target="_blank" rel="noopener noreferrer" class="underline">See what is new</a></p>
         <p v-else-if="update?.disabled" class="mt-2 text-sm text-muted">Update checks are off in this mode.</p>
         <p v-else-if="update?.error" class="mt-2 text-sm text-warn">{{ update.error }}</p>
-        <p v-else-if="update && !autoCheck && !checkedByButton" class="mt-2 text-sm text-muted">{{ updateCheckText.off }}</p>
+        <template v-else-if="update && !autoCheck && !checkedByButton">
+          <!-- Off and not pressed: only a session that can press the button is told it still works; others see no line, never a stale "up to date". -->
+          <p v-if="session.canControl" class="mt-2 text-sm text-muted">{{ updateCheckText.off }}</p>
+        </template>
         <p v-else-if="update?.checked_at" class="mt-2 text-sm text-muted">You are up to date.</p>
       </div>
-      <Button variant="secondary" size="sm" :loading="checking" :disabled="update?.disabled" @click="checkUpdate"><template #icon><RefreshCw class="size-4" /></template>Check for updates</Button>
+      <Button variant="secondary" size="sm" :loading="checking" :disabled="update?.disabled || !session.canControl" @click="checkUpdate"><template #icon><RefreshCw class="size-4" /></template>Check for updates</Button>
     </div>
     <div class="mt-5 border-t border-line pt-2" data-testid="update-check-setting">
       <ToggleRow :model-value="autoCheck" :disabled="!admin || !settings.data" :title="updateCheckText.label" :description="updateCheckText.description" @update:model-value="setAutoCheck" />
