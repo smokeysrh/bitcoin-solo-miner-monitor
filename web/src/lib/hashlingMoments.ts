@@ -33,8 +33,8 @@ export const MOMENT_POSE: Record<MomentId, HashlingPose> = {
   M08: 'alert', M09: 'alert', M10: 'alert', M11: 'alert', M1XN: 'alert',
   M12: 'sleeping',
   M13: 'found-block',
-  M14: 'celebrate', M15: 'celebrate', M15N: 'celebrate', M21: 'celebrate',
-  M16: 'thumbs-up', M16N: 'thumbs-up', M17: 'thumbs-up', M19: 'thumbs-up', M22: 'thumbs-up', M23: 'thumbs-up', M24: 'thumbs-up',
+  M14: 'celebrate', M15: 'celebrate', M15N: 'celebrate',
+  M16: 'thumbs-up', M16N: 'thumbs-up', M17: 'thumbs-up', M19: 'thumbs-up', M21: 'thumbs-up', M22: 'thumbs-up', M23: 'thumbs-up', M24: 'thumbs-up',
   M18: 'tinkering', M20: 'tinkering',
   M25: 'lottery-ticket',
 }

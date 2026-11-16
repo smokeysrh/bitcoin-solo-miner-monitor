@@ -166,7 +166,7 @@ describe('card 2362: the getting-started checklist is finished (M21)', () => {
     live.devicesById = { a: dev('a', 'Garage') }
     await flushPromises()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M21'])
-    expect(hashling.current).toMatchObject({ pose: 'celebrate', title: HASHLING_MOMENTS.M21.title, line: HASHLING_MOMENTS.M21.line })
+    expect(hashling.current).toMatchObject({ pose: 'thumbs-up', title: HASHLING_MOMENTS.M21.title, line: HASHLING_MOMENTS.M21.line })
   })
 
   it('does not celebrate a checklist that was already finished when the page loaded', async () => {

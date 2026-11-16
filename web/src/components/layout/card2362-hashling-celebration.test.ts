@@ -32,11 +32,28 @@ const BLOCK = { height: 900_001, hash: 'ef'.repeat(32) }
 type Wrapper = ReturnType<typeof mount>
 const wrappers: Wrapper[] = []
 
-function boot(popups: boolean | undefined = true) {
+/** A canvas context that records the confetti being drawn. happy-dom has none. */
+function fakeContext() {
+  return { clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), translate: vi.fn(), rotate: vi.fn(), fillRect: vi.fn(), fillStyle: '', globalAlpha: 1 }
+}
+
+/** requestAnimationFrame under test control: frames run only when the test says so. */
+const frames: FrameRequestCallback[] = []
+function runFrames(at = performance.now()): void {
+  const due = frames.splice(0)
+  due.forEach((cb) => cb(at))
+}
+const BURST_OVER_MS = 7_000 // the burst lasts 6.5 s
+
+function osReducedMotion(on: boolean): void {
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: on && query.includes('prefers-reduced-motion'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined }))
+}
+
+function boot(popups: boolean | undefined = true, reduceMotion = true) {
   setActivePinia(createPinia())
   useSession().state = 'ready'
-  // reduce_motion on: no confetti canvas work in the test
-  useSettings().data = { ui: { reduce_motion: true, sound_on_block: false, ...(popups === undefined ? {} : { hashling_popups: popups }) } } as unknown as Settings
+  // reduce_motion on by default: no confetti canvas work unless a test asks for it
+  useSettings().data = { ui: { reduce_motion: reduceMotion, sound_on_block: false, ...(popups === undefined ? {} : { hashling_popups: popups }) } } as unknown as Settings
   const wrapper = mount(Celebration, { attachTo: document.body })
   wrappers.push(wrapper)
   return { wrapper, ui: useUi(), hashling: useHashling() }
@@ -44,11 +61,15 @@ function boot(popups: boolean | undefined = true) {
 
 beforeEach(() => {
   localStorage.clear()
+  frames.length = 0
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
+  vi.stubGlobal('cancelAnimationFrame', () => undefined)
 })
 afterEach(() => {
   wrappers.splice(0).forEach((w) => w.unmount())
   document.body.innerHTML = ''
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('card 2362: the celebration dialog and Hashling', () => {
@@ -106,6 +127,64 @@ describe('card 2362: the celebration dialog and Hashling', () => {
     const { wrapper, ui, hashling } = boot(false)
     hashling.surface = 'wall'
     ui.celebrate(BLOCK)
+    await nextTick()
+    expect(wrapper.find('[data-testid="celebration"]').exists()).toBe(true)
+  })
+})
+
+// A confirmed block on the wall display keeps its confetti even though the dialog stays shut there. The burst is drawn
+// on the existing canvas; reduce motion (the in-app switch or the device setting) turns it off, as for the dialog.
+describe('card 2362: the confetti on the wall display', () => {
+  /** Fires the block and runs the frame that starts the burst, then one drawing frame. */
+  async function blockOnWall(reduceMotion: boolean) {
+    const ctx = fakeContext()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D)
+    const booted = boot(true, reduceMotion)
+    booted.hashling.surface = 'wall'
+    booted.ui.celebrate(BLOCK)
+    await nextTick()
+    runFrames() // starts the burst
+    runFrames() // draws a frame
+    await nextTick()
+    return { ...booted, ctx, getContext }
+  }
+
+  it('plays the burst with the dialog shut: the canvas is shown and pieces are drawn', async () => {
+    const { wrapper, ctx, getContext } = await blockOnWall(false)
+    expect(wrapper.find('[data-testid="celebration"]').exists()).toBe(false)
+    expect(getContext).toHaveBeenCalledWith('2d')
+    expect(ctx.fillRect).toHaveBeenCalled()
+    expect(wrapper.get('canvas').classes()).not.toContain('hidden')
+  })
+
+  it('hides the canvas again when the burst is over, and the dialog was never opened', async () => {
+    const { wrapper, ctx, ui } = await blockOnWall(false)
+    runFrames(performance.now() + BURST_OVER_MS)
+    await nextTick()
+    expect(ctx.clearRect).toHaveBeenCalled()
+    expect(frames).toHaveLength(0)
+    expect(wrapper.get('canvas').classes()).toContain('hidden')
+    expect(wrapper.find('[data-testid="celebration"]').exists()).toBe(false)
+    expect(ui.celebration).toBeNull()
+  })
+
+  it('plays no burst with the in-app Reduce motion switch on', async () => {
+    const { wrapper, getContext } = await blockOnWall(true)
+    expect(getContext).not.toHaveBeenCalled()
+    expect(wrapper.get('canvas').classes()).toContain('hidden')
+  })
+
+  it('plays no burst when the device asks for reduced motion', async () => {
+    osReducedMotion(true)
+    const { wrapper, getContext } = await blockOnWall(false)
+    expect(getContext).not.toHaveBeenCalled()
+    expect(wrapper.get('canvas').classes()).toContain('hidden')
+  })
+
+  it('a block the miner only reported (no hash) still opens the dialog on the wall, as before', async () => {
+    const { wrapper, ui, hashling } = boot()
+    hashling.surface = 'wall'
+    ui.celebrate({ height: 0, hash: '' })
     await nextTick()
     expect(wrapper.find('[data-testid="celebration"]').exists()).toBe(true)
   })

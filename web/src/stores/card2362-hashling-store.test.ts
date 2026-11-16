@@ -478,7 +478,7 @@ describe('card 2362: moments the app itself decides (setup, notifications, check
   it('shows a once-only moment (the checklist) once, remembered across reloads', () => {
     const first = boot()
     expect(first.hashling.show('M21', {}, { once: 'checklist' })).toBe(true)
-    expect(first.hashling.current).toMatchObject({ momentId: 'M21', pose: 'celebrate' })
+    expect(first.hashling.current).toMatchObject({ momentId: 'M21', pose: 'thumbs-up' })
     first.hashling.dismiss()
     first.hashling.show('M21', {}, { once: 'checklist' })
     expect(first.hashling.items).toEqual([])

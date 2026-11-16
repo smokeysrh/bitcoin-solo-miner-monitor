@@ -3,6 +3,7 @@ import { ExternalLink, PartyPopper } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { HASHLING_MOMENTS } from '@/lib/hashlingText'
+import { prefersReducedMotion } from '@/lib/motion'
 import { playBlockChime } from '@/lib/sound'
 import { cssVar } from '@/lib/theme'
 import { useHashling } from '@/stores/hashling'
@@ -22,7 +23,12 @@ const hashling = useHashling()
 const fmt = useFmt()
 const canvas = ref<HTMLCanvasElement | null>(null)
 const open = ref(false)
+/** A confetti burst is running. The canvas shows for it with or without the dialog (the wall display has none). */
+const bursting = ref(false)
 let raf = 0
+
+/** The device setting or the in-app switch asks for stillness: no confetti. Read per block, like the Hashling pop-up. */
+const still = (): boolean => (settings.data?.ui.reduce_motion ?? false) || prefersReducedMotion()
 
 /** Hashling's found-block pose and line, for a block the chain confirmed (it carries a hash). A miner's own report has none. */
 const hashlingBlock = computed(() => hashling.enabled && !!ui.celebration?.hash)
@@ -32,18 +38,18 @@ watch(
   (c) => {
     if (c && settings.data?.ui.sound_on_block) playBlockChime()
     // On the wall display nobody is there to press Close, so Hashling's own pop-up carries a confirmed block and closes itself.
-    if (c?.hash && hashling.enabled && hashling.surface === 'wall') {
-      ui.celebration = null
-      return
-    }
-    open.value = !!c
-    if (c && !settings.data?.ui.reduce_motion) requestAnimationFrame(() => confetti())
+    // The confetti still plays there.
+    const onWall = !!c?.hash && hashling.enabled && hashling.surface === 'wall'
+    if (onWall) ui.celebration = null
+    else open.value = !!c
+    if (c && !still()) requestAnimationFrame(() => confetti())
   },
 )
 watch(open, (v) => {
   if (!v) {
     ui.celebration = null
     cancelAnimationFrame(raf)
+    bursting.value = false
   }
 })
 onBeforeUnmount(() => cancelAnimationFrame(raf))
@@ -67,6 +73,8 @@ function confetti(): void {
   const dpr = window.devicePixelRatio || 1
   const w = (el.width = window.innerWidth * dpr)
   const h = (el.height = window.innerHeight * dpr)
+  cancelAnimationFrame(raf)
+  bursting.value = true
   const colors = CONFETTI_TOKENS.map((token) => cssVar(token, CONFETTI_FALLBACK))
   const pieces: Piece[] = Array.from({ length: 220 }, () => ({
     x: w / 2 + (Math.random() - 0.5) * w * 0.25,
@@ -97,14 +105,17 @@ function confetti(): void {
       ctx.restore()
     }
     if (elapsed < 6500) raf = requestAnimationFrame(frame)
-    else ctx.clearRect(0, 0, w, h)
+    else {
+      ctx.clearRect(0, 0, w, h)
+      bursting.value = false
+    }
   }
   raf = requestAnimationFrame(frame)
 }
 </script>
 
 <template>
-  <canvas ref="canvas" class="pointer-events-none fixed inset-0 z-[90]" :class="!open && 'hidden'" aria-hidden="true" />
+  <canvas ref="canvas" class="pointer-events-none fixed inset-0 z-[90]" :class="!open && !bursting && 'hidden'" aria-hidden="true" />
   <Dialog v-model:open="open" title="You found a block" hide-title size="md" class="z-[95] text-center">
     <div v-if="ui.celebration" class="flex flex-col items-center gap-4 py-6" data-testid="celebration">
       <HashlingArt v-if="hashlingBlock" pose="found-block" :scale="3" />
