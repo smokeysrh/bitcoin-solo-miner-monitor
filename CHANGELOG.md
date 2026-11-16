@@ -5,6 +5,56 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-11-16
+
+This minor release puts Hashling to work on the dashboard and the wall display, with pop-ups for the good news and the bad. Upgrading needs no database migration.
+
+### Added
+- **Hashling pop-ups:**
+  - Hashling, the HashHurdr mascot, now pops up on the dashboard and on the wall display when something happens, good or bad: a miner goes offline or comes back, a miner stops hashing, a fan stops, a miner runs hot, hashrate drops (one miner or the whole fleet), many rejected shares, the fallback pool is in use, the node or pool is not answering or is behind the network, a miner needs attention, a pool or payout setting changes, a new best share, and a miner is added (PR #146, PR #157).
+  - Several miners going offline at once become one "Several miners offline". Different kinds of trouble arriving together become one "Several things need a look". Several miners added, or several coming back, at once become one pop-up with a count. New best share and found-block pop-ups are never grouped. Pop-ups show one at a time, with a line saying how many more are waiting (PR #146).
+  - Alerts that are already active when the page loads do not pop up. Pop-ups are chosen by kind of event: only the events listed in the first bullet, plus the ones named elsewhere in this section, pop up. Other events do not, and neither do custom alert rules (PR #146).
+  - "Every miner is hashing" shows once when an outage clears and every enabled miner is back online and hashing (PR #146).
+  - On the dashboard only, a pop-up also shows when the setup checklist is completed (once), when notifications are turned on (a channel created switched on, or switched on later), when a test notification is sent, and when a pool change is accepted (PR #146, PR #157).
+  - While pop-ups are on, they replace the small notices (toasts) for those events. One exception: adding a miner still shows its small "Added" notice when the pop-up cannot arrive, which is while the app's live connection is down or the app has not finished loading its data yet. With the switch off, the old notices and the old celebration dialog come back (PR #146, PR #157).
+- **Found block:**
+  - When a found block is confirmed on the chain, the dashboard celebration now shows Hashling with the line "The pool confirmed a real block. Somebody hold my hard hat!". A miner's own block counter on its own does not count, and that still gets the old dialog. On the wall display, a Hashling pop-up shows for 60 seconds instead of the dialog, and the confetti plays unless reduced motion is on (PR #146).
+- **Hashling without a pop-up:**
+  - Hashling appears on the setup wizard's first page ("Welcome to HashHurdr") and last page ("You are set"). He is also in the empty "No miners yet" state on the Miners page and the dashboard Miners widget: "Nothing here yet. Add a miner and I'll keep an eye on it." (PR #146).
+  - The Odds page has one line from him: "Every hash is a fresh ticket. I'm a very busy optimist." (PR #146).
+  - The logo blinks once a few seconds after the page loads and again when you hover over it. It never blinks with reduced motion on (PR #146).
+- **Settings for pop-ups:**
+  - New switch in Settings > Appearance > "Layout & motion": "Hashling pop-ups", on by default. When an admin changes it, it is saved on the server and a wall display follows it the next time it loads. Other sessions (read or control access) keep it on their own device. Turning it off clears any waiting pop-ups straight away on that screen. With the in-app "Reduce motion" switch or your device's reduced-motion setting on, pop-ups still appear but do not hop (PR #146).
+- **Version in the sidebar:**
+  - The sidebar shows the app version (for example "v1.6.0") to the right of the Collapse button. It is hidden when the sidebar is collapsed or the version is unknown (PR #149).
+- **Update check switch:**
+  - New switch in Settings > About: "Check for updates automatically", on by default. Only an admin can change it (PR #151).
+  - With it off, HashHurdr stops its daily check and only checks when you press "Check for updates". The About page then says "Automatic checks are off. The Check for updates button still works." until you press the button (PR #151).
+  - Each check is one anonymous request to GitHub, which sees your IP address and the app name and version. What comes back is the newest version number and a release link. Nothing installs by itself. `BSMM_NO_UPDATE_CHECK=1`, `BSMM_OFFLINE=1` and demo mode still block every check, the button included (PR #151).
+- **For developers and agents:**
+  - New settings `network.check_for_updates` (PR #151) and `ui.hashling_popups` (PR #146), both true by default. With `network.check_for_updates` off, `GET /api/v1/system/update` returns the last saved result and contacts no one (PR #151).
+  - The update result is now checked before use: `latest` is a normal version number, `url` falls back to the releases page, and redirects are not followed. A normal GitHub answer that holds no usable release sets `error` to "GitHub's reply was not a usable release. Try again later", and a reply over 256 KiB sets it to "GitHub's reply was too big to read. Try again later". Other failures set their own error message (PR #151).
+
+### Changed
+- **Update check:**
+  - The release notes text from GitHub is no longer stored or returned. The "See what is new" link only opens a page in the project's own GitHub repository, and otherwise falls back to its releases page. "You are up to date." only shows after a check has actually run. Read-only sessions now see the "Check for updates" button greyed out (PR #151).
+- **Confetti:**
+  - The celebration confetti now also stops when your device's reduced-motion setting is on. Before, only the in-app "Reduce motion" switch stopped it (PR #146).
+- **Pool change guidance:**
+  - In Settings > General, the "Mark offline after" hint now reads "Checks in a row before a miner counts as offline, or before a changed pool or payout setting raises an alert." (PR #145).
+  - The agent guide and the bundled agent skill now tell agents to read `pool_change` on the miner (a waiting change can already be marked seen, so filtering for unseen alerts can miss it), tell the user, and accept only after the user says it was them, never on their own (PR #145).
+  - The "not found" hint from `POST /api/v1/events/{event_id}/accept-pool-change` now says to read the miner again with `GET /api/v1/devices/{id}` and use the event id in its `pool_change` (PR #148).
+- **Docs:**
+  - The README and the security notes describe the anonymous update check and how to turn it off (Settings > About or `BSMM_NO_UPDATE_CHECK=1`) (PR #151).
+
+### Fixed
+- **Demo mode:**
+  - "Find a block" works again after the first time on the same demo server. Before, it only worked once. After 1000 pretend blocks the demo says "The demo has run out of pretend blocks."; start the demo again for a fresh batch. For developers, `POST /api/v1/demo/scenario` with the block scenario now also returns the `height`, and running out answers HTTP 409 with code `demo_blocks_exhausted` (PR #146).
+
+### Removed
+- **Update notes (for developers and agents):**
+  - The `notes` field is removed from `GET /api/v1/system/update` and `POST /api/v1/system/update/check`, so anything reading it will no longer find it. Results saved by older versions lose it on first start (PR #151).
+
 ## [1.5.0] - 2026-11-16
 
 This minor release makes HashHurdr monitor-only: look, don't touch. The hurd gets a new alert for when a miner's pool or payout settings change.
