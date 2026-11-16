@@ -32,7 +32,7 @@ When v1.1.2 opens existing data, it moves recognized notification credentials le
 ## Network behaviour
 
 - Network scans only touch private, loopback, link-local and CGNAT ranges. Public ranges are refused.
-- The app talks to miners, configured node/pool sources, enabled public network-data services and GitHub release checks. Selected notification channels send alerts to their configured destinations. There is no telemetry.
+- The app talks to miners, configured node/pool sources, enabled public network-data services and GitHub release checks. Selected notification channels send alerts to their configured destinations. There is no telemetry. A release check is anonymous: GitHub sees your IP address and User-Agent (app name and version). The reply is a version number and release link. Nothing is installed. Turn it off in Settings > About or via `BSMM_NO_UPDATE_CHECK=1`.
 - `BSMM_OFFLINE=1` disables automatic public network-data, price and release checks. Configured sources and alert destinations still make requests. `BSMM_NO_UPDATE_CHECK=1` skips release checks alone.
 - Responses carry a strict Content-Security-Policy (no inline scripts, no framing), `nosniff` and `no-referrer`.
 

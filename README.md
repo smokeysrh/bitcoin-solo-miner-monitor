@@ -91,7 +91,7 @@ Give a monitoring agent a `read` token. Grant `control` when it should also scan
 
 First start is open to the configured host until you set authentication. Set a dashboard password before sharing access beyond a trusted home network; use HTTPS in front of remote access. API tokens have `read`, `control` and `admin` scopes.
 
-BSMM sends no telemetry. It connects to your miners and configured node or pool. Public network-data and GitHub release checks can be disabled with `BSMM_OFFLINE=1`; explicitly configured sources and alert destinations still make their intended requests. Dashboard passwords are hashed. Stored RPC and notification secrets are encrypted at rest and write-only through the API. Protect the data directory and its key like a password store.
+HashHurdr sends no telemetry. It connects to your miners and configured node or pool. The daily GitHub release check is one anonymous request and installs nothing. Turn it off with the Settings > About switch or `BSMM_NO_UPDATE_CHECK=1`. `BSMM_OFFLINE=1` stops it along with public network-data checks; configured sources and alert destinations still make their intended requests. Dashboard passwords are hashed. Stored RPC and notification secrets are encrypted at rest and write-only through the API. Protect the data directory and its key like a password store.
 
 Read [SECURITY.md](SECURITY.md) before exposing the dashboard beyond your LAN.
 
