@@ -48,6 +48,8 @@ class EnergySettings(_S):
 
 class NetworkSettings(_S):
     use_public_apis: bool = True
+    #: the once-a-day "is there a newer release?" check; the Check for updates button works either way
+    check_for_updates: bool = True
     mempool_url: str = "https://mempool.space"
     price_source: Literal["mempool", "manual", "none"] = "mempool"
     manual_btc_price: float | None = Field(None, ge=0)

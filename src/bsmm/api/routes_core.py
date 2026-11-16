@@ -31,7 +31,7 @@ from bsmm.models import AlertRule, Channel, Device, Source
 from bsmm.net import local_ipv4_networks
 from bsmm.settings import Settings, deep_merge
 from bsmm.sources.base import hide_url_login
-from bsmm.updates import check_for_update
+from bsmm.updates import check_for_update, stored_update_status
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -161,16 +161,18 @@ async def diagnostics(ctx: AppContext = Depends(get_ctx), _: Principal = Depends
 
 @router.get("/system/update", tags=["system"], operation_id="getUpdateStatus", summary="Is a newer release available? (cached for a day)")
 async def update_status(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
-    if ctx.config.offline or ctx.config.no_update_check or ctx.config.demo:
+    if ctx.update_checks_blocked:
         return {"current": __version__, "latest": None, "update_available": False, "disabled": True}
-    return await check_for_update(ctx.store, ctx.http)
+    if not ctx.settings.current.network.check_for_updates:
+        return await stored_update_status(ctx.store)  # automatic checks are off: show the last result, call no one
+    return await check_for_update(ctx.store)
 
 
 @router.post("/system/update/check", tags=["system"], operation_id="checkForUpdate", summary="Check GitHub for a newer release now")
 async def update_check(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("control"))) -> dict[str, Any]:
-    if ctx.config.offline or ctx.config.no_update_check or ctx.config.demo:
+    if ctx.update_checks_blocked:
         raise ApiError(409, "disabled", "Update checks are switched off (offline / no-update-check mode).")
-    return await check_for_update(ctx.store, ctx.http, force=True)
+    return await check_for_update(ctx.store, force=True)
 
 
 @router.get("/system/backup", tags=["system"], operation_id="downloadBackup", summary="Download a consistent copy of the database (admin)",

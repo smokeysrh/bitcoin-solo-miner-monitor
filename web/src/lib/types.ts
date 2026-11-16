@@ -714,7 +714,6 @@ export interface UpdateStatus {
   update_available: boolean
   disabled?: boolean
   url?: string | null
-  notes?: string | null
   checked_at?: number | null
   error?: string | null
 }
@@ -743,6 +742,7 @@ export interface Settings {
   energy: { price_per_kwh: number; psu_overhead_pct: number }
   network: {
     use_public_apis: boolean
+    check_for_updates: boolean
     mempool_url: string
     price_source: 'mempool' | 'manual' | 'none'
     manual_btc_price: number | null
