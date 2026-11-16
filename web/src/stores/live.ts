@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { api, describeError } from '@/lib/api'
 import { LiveStream, type StreamStatus } from '@/lib/stream'
 import type { ActiveAlert, AppEvent, BlockInfo, DeviceView, FleetSummary, FoundBlock, NetworkState, Odds } from '@/lib/types'
@@ -54,6 +54,9 @@ export const useLive = defineStore('live', () => {
   let sinceLoad: Array<() => void> | null = null
   const toasts = useToasts()
   const hashling = useHashling()
+
+  // A miner that starts hashing after it came back gets no event: Hashling watches the views for it (sync: no gap).
+  watch(devicesById, () => hashling.observeDevices(), { flush: 'sync' })
 
   /** Apply a stream update now and, if a full load is in flight, remember it to replay after that load. */
   function track(apply: () => void): void {

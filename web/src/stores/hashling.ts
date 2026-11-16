@@ -86,6 +86,8 @@ export const useHashling = defineStore('hashling', () => {
   let dismissTimer: ReturnType<typeof setTimeout> | null = null
   let held = false
   let outageOpen = false
+  /** An observed outage has seen a miner return, and is waiting for every miner to read a positive hashrate. */
+  let returned = false
   let nextItemId = 0
 
   function remember(key: string): void {
@@ -168,10 +170,14 @@ export const useHashling = defineStore('hashling', () => {
     windowTimer = setTimeout(flush, wait)
   }
 
-  /** Is every miner of the fleet online and hashing in its current view? A disabled miner is not part of the fleet. */
+  /**
+   * Is every miner of the fleet online and hashing right now? A disabled miner is not part of the fleet. "Hashing" is the
+   * latest reading: the smoothed value keeps a decaying leftover after an outage, and a rebooted miner is online while
+   * it still reports 0 H/s.
+   */
   function everyMinerHashing(devices: readonly DeviceView[]): boolean {
     const fleet = devices.filter((d) => d.status !== 'disabled')
-    return fleet.length > 0 && fleet.every((d) => d.status === 'online' && (d.hashrate_smooth_hs ?? d.telemetry?.hashrate_hs ?? 0) > 0)
+    return fleet.length > 0 && fleet.every((d) => d.status === 'online' && (d.telemetry?.hashrate_hs ?? 0) > 0)
   }
 
   function flush(): void {
@@ -193,8 +199,21 @@ export const useHashling = defineStore('hashling', () => {
     const returning = ready.filter((c) => c.moment.id === 'M16')
     const outageClear = outageOpen && returning.length > 0 && everyMinerHashing(live.devices)
     const plans: PlannedPopup[] = planPopups(ready, outageClear)
-    if (plans.some((p) => p.id === 'M17')) outageOpen = false
+    if (plans.some((p) => p.id === 'M17')) outageOpen = returned = false
+    else if (outageOpen && returning.length > 0) returned = true // back, but not yet hashing: a later device update closes it
     for (const p of plans) push(build(p.id, p.severity, p.vars))
+  }
+
+  /**
+   * The device views changed. A miner that came back without a positive reading and starts hashing later gets no event
+   * of its own, so the outage it ended is closed here: once, only after an outage and a return seen in this session.
+   */
+  function observeDevices(): void {
+    if (!enabled.value || !outageOpen || !returned) return
+    if (pending.some((c) => c.moment.id === 'M16')) return // a return still in its window: the flush decides
+    if (!everyMinerHashing(useLive().devices)) return
+    outageOpen = returned = false
+    push(build('M17', 'success', {}))
   }
 
   // ----------------------------------------------------------------------------------------------------- inputs
@@ -207,7 +226,10 @@ export const useHashling = defineStore('hashling', () => {
     if (!enabled.value) return false
     const moment = momentFor(e)
     if (!moment) return false
-    if (e.type === 'device_offline') outageOpen = true
+    if (e.type === 'device_offline') {
+      outageOpen = true
+      returned = false // a new offline: the views may still show the miner as it was, so wait for a return
+    }
     const key = eventKey(e)
     if (seen.includes(key)) return true
     remember(key)
@@ -265,12 +287,12 @@ export const useHashling = defineStore('hashling', () => {
     pending = []
     items.value = []
     held = false
-    outageOpen = false
+    outageOpen = returned = false
   }
 
   // Turning the switch off takes the visible pop-up and the waiting ones away at once, on the dashboard and the wall display.
   // `sync`, so no pop-up is drawn, or advanced to, between the change and the clean-up.
   watch(enabled, (on) => { if (!on) clear() }, { flush: 'sync' })
 
-  return { items, current, waiting, enabled, surface, offer, seedAlerts, observeAlerts, show, dismiss, hold, release, clear }
+  return { items, current, waiting, enabled, surface, offer, observeDevices, seedAlerts, observeAlerts, show, dismiss, hold, release, clear }
 })
