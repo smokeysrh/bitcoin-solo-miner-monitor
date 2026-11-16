@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CircleCheck, CircleX, ExternalLink, RefreshCw, TriangleAlert } from 'lucide-vue-next'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import SettingsCard from '@/components/settings/SettingsCard.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Button from '@/components/ui/Button.vue'
@@ -9,15 +9,24 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import KeyValue from '@/components/ui/KeyValue.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import StaleNotice from '@/components/ui/StaleNotice.vue'
+import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { useFmt } from '@/composables/useFmt'
 import { api, describeError } from '@/lib/api'
 import type { Diagnostics, SystemInfo, UpdateStatus } from '@/lib/types'
+import { updateCheckText } from '@/lib/updateCheckText'
 import { useSession } from '@/stores/session'
+import { useSettings } from '@/stores/settings'
 import { useToasts } from '@/stores/toasts'
 
 const fmt = useFmt()
 const session = useSession()
+const settings = useSettings()
 const toasts = useToasts()
+const admin = computed(() => session.canAdmin)
+/** The daily check is on unless the settings say otherwise (the default). */
+const autoCheck = computed(() => settings.data?.network.check_for_updates ?? true)
+/** true once the button was pressed on this page, so its result is shown instead of the off-state line */
+const checkedByButton = ref(false)
 const info = ref<SystemInfo | null>(null)
 const update = ref<UpdateStatus | null>(null)
 const diag = ref<Diagnostics | null>(null)
@@ -42,10 +51,18 @@ async function checkUpdate(): Promise<void> {
   checking.value = true
   try {
     update.value = await api.checkUpdate()
+    checkedByButton.value = true
   } catch (e) {
     toasts.error('Could not check for updates', describeError(e))
   } finally {
     checking.value = false
+  }
+}
+async function setAutoCheck(on: boolean): Promise<void> {
+  try {
+    await settings.patch({ network: { check_for_updates: on } })
+  } catch (e) {
+    toasts.error('Could not change that', describeError(e))
   }
 }
 // The two requests recover independently: a failed one never erases what the other returned.
@@ -73,9 +90,14 @@ const tone = { pass: 'text-ok', warn: 'text-warn', fail: 'text-bad' } as const
         <p v-if="update?.update_available" class="mt-2 text-sm text-ok">Version {{ update.latest }} is available. <a v-if="update.url" :href="update.url" target="_blank" rel="noopener noreferrer" class="underline">See what is new</a></p>
         <p v-else-if="update?.disabled" class="mt-2 text-sm text-muted">Update checks are off in this mode.</p>
         <p v-else-if="update?.error" class="mt-2 text-sm text-warn">{{ update.error }}</p>
-        <p v-else-if="update" class="mt-2 text-sm text-muted">You are up to date.</p>
+        <p v-else-if="update && !autoCheck && !checkedByButton" class="mt-2 text-sm text-muted">{{ updateCheckText.off }}</p>
+        <p v-else-if="update?.checked_at" class="mt-2 text-sm text-muted">You are up to date.</p>
       </div>
       <Button variant="secondary" size="sm" :loading="checking" :disabled="update?.disabled" @click="checkUpdate"><template #icon><RefreshCw class="size-4" /></template>Check for updates</Button>
+    </div>
+    <div class="mt-5 border-t border-line pt-2" data-testid="update-check-setting">
+      <ToggleRow :model-value="autoCheck" :disabled="!admin || !settings.data" :title="updateCheckText.label" :description="updateCheckText.description" @update:model-value="setAutoCheck" />
+      <p class="text-xs leading-relaxed text-subtle">{{ updateCheckText.note }}</p>
     </div>
     <ErrorState v-if="infoError" compact title="Could not load system details" :error="infoError" @retry="loadInfo" />
     <div v-if="info" class="mt-5 border-t border-line pt-5">

@@ -24,7 +24,7 @@ from bsmm.net import make_http_client
 from bsmm.notify.dispatcher import Notifier
 from bsmm.settings import SettingsService
 from bsmm.storage.store import Store
-from bsmm.updates import check_for_update
+from bsmm.updates import CHECK_INTERVAL_S, check_for_update, scrub_stored_update_info
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ class AppContext:
         if cfg.general.first_run_at is None:
             await self.settings.update({"general": {"first_run_at": time.time()}})
         await self._apply_env_overrides()
+        await scrub_stored_update_info(self.store)
         await self.alerts.prepare_event_cursor()
         await self.fleet.start()
         await self.network.start()
@@ -121,11 +122,24 @@ class AppContext:
             with contextlib.suppress(Exception):
                 await self.discovery.heal_moved_devices()
 
+    @property
+    def update_checks_blocked(self) -> bool:
+        """Offline mode, BSMM_NO_UPDATE_CHECK and demo mode stop every update check, the button included."""
+        return self.config.offline or self.config.no_update_check or self.config.demo
+
     async def _update_loop(self) -> None:
-        if self.config.offline or self.config.no_update_check or self.config.demo:
+        if self.update_checks_blocked:
             return
         await asyncio.sleep(60)
         while True:
-            with contextlib.suppress(Exception):
-                await check_for_update(self.store, self.http)
-            await asyncio.sleep(86400)
+            await self._daily_update_check()
+            await asyncio.sleep(CHECK_INTERVAL_S)
+
+    async def _daily_update_check(self) -> None:
+        """One background check, unless the user switched the automatic check off in Settings."""
+        if not self.settings.current.network.check_for_updates:
+            return
+        try:
+            await check_for_update(self.store)
+        except Exception:
+            log.warning("The daily update check failed", exc_info=True)
