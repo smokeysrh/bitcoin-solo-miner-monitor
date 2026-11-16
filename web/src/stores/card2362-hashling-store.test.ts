@@ -334,11 +334,68 @@ describe('card 2362: every miner is hashing again (M17), once per outage', () =>
     expect(hashling.current).toMatchObject({ pose: 'thumbs-up', title: HASHLING_MOMENTS.M17.title, line: HASHLING_MOMENTS.M17.line })
   })
 
-  it('treats the returning miner as hashing even if its device update has not arrived yet', () => {
-    const { hashling } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
+  it('judges the returning miner by its view when the window closes, so an update that arrives meanwhile counts', () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
     hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
     settle()
     hashling.dismiss()
+    hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage') }
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  // The server announces device_online on any offline to reachable change, even when the miner then reports paused or
+  // not hashing. Only a miner that is online and hashing in its current view closes the outage.
+  it.each([
+    ['still offline in its view', { status: 'offline', hashrate_smooth_hs: null }],
+    ['paused', { status: 'paused', hashrate_smooth_hs: null }],
+    ['paused with a leftover hashrate', { status: 'paused', hashrate_smooth_hs: 1e12 }],
+    ['degraded with a hashrate', { status: 'degraded', hashrate_smooth_hs: 1e12 }],
+    ['online with zero hashrate', { status: 'online', hashrate_smooth_hs: 0 }],
+    ['degraded with zero hashrate', { status: 'degraded', hashrate_smooth_hs: 0 }],
+    ['online with no hashrate reading at all', { status: 'online', hashrate_smooth_hs: null, telemetry: null }],
+    ['online with zero telemetry hashrate', { status: 'online', hashrate_smooth_hs: null, telemetry: { hashrate_hs: 0 } as never }],
+  ] as Array<[string, Partial<DeviceView>]>)('a miner that returns %s does not close the outage: it is the plain "back" pop-up', (_name, view) => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office'), dev('c', 'Rack')])
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.dismiss()
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage', view) }
+    hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    expect(hashling.current?.line).toBe(fill(HASHLING_MOMENTS.M16.line, { miner: 'Garage' }))
+  })
+
+  it('a miner that hashes only in its telemetry reading still counts as hashing', () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.dismiss()
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage', { hashrate_smooth_hs: null, telemetry: { hashrate_hs: 9e11 } as never }) }
+    hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('stays the plain "back" pop-up while another miner is paused or not hashing, even if the returning one hashes', () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'paused', hashrate_smooth_hs: null }), dev('c', 'Rack', { hashrate_smooth_hs: 0 })])
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.dismiss()
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage') }
+    hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+  })
+
+  it('a miner the user switched off is not part of the fleet that has to hash', () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'disabled', hashrate_smooth_hs: null }), dev('c', 'Rack')])
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.dismiss()
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage') }
     hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
     settle()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
@@ -364,10 +421,11 @@ describe('card 2362: every miner is hashing again (M17), once per outage', () =>
   })
 
   it('is shown once per outage, never as a permanent state', () => {
-    const { hashling } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
     hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
     settle()
     hashling.dismiss()
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage') }
     hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
     settle()
     hashling.dismiss()
@@ -458,6 +516,65 @@ describe('card 2362: the settings switch', () => {
     hashling.offer(ev('device_offline', 'critical'))
     settings.data = { ui: { hashling_popups: false } } as unknown as Settings
     settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  // The visible pop-up and the ones already waiting are on screen or in the queue when the switch is turned off.
+  it.each<[string, 'dashboard' | 'wall']>([['the dashboard', 'dashboard'], ['the wall display', 'wall']])('switching it off hides the visible pop-up and the waiting ones at once on %s', (_name, surface) => {
+    const { hashling, settings } = boot()
+    hashling.surface = surface
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.offer(ev('new_best_share', 'success', { device_id: 'b' }))
+    settle()
+    hashling.show('M22')
+    expect(hashling.current?.momentId).toBe('M02')
+    expect(hashling.waiting).toBe(2)
+
+    settings.data = { ui: { hashling_popups: false } } as unknown as Settings
+    expect(hashling.enabled).toBe(false)
+    expect(hashling.current).toBeNull()
+    expect(hashling.waiting).toBe(0)
+    expect(hashling.items).toEqual([])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('while it is off nothing waiting appears later, not as time passes and not when the visible one would have ended', () => {
+    const { hashling, settings } = boot()
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.offer(ev('new_best_share', 'success', { device_id: 'b' }))
+    settle()
+    settings.data = { ui: { hashling_popups: false } } as unknown as Settings
+    vi.advanceTimersByTime(HASHLING_TIMING.popupMs * 3)
+    expect(hashling.current).toBeNull()
+    hashling.dismiss()
+    expect(hashling.current).toBeNull()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('switching it back on starts clean: what was hidden does not return, and new moments show again', () => {
+    const { hashling, settings } = boot()
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.show('M22')
+    settings.data = { ui: { hashling_popups: false } } as unknown as Settings
+    settings.data = { ui: { hashling_popups: true } } as unknown as Settings
+    expect(hashling.items).toEqual([])
+    hashling.offer(ev('new_best_share', 'success', { device_id: 'b' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M14'])
+  })
+
+  it('a pop-up that is being read (held) goes with the switch, and the next one gets its full time', () => {
+    const { hashling, settings } = boot()
+    hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
+    settle()
+    hashling.hold()
+    settings.data = { ui: { hashling_popups: false } } as unknown as Settings
+    settings.data = { ui: { hashling_popups: true } } as unknown as Settings
+    hashling.show('M22')
+    vi.advanceTimersByTime(HASHLING_TIMING.popupMs + 500)
     expect(hashling.items).toEqual([])
   })
 })

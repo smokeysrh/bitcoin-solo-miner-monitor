@@ -288,3 +288,45 @@ describe('card 2362: the wall display', () => {
     expect(card(wrapper).exists()).toBe(false)
   })
 })
+
+describe('card 2362: the settings switch turned off while pop-ups are showing', () => {
+  const OFF = { ui: { hashling_popups: false } } as unknown as Settings
+
+  it.each([['the dashboard', '/'], ['the wall display', '/kiosk']])('takes the visible pop-up off %s at once, with its "more waiting" note', async (_name, path) => {
+    const { wrapper, hashling } = await open(path)
+    hashling.show('M22')
+    hashling.show('M23')
+    await nextTick()
+    expect(card(wrapper).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="hashling-more"]').exists()).toBe(true)
+
+    useSettings().data = OFF
+    await nextTick()
+    expect(card(wrapper).exists()).toBe(false)
+    expect(wrapper.find('[data-testid="hashling-more"]').exists()).toBe(false)
+  })
+
+  it.each([['the dashboard', '/'], ['the wall display', '/kiosk']])('shows no waiting pop-up on %s after the visible one would have ended', async (_name, path) => {
+    const { wrapper, hashling } = await open(path)
+    hashling.show('M22')
+    hashling.show('M23')
+    await nextTick()
+    useSettings().data = OFF
+    await nextTick()
+    vi.advanceTimersByTime(HASHLING_TIMING.popupMs * 3)
+    await nextTick()
+    expect(card(wrapper).exists()).toBe(false)
+  })
+
+  it('Escape and the dismiss button have nothing left to advance to', async () => {
+    const { wrapper, hashling } = await open()
+    hashling.show('M22')
+    hashling.show('M23')
+    await nextTick()
+    useSettings().data = OFF
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await nextTick()
+    expect(card(wrapper).exists()).toBe(false)
+    expect(hashling.items).toEqual([])
+  })
+})
