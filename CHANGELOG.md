@@ -11,12 +11,12 @@ This minor release puts Hashling to work on the dashboard and the wall display, 
 
 ### Added
 - **Hashling pop-ups:**
-  - Hashling, the HashHurdr mascot, now pops up on the dashboard and on the wall display when something happens, good or bad: a miner goes offline or comes back, a miner stops hashing, a fan stops, a miner runs hot, hashrate drops (one miner or the whole fleet), many rejected shares, the fallback pool is in use, the node or pool is not answering or is behind the network, a miner needs attention, a pool or payout setting changes, a new best share, and a miner is added (PR #146).
+  - Hashling, the HashHurdr mascot, now pops up on the dashboard and on the wall display when something happens, good or bad: a miner goes offline or comes back, a miner stops hashing, a fan stops, a miner runs hot, hashrate drops (one miner or the whole fleet), many rejected shares, the fallback pool is in use, the node or pool is not answering or is behind the network, a miner needs attention, a pool or payout setting changes, a new best share, and a miner is added (PR #146, PR #157).
   - Several miners going offline at once become one "Several miners offline". Different kinds of trouble arriving together become one "Several things need a look". Several miners added, or several coming back, at once become one pop-up with a count. New best share and found-block pop-ups are never grouped. Pop-ups show one at a time, with a line saying how many more are waiting (PR #146).
   - Alerts that are already active when the page loads do not pop up. Pop-ups are chosen by kind of event: only the events listed in the first bullet, plus the ones named elsewhere in this section, pop up. Other events do not, and neither do custom alert rules (PR #146).
   - "Every miner is hashing" shows once when an outage clears and every enabled miner is back online and hashing (PR #146).
-  - On the dashboard only, a pop-up also shows when the setup checklist is completed (once), when notifications are turned on (a channel created switched on, or switched on later), when a test notification is sent, and when a pool change is accepted (PR #146).
-  - While pop-ups are on, they replace the small notices (toasts) for those events. With the switch off, the old notices and the old celebration dialog come back (PR #146).
+  - On the dashboard only, a pop-up also shows when the setup checklist is completed (once), when notifications are turned on (a channel created switched on, or switched on later), when a test notification is sent, and when a pool change is accepted (PR #146, PR #157).
+  - While pop-ups are on, they replace the small notices (toasts) for those events. With the switch off, the old notices and the old celebration dialog come back (PR #146, PR #157).
 - **Found block:**
   - When a found block is confirmed on the chain, the dashboard celebration now shows Hashling with the line "The pool confirmed a real block. Somebody hold my hard hat!". A miner's own block counter on its own does not count, and that still gets the old dialog. On the wall display, a Hashling pop-up shows for 60 seconds instead of the dialog, and the confetti plays unless reduced motion is on (PR #146).
 - **Hashling without a pop-up:**
@@ -32,8 +32,8 @@ This minor release puts Hashling to work on the dashboard and the wall display, 
   - With it off, HashHurdr stops its daily check and only checks when you press "Check for updates". The About page then says "Automatic checks are off. The Check for updates button still works." until you press the button (PR #151).
   - Each check is one anonymous request to GitHub, which sees your IP address and the app name and version. What comes back is the newest version number and a release link. Nothing installs by itself. `BSMM_NO_UPDATE_CHECK=1`, `BSMM_OFFLINE=1` and demo mode still block every check, the button included (PR #151).
 - **For developers and agents:**
-  - New settings `network.check_for_updates` and `ui.hashling_popups`, both true by default. With `network.check_for_updates` off, `GET /api/v1/system/update` returns the last saved result and contacts no one (PR #151).
-  - The update result is now checked before use: `latest` is a normal version number, `url` falls back to the releases page, and redirects are not followed. A reply that is not a usable release sets `error` to "GitHub's reply was not a usable release. Try again later", and a reply over 256 KiB sets it to "GitHub's reply was too big to read. Try again later" (PR #151).
+  - New settings `network.check_for_updates` (PR #151) and `ui.hashling_popups` (PR #146), both true by default. With `network.check_for_updates` off, `GET /api/v1/system/update` returns the last saved result and contacts no one (PR #151).
+  - The update result is now checked before use: `latest` is a normal version number, `url` falls back to the releases page, and redirects are not followed. A normal GitHub answer that holds no usable release sets `error` to "GitHub's reply was not a usable release. Try again later", and a reply over 256 KiB sets it to "GitHub's reply was too big to read. Try again later". Other failures set their own error message (PR #151).
 
 ### Changed
 - **Update check:**
