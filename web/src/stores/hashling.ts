@@ -8,6 +8,8 @@ import {
   NEEDS_MINER,
   NEEDS_SOURCE,
   planPopups,
+  reportsNotHashing,
+  sleepingMoment,
   toneOf,
   type Candidate,
   type Moment,
@@ -22,6 +24,8 @@ import { useSettings } from './settings'
 const SEEN_KEY = 'bsmm.hashlingSeen'
 /** How many shown events and alerts are remembered across reloads (the newest are kept). */
 const SEEN_MAX = 200
+/** Once-only moments (`show(..., { once })`) are remembered under this prefix and are never pushed out by later events. */
+const ONCE_PREFIX = 'ui:'
 
 /** Times in milliseconds, and the queue length, shared with the tests. */
 export const HASHLING_TIMING = {
@@ -50,10 +54,33 @@ export interface PopupItem {
 /** Where Hashling is being shown: the dashboard, or the wall display (set by the pop-up component from the route). */
 export type Surface = 'dashboard' | 'wall'
 
+/** What a miner's view says it is doing: working, on but doing no work, or neither (offline, paused, off, no reading). */
+type Hashing = 'hashing' | 'not-hashing' | 'other'
+
+/** "Not hashing" is the server's own judgement (it gives a restarting miner two minutes); working is a positive current reading. */
+function hashingStateOf(d: DeviceView): Hashing {
+  if (d.status === 'degraded' && reportsNotHashing(d.status_reason)) return 'not-hashing'
+  if ((d.status === 'online' || d.status === 'degraded') && (d.telemetry?.hashrate_hs ?? 0) > 0) return 'hashing'
+  return 'other'
+}
+
+/** When the server took the view's reading (Unix seconds), or null when there is none: no telemetry yet. */
+function readingTimeOf(d: DeviceView): number | null {
+  const ts = d.telemetry?.ts
+  return typeof ts === 'number' && Number.isFinite(ts) ? ts : null
+}
+
+/** Keep every once-only marker and the newest `SEEN_MAX` of the rolling event and alert keys, in their order. */
+function bounded(keys: readonly string[]): string[] {
+  const rolling = keys.filter((k) => !k.startsWith(ONCE_PREFIX))
+  const dropped = new Set(rolling.slice(0, Math.max(0, rolling.length - SEEN_MAX)))
+  return keys.filter((k) => !dropped.has(k))
+}
+
 function loadSeen(): string[] {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]')
-    return Array.isArray(stored) ? stored.filter((k): k is string => typeof k === 'string').slice(-SEEN_MAX) : []
+    return Array.isArray(stored) ? bounded(stored.filter((k): k is string => typeof k === 'string')) : []
   } catch (e) {
     console.warn('Could not read which Hashling pop-ups were already shown; starting fresh', e)
     return []
@@ -88,10 +115,20 @@ export const useHashling = defineStore('hashling', () => {
   let outageOpen = false
   /** An observed outage has seen a miner return, and is waiting for every miner to read a positive hashrate. */
   let returned = false
+  /** What each miner's latest view said it was doing, to see a miner go from hashing to not hashing. */
+  let hashingById = new Map<string, Hashing>()
+  /** Miners whose current stop Hashling already showed (from the view or from the event): the other input is not a second stop. */
+  const stopShown = new Set<string>()
+  /**
+   * The newest server time seen per miner, in Unix seconds: a view's `telemetry.ts` or a stop event's `ts` (never the browser
+   * clock). Views arrive out of order (the server publishes a poll's event before its view, and a Refresh answer is applied as
+   * it comes), so a view with an older reading is not the miner's current state. Pruned with `hashingById`.
+   */
+  let newestTsById = new Map<string, number>()
   let nextItemId = 0
 
   function remember(key: string): void {
-    seen = [...seen.filter((k) => k !== key), key].slice(-SEEN_MAX)
+    seen = bounded([...seen.filter((k) => k !== key), key])
     try {
       localStorage.setItem(SEEN_KEY, JSON.stringify(seen))
     } catch (e) {
@@ -207,13 +244,45 @@ export const useHashling = defineStore('hashling', () => {
   /**
    * The device views changed. A miner that came back without a positive reading and starts hashing later gets no event
    * of its own, so the outage it ended is closed here: once, only after an outage and a return seen in this session.
+   * A miner that was hashing and now is not gets Sleeping's moment here too: one that already needs attention for another
+   * reason gets no new status event. `fromFullLoad` says the views are a reloaded snapshot: it is only noted, never news.
    */
-  function observeDevices(): void {
+  function observeDevices(fromFullLoad = false): void {
+    noteHashing(Object.values(useLive().devicesById), !fromFullLoad)
     if (!enabled.value || !outageOpen || !returned) return
     if (pending.some((c) => c.moment.id === 'M16')) return // a return still in its window: the flush decides
     if (!everyMinerHashing(useLive().devices)) return
     outageOpen = returned = false
     push(build('M17', 'success', {}))
+  }
+
+  /** Remember what each miner is doing (also while Hashling is off or at load, so the baseline is never news). */
+  function noteHashing(devices: readonly DeviceView[], announce: boolean): void {
+    const next = new Map<string, Hashing>()
+    const nextTs = new Map<string, number>()
+    for (const d of devices) {
+      const ts = readingTimeOf(d)
+      const knownTs = newestTsById.get(d.id)
+      const before = hashingById.get(d.id)
+      if (ts !== null && knownTs !== undefined && ts < knownTs && before !== undefined) {
+        // An older reading than one already seen: not the miner's current state, so it neither starts nor ends a stop.
+        next.set(d.id, before)
+        nextTs.set(d.id, knownTs)
+        continue
+      }
+      const newest = ts ?? knownTs // a view with no reading time (no poll answered yet) is applied as it is and can never read as hashing
+      if (newest !== undefined) nextTs.set(d.id, newest)
+      const state = hashingStateOf(d)
+      next.set(d.id, state)
+      if (state !== 'not-hashing') stopShown.delete(d.id) // it works again (or is gone): the next stop is a new one
+      if (announce && enabled.value && state === 'not-hashing' && hashingById.get(d.id) === 'hashing') {
+        stopShown.add(d.id)
+        enqueue({ key: `s:${d.id}:${Date.now()}`, moment: sleepingMoment(), deviceId: d.id, miner: d.name, source: null })
+      }
+    }
+    hashingById = next
+    newestTsById = nextTs
+    for (const id of stopShown) if (!next.has(id)) stopShown.delete(id)
   }
 
   // ----------------------------------------------------------------------------------------------------- inputs
@@ -226,6 +295,23 @@ export const useHashling = defineStore('hashling', () => {
     if (!enabled.value) return false
     const moment = momentFor(e)
     if (!moment) return false
+    // The event already names a miner that is not hashing: the view update that follows is not a second transition, and an
+    // event after a view that already showed this stop is not a second stop either.
+    let stopAlreadyShown = false
+    if (moment.id === 'M12' && e.device_id) {
+      const known = newestTsById.get(e.device_id)
+      if (Number.isFinite(e.ts) && known !== undefined && e.ts < known) {
+        // The same rule as for a view: an event older than the newest reading seen is not the miner's current state, so it
+        // changes nothing and shows nothing (its stop was already seen or already over). It is remembered, so it never shows later.
+        remember(eventKey(e))
+        return true
+      }
+      stopAlreadyShown = stopShown.has(e.device_id)
+      stopShown.add(e.device_id)
+      hashingById.set(e.device_id, 'not-hashing')
+      // The event is stamped just after its poll's reading, so that poll's own view and every older reading count as older.
+      if (Number.isFinite(e.ts)) newestTsById.set(e.device_id, Math.max(e.ts, newestTsById.get(e.device_id) ?? e.ts))
+    }
     if (e.type === 'device_offline') {
       outageOpen = true
       returned = false // a new offline: the views may still show the miner as it was, so wait for a return
@@ -233,6 +319,7 @@ export const useHashling = defineStore('hashling', () => {
     const key = eventKey(e)
     if (seen.includes(key)) return true
     remember(key)
+    if (stopAlreadyShown) return true
     // On the dashboard the celebration dialog is the pop-up for a found block (it shows the same pose and line).
     if (moment.id === 'M13' && surface.value !== 'wall') return true
     enqueue({ key, moment, deviceId: e.device_id, miner: nameOf(e.device_id), source: null })
@@ -268,12 +355,24 @@ export const useHashling = defineStore('hashling', () => {
   function show(id: MomentId, vars: Vars = {}, opts: { once?: string } = {}): boolean {
     if (!enabled.value) return false
     if (opts.once) {
-      const key = `ui:${opts.once}`
+      const key = `${ONCE_PREFIX}${opts.once}`
       if (seen.includes(key)) return true
       remember(key)
     }
     push(build(id, 'success', vars))
     return true
+  }
+
+  /**
+   * Will Hashling announce miners that were just added (the server's `device_added` event, shown as M15 or M15N)? Then the
+   * ordinary "Added" toast stays quiet, as the channel toast does for M22: one notice for one action. Not while the switch
+   * is off, not while the stream that carries the event is down, and not before the live store's first full load has
+   * completed (it offers no event until then, and a later load replays without announcing), so the toast stays whenever
+   * the moment cannot arrive.
+   */
+  function announcesAdded(): boolean {
+    const live = useLive()
+    return enabled.value && live.status === 'live' && live.loaded
   }
 
   /**
@@ -294,5 +393,5 @@ export const useHashling = defineStore('hashling', () => {
   // `sync`, so no pop-up is drawn, or advanced to, between the change and the clean-up.
   watch(enabled, (on) => { if (!on) clear() }, { flush: 'sync' })
 
-  return { items, current, waiting, enabled, surface, offer, observeDevices, seedAlerts, observeAlerts, show, dismiss, hold, release, clear }
+  return { items, current, waiting, enabled, surface, offer, observeDevices, seedAlerts, observeAlerts, show, announcesAdded, dismiss, hold, release, clear }
 })

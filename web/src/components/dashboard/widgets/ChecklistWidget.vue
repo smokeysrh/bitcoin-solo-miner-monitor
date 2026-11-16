@@ -21,13 +21,17 @@ const hidden = useStorage('bsmm.checklistHidden', false)
 
 // The insights answer for the fleet as it was when they were asked, and each change of miners or sources asks again. Until
 // that answer is in, they are not current for the present fleet: an empty fleet's list has no reminders at all, so with the
-// first miner just added it would read as "every step done".
+// first miner just added it would read as "every step done". Only the latest question counts: an answer to an earlier one
+// (the same miner and source counts can come back after a removal and a re-add) never makes the insights in hand current.
 const fleetKey = computed(() => `${live.deviceCount}:${live.network?.sources.length ?? 0}`)
 /** The fleet the insights in hand were last asked about successfully. */
 const answeredFor = ref<string | null>(null)
+let questionSeq = 0
 async function ask(key: string, force: boolean): Promise<void> {
+  const mine = ++questionSeq
+  answeredFor.value = null
   await insights.refresh(force)
-  if (insights.error === null) answeredFor.value = key
+  if (mine === questionSeq && insights.error === null) answeredFor.value = key
 }
 onMounted(() => void ask(fleetKey.value, false))
 watch(fleetKey, (key) => void ask(key, true))
