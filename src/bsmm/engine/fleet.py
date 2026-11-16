@@ -802,8 +802,14 @@ class Fleet:
         transaction, so a failure leaves nothing half done and the next poll tries again.
 
         A confirmed change stays open until the user answers it, also when the miner reports the baseline again. That
-        return is recorded once (``observed`` is cleared, the event stays), after which a steady reading of either the
-        baseline or the unanswered settings is the usual poll that writes nothing.
+        return must itself be seen on ``offline_after_failures`` polls in a row; it is then recorded once
+        (``observed`` is cleared, the event stays).
+
+        Only a steady reading equal to ``PoolWatchRow.confirmed`` (the unanswered settings while
+        ``observed`` is set, otherwise the baseline) is the usual poll that writes nothing. After a
+        confirmed return ``confirmed`` is the baseline, so the earlier changed settings reappearing is a
+        new candidate change: once seen on ``offline_after_failures`` polls in a row they are confirmed
+        again, the earlier event is acknowledged and a new event is raised.
         """
         current = pool_watch.fingerprint(t.pools)
         if not current:  # the miner reported no pool at all: no evidence either way, and it ends any run of readings

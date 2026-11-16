@@ -1,7 +1,8 @@
 """Card #2442: what counts as a change of a miner's pool or payout settings (pure functions, no miner needed).
 
 The comparison keeps only each pool's host, port and payout address. Worker names, passwords, TLS flags and the
-active/connected state are not part of it, and spelling differences (case, spaces) are not changes.
+active/connected state are not part of it. Surrounding spaces, host case and bech32 address case are ignored;
+base58 addresses and pool account names (the part of the pool user before the first dot) keep their case.
 """
 
 from __future__ import annotations

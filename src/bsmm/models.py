@@ -235,7 +235,12 @@ class PoolWatchRow(_Model):
 
     @property
     def confirmed(self) -> list[dict[str, Any]]:
-        """The settings HashHurdr treats as the miner's: the unanswered change while the miner still reports it, else the baseline."""
+        """The settings HashHurdr treats as the miner's: ``observed`` while it is set, else the baseline.
+
+        ``observed`` is the unanswered change. It is kept until the miner's return to the baseline is
+        confirmed by ``offline_after_failures`` polls in a row, so it can still be set while the latest
+        poll reported the baseline.
+        """
         return self.observed if self.observed is not None else self.baseline
 
 

@@ -5,7 +5,12 @@ new reading with it. A reading counts as a change only when the same different s
 row (see ``PoolSightings``); the engine in ``fleet.py`` does the bookkeeping. Nothing in here talks to a miner.
 
 The comparison keeps three facts per pool: host, port and payout address. Worker names, passwords, TLS flags and the
-active/connected state are not part of it, and neither is spelling (case, surrounding spaces).
+active/connected state are not part of it.
+
+Values are normalised before they are compared: surrounding spaces are ignored, a host's case (and a trailing
+dot) is ignored, and the case of a bech32 payout address (``bc1``, ``tb1``, ``bcrt1``) is ignored. Base58
+addresses and pool account names (the part of the pool user before the first dot) keep their case, so a
+case-only change there is a payout change.
 """
 
 from __future__ import annotations

@@ -195,8 +195,9 @@ def _v2() -> str:
 def _v3() -> str:
     # HashHurdr's own record of each miner's pool settings (card #2442). New table only: no existing row is touched, and a
     # miner without a row simply gets its baseline from its next reading. ``baseline`` and ``observed`` hold JSON lists of
-    # {slot, host, port, payout}; ``event_id`` is set while a change awaits the user's answer, ``observed`` only while the miner
-    # still reports the unanswered settings (it is cleared when the miner goes back to the baseline; the event stays).
+    # {slot, host, port, payout}; ``event_id`` is set while a change awaits the user's answer. ``observed``
+    # holds the unanswered settings until the miner's return to the baseline is confirmed by the same number
+    # of polls in a row (``polling.offline_after_failures``); then it is cleared and the event stays.
     return """
 CREATE TABLE pool_watch (
   device_id TEXT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
