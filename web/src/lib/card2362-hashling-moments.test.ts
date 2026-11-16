@@ -300,3 +300,15 @@ describe('all Hashling words live in one module', () => {
     }
   })
 })
+
+describe('card 2362: the one joke on the Odds page (M25)', () => {
+  it('has exactly one such spot on the Odds page, and none on the other pages that show numbers', () => {
+    const read = (name: string): string => readFileSync(fileURLToPath(new URL(`../pages/${name}`, import.meta.url)), 'utf8')
+    const odds = read('OddsPage.vue')
+    expect(odds.match(/<HashlingNote/g)).toHaveLength(1)
+    expect(odds).toContain('moment="M25"')
+    for (const page of ['BitcoinPage.vue', 'AnalyticsPage.vue', 'AlertsPage.vue', 'LoginPage.vue', 'NotFoundPage.vue', 'SoloBlocksPage.vue']) {
+      expect(read(page), page).not.toMatch(/Hashling/)
+    }
+  })
+})
