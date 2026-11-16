@@ -35,10 +35,28 @@ const SwitchStub = {
   template: '<button :id="id" type="button" role="switch" :aria-checked="String(modelValue)" :disabled="disabled" @click="$emit(\'update:modelValue\', !modelValue)" />',
 }
 
+/**
+ * A complete settings document, as a real server always sends it: the settings store's computed values (`look`, units)
+ * read `ui` and `units` on every update. `undefined` leaves out `network.check_for_updates`, as an older server does.
+ */
 function settingsWith(checkForUpdates: boolean | undefined): Settings {
-  const network: Record<string, unknown> = { use_public_apis: true, mempool_url: 'https://mempool.space', price_source: 'mempool' }
+  const network: Record<string, unknown> = {
+    use_public_apis: true, mempool_url: 'https://mempool.space', price_source: 'mempool',
+    manual_btc_price: null, difficulty_growth_per_year: 0.4, avg_block_fees_btc: null,
+  }
   if (checkForUpdates !== undefined) network.check_for_updates = checkForUpdates
-  return { network } as unknown as Settings
+  const settings: Omit<Settings, 'network'> = {
+    general: { instance_name: 'HashHurdr', onboarding_done: true, first_run_at: null },
+    units: { temperature: 'c', hashrate: 'auto', currency: 'USD', locale: null },
+    polling: { interval_s: 10, offline_interval_s: 60, timeout_s: 5, concurrency: 8, offline_after_failures: 3 },
+    energy: { price_per_kwh: 0.1, psu_overhead_pct: 0 },
+    mining: { addresses: [] },
+    retention: { raw_days: 7, minute_days: 30, hour_days: 365, event_days: 90 },
+    alerts: { temp_warn_c: 75, temp_crit_c: 85, vr_temp_warn_c: 85, hashrate_drop_pct: 30, reject_rate_pct: 5, offline_after_s: 120, quiet_hours: null },
+    ui: { theme: 'dark', accent: '#F7931A', density: 'comfortable', view_miners: 'grid', reduce_motion: false, sound_on_block: false, simple_mode: false, dashboard: null, kiosk: null },
+    auth: { mode: 'password', public_read: false },
+  }
+  return { ...settings, network } as unknown as Settings // network is cast: the missing-setting case omits a required field
 }
 
 function respond(method: string, path: string, body: unknown): unknown {
