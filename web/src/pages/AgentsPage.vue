@@ -95,7 +95,7 @@ const cli = `bsmm agent-guide      # the full instructions, as text\nbsmm status
     <div class="grid gap-[var(--gap-grid)] lg:grid-cols-2">
       <MetricCard title="What an agent can do" :icon="Sparkles">
         <ul v-if="tools.length" class="flex flex-wrap gap-1.5" data-testid="tool-list"><li v-for="t in tools" :key="t"><Badge class="font-mono text-[11px]">{{ t }}</Badge></li></ul>
-        <p v-else class="text-sm text-muted">Look at miners, odds and the network; scan, add, edit and remove miners; mark alerts seen; send test notifications; check for updates; dismiss insights.</p>
+        <p v-else class="text-sm text-muted">Look at miners, odds and the network; scan, add, edit and remove miners; mark alerts seen; accept a pool change; send custom or test notifications; check for updates; dismiss insights.</p>
       </MetricCard>
       <MetricCard title="Guard rails" :icon="ShieldCheck">
         <ul class="space-y-2.5 text-sm leading-relaxed text-muted">

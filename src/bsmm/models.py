@@ -206,6 +206,44 @@ class Device(_Model):
         return f"http://{self.host}:{self.port}" if self.port != 80 else f"http://{self.host}"
 
 
+class PoolChangeItem(_Model):
+    """One setting that differs from HashHurdr's record. Values are shown in full here; notifications shorten addresses."""
+
+    slot: str  # primary | fallback | fallback 2 | other ...
+    setting: str  # pool_address | pool_port | payout_address
+    old: str | None = None  # None: the pool was not there before
+    new: str | None = None  # None: the pool is gone
+
+
+class PoolChange(_Model):
+    """A change of a miner's pool or payout settings that the user has not answered yet."""
+
+    event_id: int
+    since_ts: float
+    changes: list[PoolChangeItem] = Field(default_factory=list)
+
+
+class PoolWatchRow(_Model):
+    """HashHurdr's own record of a miner's pool settings (a baseline) and of a change that awaits the user's answer."""
+
+    device_id: str
+    baseline: list[dict[str, Any]]
+    baseline_ts: float
+    observed: list[dict[str, Any]] | None = None
+    event_id: int | None = None
+    changed_ts: float | None = None
+
+    @property
+    def confirmed(self) -> list[dict[str, Any]]:
+        """The settings HashHurdr treats as the miner's: ``observed`` while it is set, else the baseline.
+
+        ``observed`` is the unanswered change. It is kept until the miner's return to the baseline is
+        confirmed by ``offline_after_failures`` polls in a row, so it can still be set while the latest
+        poll reported the baseline.
+        """
+        return self.observed if self.observed is not None else self.baseline
+
+
 class DeviceView(Device):
     """A device plus its live state (what the API returns)."""
 
@@ -221,6 +259,10 @@ class DeviceView(Device):
     #: the last ~30 hashrate readings (H/s) for instant sparklines
     spark_hashrate_hs: list[float | None] = Field(default_factory=list)
     last_poll_ms: float | None = None
+    #: a change of the pool or payout settings the miner reports that still waits for the user's answer. It is ``None``
+    #: only once the user has answered it with Accept. The miner reporting the recorded settings again does not clear it,
+    #: and a newer confirmed change replaces it.
+    pool_change: PoolChange | None = None
 
 
 class ProbeResult(_Model):

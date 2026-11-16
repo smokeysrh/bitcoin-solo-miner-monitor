@@ -17,6 +17,7 @@ from bsmm.api.deps import get_ctx, require
 from bsmm.api.errors import ApiError, bad_request, not_found
 from bsmm.auth import Principal
 from bsmm.context import AppContext
+from bsmm.demo import run_pool_change_scenario
 from bsmm.drivers.sim import _AXEOS
 from bsmm.engine.odds import build_odds
 from bsmm.models import DeviceStatus, DeviceView, Telemetry
@@ -160,12 +161,13 @@ async def llms(request: Request) -> PlainTextResponse:
 
 
 class ScenarioBody(BaseModel):
-    scenario: str  # block | offline | online | hot | cool
+    scenario: str  # block | offline | online | hot | cool | pool_change
     device: str | None = None
 
 
 @router.post("/demo/scenario", tags=["demo"], operation_id="runDemoScenario", summary="Demo mode only: trigger a situation to see how the app reacts",
-             description="`block` (celebration), `offline` / `online` (a miner drops and returns), `hot` / `cool` (overheating).")
+             description="`block` (celebration), `offline` / `online` (a miner drops and returns), `hot` / `cool` (overheating), "
+             "`pool_change` (a miner reports another pool and payout address).")
 async def demo_scenario(body: ScenarioBody, ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("control"))) -> dict[str, Any]:
     if not ctx.config.demo:
         raise ApiError(409, "not_demo", "This only works in demo mode (`bsmm serve --demo`).")
@@ -192,6 +194,8 @@ async def demo_scenario(body: ScenarioBody, ctx: AppContext = Depends(get_ctx), 
         sim.profile = dataclasses.replace(sim.profile, temp_per_w=sim.profile.temp_per_w * 3.2)
     elif body.scenario == "cool":
         sim.profile = dataclasses.replace(sim.profile, temp_per_w=sim.profile.temp_per_w / 3.2)
+    elif body.scenario == "pool_change":
+        await run_pool_change_scenario(ctx, target.id, sim)
     else:
-        raise bad_request("Unknown scenario.", "Use block, offline, online, hot or cool.")
+        raise bad_request("Unknown scenario.", "Use block, offline, online, hot, cool or pool_change.")
     return {"ok": True, "scenario": body.scenario, "device": target.name}

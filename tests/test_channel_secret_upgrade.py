@@ -8,7 +8,7 @@ from bsmm.api.app import create_app
 from bsmm.config import RuntimeConfig
 from bsmm.context import AppContext
 from bsmm.notify.channels import CHANNEL_CLASSES
-from bsmm.storage.db import Database
+from bsmm.storage.db import MIGRATIONS, Database
 from bsmm.storage.secrets import SecretBox
 from bsmm.storage.store import Store
 
@@ -131,9 +131,8 @@ async def test_sec03_upgrade_preserves_credentials_and_is_idempotent(config, kin
             assert [dict(row) for row in await store.db.fetchall("SELECT * FROM channels ORDER BY id")] == rows
             assert await store.kv_get("upgrade-neighbor") == ["unchanged"]
             assert await store.db.scalar("PRAGMA integrity_check") == "ok"
-            # The combined candidate includes monitoring's additive migration 2.
-            # Credential normalization must leave that exact schema unchanged.
-            assert await store.db.schema_version() == 2
+            # Credential normalization must leave the schema at the latest migration, never move it.
+            assert await store.db.schema_version() == MIGRATIONS[-1][0]
         finally:
             await store.close()
         assert config.key_path.read_bytes() == key_before

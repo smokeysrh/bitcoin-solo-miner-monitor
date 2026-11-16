@@ -13,7 +13,7 @@ The app is meant for a home network. It is **open by default on first start** on
 | Scope | Can |
 | --- | --- |
 | `read` | See everything except secrets. Safe for monitoring agents. |
-| `control` | Also scan, add, edit or remove miners in HashHurdr's own list, mark alerts seen, send test notifications, check for updates and dismiss insights. |
+| `control` | Also scan, add, edit or remove miners in HashHurdr's own list, mark alerts seen, accept a pool change, send custom or test notifications, check for updates and dismiss insights. |
 | `admin` | Everything, including settings, tokens and passwords. |
 
 - Browser sign-in uses a password and an HttpOnly, SameSite=Lax session cookie (`Secure` over HTTPS). Wrong passwords lock that address out for a growing delay.

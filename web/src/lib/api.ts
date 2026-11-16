@@ -283,6 +283,7 @@ export const api = {
     get<{ events: AppEvent[]; next_before_id: number | null }>('/events', q),
   ackEvent: (id: number) => post<{ ok: boolean }>(`/events/${id}/ack`),
   ackAllEvents: () => post<{ acknowledged: number }>('/events/ack-all'),
+  acceptPoolChange: (eventId: number) => post<{ ok: boolean; device: DeviceView }>(`/events/${eventId}/accept-pool-change`),
   ruleTypes: () => get<{ rule_types: RuleType[] }>('/alerts/rule-types').then((r) => r.rule_types),
   rules: () => get<{ rules: AlertRule[] }>('/alerts/rules').then((r) => r.rules),
   createRule: (b: RuleBody) => post<{ rule: AlertRule }>('/alerts/rules', b).then((r) => r.rule),

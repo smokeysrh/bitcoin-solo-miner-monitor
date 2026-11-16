@@ -75,6 +75,8 @@ TASKS: dict[str, str] = {
         "This is a fixed-window Poisson chance of at least one block, not the chance of the very next network block. "
         "Bitcoin targets 10-minute blocks; the exact future block time is unknown. Your miner has no memory, so nobody is ever due.",
     "Is anything wrong?": "GET /api/v1/alerts/active and GET /api/v1/insights",
+    "A miner's pool or payout settings changed": "GET /api/v1/events?type=pool_settings_changed&unacked=true (read scope, critical; each event lists the full old and new values, and the miner's pool_change in GET /api/v1/devices/{id} shows the same). "
+        "Tell the user and let them decide, because only they know whether it was intended. When they say it was them, POST /api/v1/events/{event_id}/accept-pool-change (control scope; it updates only HashHurdr's own record, never the miner). Never accept on your own",
     "Which blocks did solo pools find lately?": "GET /api/v1/blocks/solo (the latest 20 from mempool.space, newest first; `yours` marks a block that paid one of the user's addresses; "
         "`available: false` means outside lookups are off; a 502 means mempool.space could not be read, which is not the same as no blocks)",
     "A found node refuses the app (401/403)": "Follow the refusal flow: read refusal.reason (needs_login, computer_not_allowed, unreachable, cookie_unreadable) on the node under the discovery result's 'sources', or at GET /api/v1/node, and tell the user refusal.next_step",
@@ -105,7 +107,7 @@ def agent_guide(base: str, *, auth_mode: str = "none", demo: bool = False) -> di
         "auth": {
             "mode": auth_mode,
             "how": "Send 'Authorization: Bearer <token>' (or header X-API-Key). When mode is 'none' no credentials are needed.",
-            "scopes": {"read": "look only", "control": "scan / add, edit or remove miners in HashHurdr's own list / acknowledge alerts / test notifications / check for updates / dismiss insights", "admin": "settings, sources, channels, rules, tokens"},
+            "scopes": {"read": "look only", "control": "scan / add, edit or remove miners in HashHurdr's own list / acknowledge alerts / accept a pool change / custom or test notifications / check for updates / dismiss insights", "admin": "settings, sources, channels, rules, tokens"},
             "create_token_on_server": "bsmm token create --name agent --scope read",
         },
         "setup_preflight": SETUP_PREFLIGHT,
