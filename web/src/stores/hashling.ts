@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { fill, HASHLING_MOMENTS, type MomentId, type Vars } from '@/lib/hashlingText'
 import {
   alertMomentFor,
@@ -168,10 +168,10 @@ export const useHashling = defineStore('hashling', () => {
     windowTimer = setTimeout(flush, wait)
   }
 
-  /** Is every miner other than the ones that just came back doing work? A disabled miner is not part of the fleet. */
-  function everyOtherMinerHashing(devices: readonly DeviceView[], returning: ReadonlySet<string | null>): boolean {
+  /** Is every miner of the fleet online and hashing in its current view? A disabled miner is not part of the fleet. */
+  function everyMinerHashing(devices: readonly DeviceView[]): boolean {
     const fleet = devices.filter((d) => d.status !== 'disabled')
-    return fleet.length > 0 && fleet.every((d) => returning.has(d.id) || (d.status === 'online' && (d.hashrate_smooth_hs ?? d.telemetry?.hashrate_hs ?? 0) > 0))
+    return fleet.length > 0 && fleet.every((d) => d.status === 'online' && (d.hashrate_smooth_hs ?? d.telemetry?.hashrate_hs ?? 0) > 0)
   }
 
   function flush(): void {
@@ -189,8 +189,9 @@ export const useHashling = defineStore('hashling', () => {
       }
       ready.push(resolved)
     }
-    const returning = new Set(ready.filter((c) => c.moment.id === 'M16').map((c) => c.deviceId))
-    const outageClear = outageOpen && returning.size > 0 && everyOtherMinerHashing(live.devices, returning)
+    // The server announces device_online on any return, also to paused or not hashing: only the current view says hashing.
+    const returning = ready.filter((c) => c.moment.id === 'M16')
+    const outageClear = outageOpen && returning.length > 0 && everyMinerHashing(live.devices)
     const plans: PlannedPopup[] = planPopups(ready, outageClear)
     if (plans.some((p) => p.id === 'M17')) outageOpen = false
     for (const p of plans) push(build(p.id, p.severity, p.vars))
@@ -253,7 +254,10 @@ export const useHashling = defineStore('hashling', () => {
     return true
   }
 
-  /** Forget the queue and the timers (sign-out). What was already shown stays remembered. */
+  /**
+   * Forget the queue and the timers: on sign-out, and when the switch is turned off. Nothing already shown is forgotten,
+   * so what was hidden never comes back (it is not news any more), and new moments show again when it is back on.
+   */
   function clear(): void {
     if (windowTimer) clearTimeout(windowTimer)
     if (dismissTimer) clearTimeout(dismissTimer)
@@ -263,6 +267,10 @@ export const useHashling = defineStore('hashling', () => {
     held = false
     outageOpen = false
   }
+
+  // Turning the switch off takes the visible pop-up and the waiting ones away at once, on the dashboard and the wall display.
+  // `sync`, so no pop-up is drawn, or advanced to, between the change and the clean-up.
+  watch(enabled, (on) => { if (!on) clear() }, { flush: 'sync' })
 
   return { items, current, waiting, enabled, surface, offer, seedAlerts, observeAlerts, show, dismiss, hold, release, clear }
 })

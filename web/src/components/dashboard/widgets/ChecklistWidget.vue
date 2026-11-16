@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { Check } from 'lucide-vue-next'
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHashling } from '@/stores/hashling'
 import { useInsights } from '@/stores/insights'
@@ -19,8 +19,18 @@ const session = useSession()
 const hashling = useHashling()
 const hidden = useStorage('bsmm.checklistHidden', false)
 
-onMounted(() => void insights.refresh())
-watch(() => [live.deviceCount, live.network?.sources.length], () => void insights.refresh(true))
+// The insights answer for the fleet as it was when they were asked, and each change of miners or sources asks again. Until
+// that answer is in, they are not current for the present fleet: an empty fleet's list has no reminders at all, so with the
+// first miner just added it would read as "every step done".
+const fleetKey = computed(() => `${live.deviceCount}:${live.network?.sources.length ?? 0}`)
+/** The fleet the insights in hand were last asked about successfully. */
+const answeredFor = ref<string | null>(null)
+async function ask(key: string, force: boolean): Promise<void> {
+  await insights.refresh(force)
+  if (insights.error === null) answeredFor.value = key
+}
+onMounted(() => void ask(fleetKey.value, false))
+watch(fleetKey, (key) => void ask(key, true))
 
 interface Step {
   id: string
@@ -77,12 +87,21 @@ const steps = computed<Step[]>(() => [
 const doneCount = computed(() => steps.value.filter((s) => s.done).length)
 const visible = computed(() => insights.loaded && !hidden.value && doneCount.value < steps.value.length && session.canControl)
 
-// The last step done while the page is open is Hashling's moment, once ever. A list that was already complete when the page
-// loaded (or whose answers were still loading) is not news: both sources must have loaded before a change counts.
-const ready = computed(() => insights.loaded && live.loaded)
-watch([ready, doneCount], ([isReady, done], [wasReady, was]) => {
-  if (isReady && wasReady && done === steps.value.length && was < steps.value.length) hashling.show('M21', {}, { once: 'checklist' })
-})
+// The last step done while the page is open is Hashling's moment, once ever, and only judged from insights that are current
+// for the present fleet. The first current list is the baseline (a list that was already complete when the page loaded is
+// not news); after that, going from unfinished to finished counts.
+const current = computed(() => insights.loaded && live.loaded && answeredFor.value === fleetKey.value)
+let lastCurrentDone: number | null = null
+watch(
+  [current, doneCount],
+  ([isCurrent, done]) => {
+    if (!isCurrent) return
+    const before = lastCurrentDone
+    lastCurrentDone = done
+    if (before !== null && before < steps.value.length && done === steps.value.length) hashling.show('M21', {}, { once: 'checklist' })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

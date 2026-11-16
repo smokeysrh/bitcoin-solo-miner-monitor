@@ -16,7 +16,12 @@ export const useInsights = defineStore('insights', () => {
 
   async function refresh(force = false): Promise<void> {
     if (!force && Date.now() - lastLoad < 15_000) return
-    if (inflight) return inflight
+    if (inflight) {
+      // A forced refresh is asked for because something changed: an answer to a request made before that change is not
+      // its answer, so ask again once the one in flight is done (unless the session ended meanwhile).
+      const asked = epoch
+      return force ? inflight.then(() => (asked === epoch ? refresh(true) : undefined)) : inflight
+    }
     const started = epoch
     loading.value = true
     inflight = (async () => {

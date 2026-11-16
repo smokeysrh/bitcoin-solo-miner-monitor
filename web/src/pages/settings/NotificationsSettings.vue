@@ -126,7 +126,11 @@ async function runTest(): Promise<void> {
   try {
     const testedDraft = JSON.stringify(form)
     const response = editing.value ? await api.testChannel(editing.value.id) : await api.testChannelInline(payload())
-    if (testedDraft === JSON.stringify(form)) result.value = response
+    if (testedDraft === JSON.stringify(form)) {
+      result.value = response
+      // The inline result stays whether or not Hashling shows; a failed test or a superseded draft never reaches here.
+      if (response.ok) hashling.show('M23')
+    }
   } catch (e) {
     result.value = { ok: false, error: describeError(e) }
   } finally {
@@ -140,9 +144,11 @@ async function save(): Promise<void> {
   saving.value = true
   try {
     const p = payload()
+    let created: Channel | null = null
     if (editing.value) await api.updateChannel(editing.value.id, { name: p.name, config: p.config, min_severity: p.min_severity, ...(Object.keys(p.secret).length ? { secret: p.secret } : {}) })
-    else await api.createChannel(p)
-    toasts.success(editing.value ? 'Saved' : 'Channel added', 'Use “Send test” to make sure it arrives.')
+    else created = await api.createChannel(p)
+    // A new channel is created switched on, which is Hashling's moment; everything else (and Hashling off) keeps the toast.
+    if (!(created?.enabled && hashling.show('M22'))) toasts.success(editing.value ? 'Saved' : 'Channel added', 'Use “Send test” to make sure it arrives.')
     open.value = false
     await load()
   } catch (e) {
