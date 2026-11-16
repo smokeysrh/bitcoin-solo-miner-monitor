@@ -24,6 +24,9 @@ const groups = [
 ]
 const badge = (name: string): number => (name === 'alerts' ? live.alerts.length : 0)
 const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
+// The version arrives with the start-up meta request (also used by Settings > About): no extra request here.
+// `?.` on `version` guards a meta reply that omits it; a missing or blank version shows nothing.
+const version = computed(() => session.meta?.version?.trim() || null)
 </script>
 
 <template>
@@ -94,18 +97,21 @@ const hash = computed(() => fmt.splitHash(live.summary?.hashrate_hs))
         <p class="mt-1 text-xs text-muted">{{ live.summary.devices_online }} of {{ live.summary.devices_total }} miners online</p>
       </div>
       <div v-else-if="collapsed" class="flex justify-center"><LiveBadge compact /></div>
-      <button
-        class="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-xs font-medium text-subtle transition-colors hover:bg-surface-3 hover:text-fg"
-        :class="collapsed && 'justify-center px-0'"
-        :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        @click="ui.sidebarCollapsed = !ui.sidebarCollapsed"
-      >
-        <PanelLeftOpen v-if="collapsed" class="size-4" />
-        <template v-else>
-          <PanelLeftClose class="size-4" />
-          Collapse
-        </template>
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          class="flex h-9 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 text-xs font-medium text-subtle transition-colors hover:bg-surface-3 hover:text-fg"
+          :class="collapsed && 'justify-center px-0'"
+          :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          @click="ui.sidebarCollapsed = !ui.sidebarCollapsed"
+        >
+          <PanelLeftOpen v-if="collapsed" class="size-4" />
+          <template v-else>
+            <PanelLeftClose class="size-4" />
+            Collapse
+          </template>
+        </button>
+        <span v-if="!collapsed && version" data-testid="sidebar-version" class="tnum shrink-0 pr-3 text-xs whitespace-nowrap text-subtle">v{{ version }}</span>
+      </div>
     </div>
   </aside>
 </template>
