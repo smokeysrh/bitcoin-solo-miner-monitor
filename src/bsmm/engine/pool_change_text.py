@@ -41,6 +41,6 @@ ACCEPT_DESCRIPTION = (
 )
 #: ``not_found(EVENT_NOT_FOUND, EVENT_NOT_FOUND_HINT)`` renders "<EVENT_NOT_FOUND> was not found."
 EVENT_NOT_FOUND = "That pool settings event"
-EVENT_NOT_FOUND_HINT = "List them with GET /api/v1/events?type=pool_settings_changed&unacked=true"
 NOT_PENDING_MESSAGE = "That change was already answered, or a newer one replaced it."
 NOT_PENDING_HINT = "Read the miner again with GET /api/v1/devices/{id} and use the event id in its pool_change."
+EVENT_NOT_FOUND_HINT = NOT_PENDING_HINT
