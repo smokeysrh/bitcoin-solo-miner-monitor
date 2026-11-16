@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { api } from '@/lib/api'
 import { HASHLING_MOMENTS, fill } from '@/lib/hashlingText'
 import type { ActiveAlert, AppEvent, DeviceView, Severity, Settings } from '@/lib/types'
@@ -17,8 +18,11 @@ const NOW_S = 1_700_000_000
 const SEEN_KEY = 'bsmm.hashlingSeen'
 let nextId = 1
 
+/** A miner's latest poll reading (`telemetry.hashrate_hs`): what "hashing" is judged by, not the smoothed value. */
+const reading = (hs: number | null): DeviceView['telemetry'] => ({ hashrate_hs: hs }) as never
+/** By default a healthy miner: online, with a positive current reading. */
 function dev(id: string, name: string, over: Partial<DeviceView> = {}): DeviceView {
-  return { id, name, status: 'online', hashrate_smooth_hs: 1e12, telemetry: null, ...over } as unknown as DeviceView
+  return { id, name, status: 'online', hashrate_smooth_hs: 1e12, telemetry: reading(1e12), ...over } as unknown as DeviceView
 }
 function ev(type: string, severity: Severity, over: Partial<AppEvent> = {}): AppEvent {
   return { id: nextId++, ts: NOW_S, type, severity, device_id: 'a', title: 'server title', body: null, data: {}, dedupe_key: null, ack_ts: null, ...over }
@@ -352,10 +356,13 @@ describe('card 2362: every miner is hashing again (M17), once per outage', () =>
     ['paused', { status: 'paused', hashrate_smooth_hs: null }],
     ['paused with a leftover hashrate', { status: 'paused', hashrate_smooth_hs: 1e12 }],
     ['degraded with a hashrate', { status: 'degraded', hashrate_smooth_hs: 1e12 }],
-    ['online with zero hashrate', { status: 'online', hashrate_smooth_hs: 0 }],
-    ['degraded with zero hashrate', { status: 'degraded', hashrate_smooth_hs: 0 }],
+    ['online with zero hashrate', { status: 'online', hashrate_smooth_hs: 0, telemetry: reading(0) }],
+    ['degraded with zero hashrate', { status: 'degraded', hashrate_smooth_hs: 0, telemetry: reading(0) }],
     ['online with no hashrate reading at all', { status: 'online', hashrate_smooth_hs: null, telemetry: null }],
-    ['online with zero telemetry hashrate', { status: 'online', hashrate_smooth_hs: null, telemetry: { hashrate_hs: 0 } as never }],
+    ['online with zero telemetry hashrate', { status: 'online', hashrate_smooth_hs: null, telemetry: reading(0) }],
+    // What the server really sends after a reboot: the first reading is 0 while the smoothed value still decays from before.
+    ['online, reading 0 but a smoothed hashrate left over from before the outage', { status: 'online', hashrate_smooth_hs: 4e11, telemetry: reading(0) }],
+    ['online, no current reading but a smoothed hashrate left over', { status: 'online', hashrate_smooth_hs: 4e11, telemetry: reading(null) }],
   ] as Array<[string, Partial<DeviceView>]>)('a miner that returns %s does not close the outage: it is the plain "back" pop-up', (_name, view) => {
     const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office'), dev('c', 'Rack')])
     hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
@@ -368,19 +375,19 @@ describe('card 2362: every miner is hashing again (M17), once per outage', () =>
     expect(hashling.current?.line).toBe(fill(HASHLING_MOMENTS.M16.line, { miner: 'Garage' }))
   })
 
-  it('a miner that hashes only in its telemetry reading still counts as hashing', () => {
+  it('a miner that has a positive current reading and no smoothed value yet counts as hashing', () => {
     const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
     hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
     settle()
     hashling.dismiss()
-    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage', { hashrate_smooth_hs: null, telemetry: { hashrate_hs: 9e11 } as never }) }
+    live.devicesById = { ...live.devicesById, a: dev('a', 'Garage', { hashrate_smooth_hs: null, telemetry: reading(9e11) }) }
     hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
     settle()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
   })
 
   it('stays the plain "back" pop-up while another miner is paused or not hashing, even if the returning one hashes', () => {
-    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'paused', hashrate_smooth_hs: null }), dev('c', 'Rack', { hashrate_smooth_hs: 0 })])
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'paused', hashrate_smooth_hs: null }), dev('c', 'Rack', { hashrate_smooth_hs: 3e11, telemetry: reading(0) })])
     hashling.offer(ev('device_offline', 'critical', { device_id: 'a' }))
     settle()
     hashling.dismiss()
@@ -432,6 +439,207 @@ describe('card 2362: every miner is hashing again (M17), once per outage', () =>
     hashling.offer(ev('device_online', 'success', { device_id: 'a' }))
     settle()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+  })
+})
+
+// A reboot: the miner is back and online, but its first reading is 0 H/s while the smoothed value still decays from before.
+// The server then announces nothing more when it starts hashing, so only its later device updates say so.
+describe('card 2362: the outage is closed by the later start of hashing (once)', () => {
+  const RETURNED_AT_ZERO: Partial<DeviceView> = { status: 'online', hashrate_smooth_hs: 4e11, telemetry: reading(0) }
+  const offline = (id: string) => ev('device_offline', 'critical', { device_id: id })
+  const online = (id: string) => ev('device_online', 'success', { device_id: id })
+  const NAMES: Record<string, string> = { a: 'Garage', b: 'Office', c: 'Rack' }
+
+  /** A device update from the stream: the whole new view replaces the old one. */
+  async function update(live: ReturnType<typeof useLive>, id: string, over: Partial<DeviceView> = {}): Promise<void> {
+    live.devicesById = { ...live.devicesById, [id]: dev(id, NAMES[id]!, over) }
+    await nextTick()
+  }
+
+  /** Garage goes offline and comes back with a zero reading: the plain M16, which is then dismissed. */
+  async function returnedAtZero() {
+    const ctx = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office'), dev('c', 'Rack')])
+    ctx.hashling.offer(offline('a'))
+    settle()
+    ctx.hashling.dismiss()
+    await update(ctx.live, 'a', RETURNED_AT_ZERO)
+    ctx.hashling.offer(online('a'))
+    settle()
+    expect(ctx.hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    ctx.hashling.dismiss()
+    return ctx
+  }
+
+  it('a return with a zero reading and a leftover smoothed value is the plain "back" pop-up, not M17', async () => {
+    const { hashling } = await returnedAtZero()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('shows M17 once when the miner then starts hashing, with no new event, and not again on further updates', async () => {
+    const { hashling, live } = await returnedAtZero()
+    await update(live, 'a') // a device update with a positive reading; the server sends no event for it
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+    expect(hashling.current).toMatchObject({ pose: 'thumbs-up', tone: 'ok', title: HASHLING_MOMENTS.M17.title, line: HASHLING_MOMENTS.M17.line })
+    hashling.dismiss()
+    await update(live, 'a', { telemetry: reading(1.1e12) })
+    await update(live, 'a', { telemetry: reading(0.9e12) })
+    await update(live, 'b')
+    settle()
+    expect(hashling.items).toEqual([])
+    vi.advanceTimersByTime(HASHLING_TIMING.maxWaitMs * 3)
+    expect(hashling.items).toEqual([])
+  })
+
+  it('keeps waiting while the miner still reads zero or is not online, and closes at the first positive reading', async () => {
+    const { hashling, live } = await returnedAtZero()
+    await update(live, 'a', { ...RETURNED_AT_ZERO, hashrate_smooth_hs: 2e11 })
+    await update(live, 'a', { status: 'paused', hashrate_smooth_hs: 2e11, telemetry: reading(0) })
+    await update(live, 'a', { status: 'degraded', hashrate_smooth_hs: 2e11, telemetry: reading(0) })
+    expect(hashling.items).toEqual([])
+    await update(live, 'a')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('a miner that returns paused and is later resumed closes the outage when it hashes', async () => {
+    const { hashling, live } = await returnedAtZero()
+    await update(live, 'a', { status: 'paused', hashrate_smooth_hs: null, telemetry: reading(null) })
+    expect(hashling.items).toEqual([])
+    await update(live, 'a')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('needs every enabled miner to read positive: one miner hashing again is not enough while another is down or at zero', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'offline', hashrate_smooth_hs: null }), dev('c', 'Rack')])
+    hashling.offer(offline('a'))
+    hashling.offer(offline('b'))
+    settle()
+    hashling.dismiss()
+    await update(live, 'a', RETURNED_AT_ZERO)
+    hashling.offer(online('a'))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    await update(live, 'a') // Garage hashes, Office is still offline
+    expect(hashling.items).toEqual([])
+    await update(live, 'b', RETURNED_AT_ZERO)
+    hashling.offer(online('b'))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    await update(live, 'b')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('a miner the user switches off while waiting is no longer part of the fleet that has to hash', async () => {
+    const { hashling, live } = await returnedAtZero()
+    await update(live, 'a', { status: 'disabled', hashrate_smooth_hs: null, telemetry: null })
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('is once per outage: a later outage that is observed and ended closes with its own M17', async () => {
+    const { hashling, live } = await returnedAtZero()
+    await update(live, 'a')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+    hashling.dismiss()
+    hashling.offer(offline('c')) // a second outage
+    await update(live, 'c', { status: 'offline', hashrate_smooth_hs: null, telemetry: null })
+    settle()
+    hashling.dismiss()
+    await update(live, 'c', RETURNED_AT_ZERO)
+    hashling.offer(online('c'))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    await update(live, 'c')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('a new offline while waiting is not closed by the stale view of the miner that just went down', async () => {
+    const { hashling, live } = await returnedAtZero()
+    hashling.offer(offline('b')) // the event comes first: Office still looks online and hashing in the views
+    settle()
+    hashling.dismiss()
+    await update(live, 'a') // Garage hashes now; with Office's stale view every view looks fine
+    expect(hashling.items).toEqual([])
+    await update(live, 'b', { status: 'offline', hashrate_smooth_hs: null, telemetry: null })
+    await update(live, 'b', RETURNED_AT_ZERO)
+    hashling.offer(online('b'))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    await update(live, 'b')
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+  })
+
+  it('never at page load: a healthy screen stays quiet through device updates', async () => {
+    const { hashling, live } = boot()
+    await update(live, 'a', { hashrate_smooth_hs: 1.1e12, telemetry: reading(1.1e12) })
+    await update(live, 'b')
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('never without an observed offline: a return with no outage seen before it, then a later start of hashing', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage', RETURNED_AT_ZERO), dev('b', 'Office')])
+    hashling.offer(online('a'))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    await update(live, 'a')
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('never without a return: an observed offline alone is not closed by the views looking healthy', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')])
+    hashling.offer(offline('a'))
+    settle()
+    hashling.dismiss()
+    await update(live, 'b')
+    await update(live, 'a') // the view says hashing, but no return was announced in this session
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('shows nothing while Hashling is off, and an outage seen before it was switched off is not closed later', async () => {
+    const { hashling, live, settings } = await returnedAtZero()
+    settings.data = { ui: { hashling_popups: false } } as unknown as Settings
+    await update(live, 'a')
+    expect(hashling.items).toEqual([])
+    settings.data = { ui: { hashling_popups: true } } as unknown as Settings
+    await update(live, 'a', { telemetry: reading(1.1e12) })
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('shows nothing for an outage that happened while Hashling was off', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office')], false)
+    expect(hashling.offer(offline('a'))).toBe(false)
+    await update(live, 'a', RETURNED_AT_ZERO)
+    expect(hashling.offer(online('a'))).toBe(false)
+    settle()
+    await update(live, 'a')
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('does not add M17 to the plain "back" pop-up of a return that is still inside its window: the window decides', async () => {
+    const { hashling, live } = boot([dev('a', 'Garage', { status: 'offline', hashrate_smooth_hs: null }), dev('b', 'Office', { status: 'offline', hashrate_smooth_hs: null }), dev('c', 'Rack')])
+    hashling.offer(offline('a'))
+    hashling.offer(offline('b'))
+    settle()
+    hashling.dismiss()
+    await update(live, 'a', RETURNED_AT_ZERO)
+    hashling.offer(online('a'))
+    settle()
+    hashling.dismiss()
+    await update(live, 'b', RETURNED_AT_ZERO)
+    hashling.offer(online('b')) // still inside its coalescing window...
+    await update(live, 'a') // ...when Garage starts hashing, and then Office
+    await update(live, 'b')
+    expect(hashling.items).toEqual([])
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17']) // one pop-up for the whole outage, not M17 plus M16
   })
 })
 
@@ -693,5 +901,37 @@ describe('card 2362: through the live stream', () => {
     settle()
     expect(hashling.items.map((i) => i.momentId)).toEqual(['M03'])
     expect(hashling.current?.line).toBe(fill(HASHLING_MOMENTS.M03.line, { miner: 'Office' }))
+  })
+
+  it('a miner that returns at zero and starts hashing later closes the outage through the stream, with no event for it', async () => {
+    const { source, hashling } = await startLive([])
+    const push = (view: DeviceView): void => source.push('device', { id: view.id, view })
+    source.push('event', ev('device_offline', 'critical', { device_id: 'b' }))
+    push(dev('b', 'Office', { status: 'offline', hashrate_smooth_hs: null, telemetry: null }))
+    settle()
+    hashling.dismiss()
+    push(dev('b', 'Office', { status: 'online', hashrate_smooth_hs: 4e11, telemetry: reading(0) }))
+    source.push('event', ev('device_online', 'success', { device_id: 'b' }))
+    settle()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M16'])
+    hashling.dismiss()
+    push(dev('b', 'Office'))
+    await flushPromises()
+    expect(hashling.items.map((i) => i.momentId)).toEqual(['M17'])
+    hashling.dismiss()
+    push(dev('b', 'Office', { telemetry: reading(1.2e12) }))
+    await flushPromises()
+    settle()
+    expect(hashling.items).toEqual([])
+  })
+
+  it('a full reload and device updates on a healthy screen show no M17', async () => {
+    const { live, source, hashling } = await startLive([])
+    await live.reload()
+    await flushPromises()
+    source.push('device', { id: 'a', view: dev('a', 'Garage', { telemetry: reading(1.3e12) }) })
+    await flushPromises()
+    settle()
+    expect(hashling.items).toEqual([])
   })
 })
