@@ -49,6 +49,8 @@ const moment = (id: MomentId, severity: Severity): Moment => ({ id, pose: MOMENT
 
 /** `device_degraded` carries the server's reason; "Not hashing" is the one that means a miner is on but doing no work. */
 const NOT_HASHING = /\bnot hashing\b/i
+/** Does the reason the server gives for a miner's status (or for `device_degraded`) say it is on but doing no work? */
+export const reportsNotHashing = (reason: string | null | undefined): boolean => NOT_HASHING.test(reason ?? '')
 
 /** A found block is confirmed when it carries the block's height and hash and did not come from the miner's own counter. */
 function isConfirmedBlock(e: AppEvent): boolean {
@@ -69,7 +71,7 @@ export function momentFor(e: AppEvent): Moment | null {
     case 'pool_failover':
       return moment('M08', e.severity)
     case 'device_degraded':
-      return moment(NOT_HASHING.test(e.body ?? '') ? 'M12' : 'M11', e.severity)
+      return moment(reportsNotHashing(e.body) ? 'M12' : 'M11', e.severity)
     case 'block_found':
       return isConfirmedBlock(e) ? moment('M13', e.severity) : null
     case 'new_best_share':
@@ -82,6 +84,9 @@ export function momentFor(e: AppEvent): Moment | null {
       return null
   }
 }
+
+/** Sleeping for a miner seen going from hashing to not hashing in its views, with the severity of the server's `device_degraded`. */
+export const sleepingMoment = (): Moment => moment('M12', 'warning')
 
 const RULE_ID_PREFIX = 'rule_'
 /**
