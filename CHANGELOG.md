@@ -5,6 +5,47 @@ All notable changes to Bitcoin Solo Miner Monitor will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/0.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-11-16
+
+This minor release makes HashHurdr monitor-only: look, don't touch. The hurd gets a new alert for when a miner's pool or payout settings change.
+
+### Added
+- **Pool or payout change alert:**
+  - New built-in alert rule "Pool or payout settings change", on by default and critical. It fires when a miner reports a pool address, port or payout address different from what HashHurdr has on record, for the primary or a fallback pool, including a fallback pool appearing or disappearing. The worker name and the pool password are ignored (PR #143).
+  - The first reading of each miner, including the first one after upgrading to 1.5.0, is recorded quietly with no alert (PR #143).
+  - A change has to show up on several polls in a row before it counts, the same number as the "offline after failures" setting (3 by default). A one-off odd reading, an empty pool list or a miner that drops off does not set it off (PR #143).
+  - The alert goes out through your existing notification channels. Notifications shorten payout addresses (first 8 and last 6 characters) and the dashboard shows full values. Pool passwords never appear. Switching the rule off stops its notifications, while the badge and event still appear (PR #143).
+- **On the miner:**
+  - The miner shows a "Pool or payout changed" badge and a notice with Before and After. The notice says that if this was not you, fix it in the miner's own settings page. If it was you, "This was me: accept" makes HashHurdr record the settings it last confirmed as normal and clears the notice. Nothing is sent to the miner, and accepting needs control access. With no password set, everyone using the app has control access (PR #143).
+  - A waiting change stays waiting if the miner goes back to the recorded settings, and cleanup of old events never deletes it. If a newer, different change is confirmed before you answer, it replaces the earlier one. The earlier alert is marked as seen and can no longer be accepted, a new alert compares the settings HashHurdr has on record with the newest settings, and the badge and notice show that newest change. Marking an alert as seen does not clear the badge; only accepting does (PR #143).
+  - In demo mode, a "Change a miner's pool" button shows the alert (PR #143).
+- **For developers and agents:**
+  - New `POST /api/v1/events/{event_id}/accept-pool-change` (needs the `control` scope). Miner data gains a `pool_change` field, and there is a new event type `pool_settings_changed`. There is no MCP tool for accepting (PR #143).
+
+### Removed
+- **Monitor-only:**
+  - HashHurdr now reads from your miners and never changes them. AxeOS miners only get read requests, and cgminer-API miners only get read commands (PR #141, PR #142).
+  - Kept: every reading and view (including pool, fan and frequency), events, discovery, adding, editing and removing miners in HashHurdr's own list, alerts and notifications, the wall display, and export/import. Token access levels keep their names (`read`, `control`, `admin`) (PR #141, PR #142).
+- **Buttons and screens:**
+  - The Restart, Flash to identify, Pause mining and Resume mining buttons are gone, on the miner page and in the Miners list row menu. Select mode and bulk actions on the Miners page are gone too (PR #141).
+  - The Tuning tab with its frequency, voltage and fan controls is gone. The read-only frequency and fan readings stay on the miner's Overview (PR #141).
+  - The pool editor is gone. Pool settings are still shown, read-only (PR #141).
+  - The Settings > Safety page, the per-miner "Allow control from this app" switch and the "Changes made from this app" card on the Activity tab are gone (PR #141).
+- **Restarting status:**
+  - The "Restarting" status (shown after a restart from the app) is gone. A miner that reboots goes through the normal missed-reading and offline handling, and the restart is still detected and recorded as a restart event, as before. The "A miner restarts" alert rule is off by default, and that did not change (PR #142).
+- **API and MCP (for developers and agents):**
+  - Removed `POST /api/v1/devices/{id}/actions/{action}`, `POST /api/v1/devices/actions` and `GET /api/v1/devices/{id}/tuning`. Callers now get 404 or 405 (PR #142).
+  - Removed the MCP tools `restart_miner`, `identify_miner`, `run_miner_action` and `run_bulk_action` (PR #142).
+  - A miner's `capabilities` list, in REST miner responses and in the MCP `list_miners` and `get_miner` results, now only contains `scoreboard` and `history`. The eight control values `restart`, `identify`, `pause`, `set_pool`, `set_fan`, `set_frequency`, `set_voltage` and `set_hostname` are removed. Saved miners and config imports that still list them keep loading, and those entries are skipped (PR #142).
+  - Settings no longer have a `safety` section, and miner data no longer has `allow_control`. Anything reading these fields will no longer find them. Requests that still send them are accepted and the fields are ignored (PR #142).
+  - Old saved settings and config exports that still contain `safety` or `allow_control` still load, and those values are ignored (PR #142).
+
+### Changed
+- **Upgrading:**
+  - Upgrading keeps all your data. On its first start, 1.5.0 adds a new table to the database. After that, 1.4.x will refuse to open the database, with a plain message and nothing changed. To go back to 1.4.x, restore the backup you made before upgrading (PR #143).
+- **Docs:**
+  - The README, the security notes and the agent guide now describe HashHurdr as monitor-only, and the agent guide covers the pool and payout alert (PR #142, PR #143).
+
 ## [1.4.2] - 2026-11-14
 
 This tiny patch release makes sure HashHurdr keeps its Night Shift fonts when the server cannot be reached, and retakes the README screenshots. Same hurd, same look.
