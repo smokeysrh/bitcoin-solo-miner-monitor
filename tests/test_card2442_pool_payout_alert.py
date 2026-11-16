@@ -615,6 +615,18 @@ async def test_accept_needs_an_event_of_this_kind(api):
     assert (await c.post(ACCEPT.format(added.id))).status_code == 404
 
 
+async def test_the_not_found_hint_points_at_the_miners_pool_change(api):
+    # "Mark all as seen" can leave the unacked list empty while a change still waits (#2455).
+    c, ctx, hosts = api
+    await watched(ctx, hosts)
+    for event_id in (999_999, (await ctx.store.list_events(types=["device_added"]))[0].id):
+        r = await c.post(ACCEPT.format(event_id))
+        assert r.status_code == 404 and r.json()["error"]["code"] == "not_found"
+        hint = r.json()["error"]["hint"]
+        assert "pool_change" in hint
+        assert "unacked=true" not in hint
+
+
 @pytest.mark.parametrize("went_back", [False, True], ids=["still_changed", "went_back"])
 async def test_a_waiting_change_stays_answerable_after_event_retention(api, went_back):
     c, ctx, hosts = api
