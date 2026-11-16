@@ -252,7 +252,6 @@ test('stream moments on the dashboard and the wall display', async ({ page, requ
 
 test('dashboard-only moments: setup, empty miners, checklist, notifications, odds joke (M18 to M23, M25)', async ({ page, context, request }, info) => {
   test.setTimeout(300_000)
-  const [a] = await devices(request)
 
   // setup page: welcome (M18) and finished (M19)
   await open(page, 'dash', '/setup')
@@ -279,7 +278,8 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
   await expect(empty.getByText('No miners yet').first()).toBeVisible()
   await shot(empty, info, 'dash', 'M20', 'empty-miners-widget', emptyArt) // below the fold on the dashboard: scrolled to
 
-  // getting-started checklist completed (M21): the answers change while the dashboard is open
+  // getting-started checklist completed (M21): the last open step is done while the dashboard is open. The user connects a
+  // node (a new source arrives on the stream), the checklist asks again and the answer has no reminders left.
   const checklist = await context.newPage()
   let finished = false
   const unfinished = [{ id: 'no-node', level: 'tip', title: 'Connect your node', body: 'evidence', action: null, device_id: null }]
@@ -287,26 +287,35 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
   await open(checklist, 'dash', '/')
   await expect(checklist.getByTestId('widget-checklist')).toBeVisible()
   finished = true
-  const [view] = (await (await request.get('/api/v1/devices')).json()) as unknown[]
-  await inject(checklist, ['device_removed', { id: a.id }], ['device', { id: a.id, view }])
+  const overview = (await (await request.get('/api/v1/overview')).json()) as { network: { sources: unknown[] } }
+  const connected = { id: 'evidence-node', kind: 'bitcoin_core', name: 'Home node', ok: true, error: null, last_ok: Date.now() / 1000, last_poll: Date.now() / 1000, implicit: false }
+  await inject(checklist, ['network', { ...overview.network, sources: [...overview.network.sources, connected] }])
   await expect(popup(checklist, 'M21')).toBeVisible({ timeout: POPUP_WAIT_MS })
   await shot(checklist, info, 'dash', 'M21', 'checklist-complete', popup(checklist, 'M21'))
 
-  // notifications switched on (M22) and a test that arrives (M23)
+  // notifications: adding a channel (created switched on) is M22, a test sent from the channel's own dialog is M23
   const notes = await context.newPage()
-  const channel = { id: 'evidence', kind: 'ntfy', name: 'My phone', enabled: false, config: {}, has_secret: false, min_severity: 'info', created_at: 1 }
-  await notes.route('**/api/v1/notifications/channel-types', (route) => route.fulfill({ json: { channel_types: [] } }))
-  await notes.route('**/api/v1/notifications/channels', (route) => route.fulfill({ json: { channels: [channel] } }))
-  await notes.route('**/api/v1/notifications/channels/evidence', (route) => route.fulfill({ json: { channel: { ...channel, enabled: true } } }))
+  const channel = { id: 'evidence', kind: 'ntfy', name: 'My phone', enabled: true, config: {}, has_secret: false, min_severity: 'info', created_at: 1 }
+  let created = false
+  await notes.route('**/api/v1/notifications/channel-types', (route) => route.fulfill({ json: { channel_types: [{ kind: 'ntfy', label: 'ntfy', help: '', fields: [] }] } }))
+  await notes.route('**/api/v1/notifications/channels', (route) => {
+    if (route.request().method() === 'POST') {
+      created = true
+      return route.fulfill({ json: { channel } })
+    }
+    return route.fulfill({ json: { channels: created ? [channel] : [] } })
+  })
   await notes.route('**/api/v1/notifications/channels/evidence/test', (route) => route.fulfill({ json: { ok: true, error: null } }))
   await open(notes, 'dash', '/settings/notifications')
-  await notes.getByRole('switch', { name: 'My phone enabled' }).click()
+  await notes.getByTestId('add-channel').click()
+  await notes.getByTestId('channel-save').click()
   await expect(popup(notes, 'M22')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(notes, info, 'dash', 'M22', 'notifications-on', popup(notes, 'M22'))
+  await shot(notes, info, 'dash', 'M22', 'channel-added', popup(notes, 'M22'))
   await clearPopups(notes)
-  await notes.getByRole('button', { name: 'Send test' }).click()
+  await notes.getByRole('button', { name: 'Edit My phone' }).click()
+  await notes.getByRole('button', { name: 'Send a test' }).click()
   await expect(popup(notes, 'M23')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(notes, info, 'dash', 'M23', 'test-notification', popup(notes, 'M23'))
+  await shot(notes, info, 'dash', 'M23', 'test-notification-from-dialog', popup(notes, 'M23'))
 
   // the one joke on the Odds page (M25): the page's own content fades in, so wait for Hashling himself, then for the fade
   await open(page, 'dash', '/odds')
