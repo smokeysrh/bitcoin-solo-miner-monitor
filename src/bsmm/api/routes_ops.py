@@ -184,8 +184,8 @@ async def demo_scenario(body: ScenarioBody, ctx: AppContext = Depends(get_ctx), 
                               coinbase_addresses=ctx.fleet.all_addresses()[:1])
             if await ctx.network.record_block_found(block, block.coinbase_addresses[0] if block.coinbase_addresses else None, source="demo"):
                 return {"ok": True, "scenario": "block", "height": h}
-        raise ApiError(409, "demo_blocks_exhausted", "The demo has already found its blocks.",
-                       "Restart the demo (`bsmm serve --demo`) to find more.")
+        raise ApiError(409, "demo_blocks_exhausted", "The demo has run out of pretend blocks.",
+                       "Run `bsmm serve --demo` again for a fresh batch. Nothing is broken.")
     views = ctx.fleet.views()
     target = next((v for v in views if body.device in (v.id, v.name)), None) if body.device else (views[2] if len(views) > 2 else (views[0] if views else None))
     if target is None:
