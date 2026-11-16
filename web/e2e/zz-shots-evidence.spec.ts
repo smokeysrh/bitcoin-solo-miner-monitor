@@ -214,9 +214,16 @@ test('stream moments on the dashboard and the wall display', async ({ page, requ
   const online = (d: Dev): Inject => eventMessage('device_online', 'success', { device_id: d.id })
 
   // The demo fleet is never fully hashing (one miner degraded, one offline), so "every miner is hashing again" (M17) needs
-  // that state in the page. Each miner is delivered as online with a hashrate; the server is not touched.
-  const fleet = (await (await request.get('/api/v1/devices')).json()) as Array<{ id: string; status: string; hashrate_smooth_hs: number | null }>
-  const allHashing: Inject[] = fleet.map((view): Inject => ['device', { id: view.id, view: view.status === 'disabled' ? view : { ...view, status: 'online', hashrate_smooth_hs: view.hashrate_smooth_hs || ALL_HASHING_HS } }])
+  // that state in the page. Each miner is delivered as online with a positive current reading (`telemetry.hashrate_hs` is
+  // what "hashing" means) and a smoothed value; the server is not touched.
+  type Reading = { hashrate_hs: number | null } | null
+  const fleet = (await (await request.get('/api/v1/devices')).json()) as Array<{ id: string; status: string; hashrate_smooth_hs: number | null; telemetry: Reading }>
+  const hashing = (view: (typeof fleet)[number]): Inject => {
+    const current = view.telemetry?.hashrate_hs
+    const telemetry = { ...view.telemetry, hashrate_hs: current && current > 0 ? current : ALL_HASHING_HS }
+    return ['device', { id: view.id, view: { ...view, status: 'online', hashrate_smooth_hs: view.hashrate_smooth_hs || ALL_HASHING_HS, telemetry } }]
+  }
+  const allHashing: Inject[] = fleet.map((view): Inject => (view.status === 'disabled' ? ['device', { id: view.id, view }] : hashing(view)))
   // Order matters: the good-news "back" moments come before any outage, so M17 is shown on its own later.
   const moments: Array<[id: string, slug: string, messages: () => Inject[]]> = [
     ['M16', 'miner-back', () => [online(a)]],
