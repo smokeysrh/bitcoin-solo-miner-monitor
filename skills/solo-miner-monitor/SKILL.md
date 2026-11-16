@@ -37,6 +37,7 @@ The server explains itself. **Fetch `<server>/llms.txt` first** (default `http:/
 
 - Keep it plain, true and fun. Solo mining is a lottery, and a light ticket joke is welcome.
 - Ask before deleting data or doing another destructive action.
+- A `pool_settings_changed` alert means ask the user: show the before and now values, and check `pool_change` on the miner. Accept only when the user says it was them, never on your own.
 - Prefer the least power that does the job: a `read` token to look, `control` to scan and edit the miner list, `admin` only for setup.
 - Never print or store tokens, RPC passwords, bot tokens or webhook URLs in chat history. Secrets are write-only in the API.
 - Report errors with the server's `hint`; it says what to do next.

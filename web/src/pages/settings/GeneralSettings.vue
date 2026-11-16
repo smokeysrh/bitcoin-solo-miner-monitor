@@ -75,7 +75,7 @@ const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CHF', 'JPY', 'SEK', 'NOK
       <Field label="Online miners" hint="Seconds between checks."><template #default="{ id, describedBy }"><Input :id="id" v-model="polling.form.interval_s" type="number" :min="2" :max="600" suffix="s" :described-by="describedBy" :disabled="!admin" /></template></Field>
       <Field label="Offline miners" hint="How often to retry one that stopped answering."><template #default="{ id, describedBy }"><Input :id="id" v-model="polling.form.offline_interval_s" type="number" :min="5" :max="3600" suffix="s" :described-by="describedBy" :disabled="!admin" /></template></Field>
       <Field label="Give up waiting after" hint="A slow WiFi miner may need longer."><template #default="{ id, describedBy }"><Input :id="id" v-model="polling.form.timeout_s" type="number" :min="1" :max="60" suffix="s" :described-by="describedBy" :disabled="!admin" /></template></Field>
-      <Field label="Mark offline after" hint="Failed checks in a row before a miner counts as offline."><template #default="{ id, describedBy }"><Input :id="id" v-model="polling.form.offline_after_failures" type="number" :min="1" :max="20" suffix="tries" :described-by="describedBy" :disabled="!admin" /></template></Field>
+      <Field label="Mark offline after" hint="Checks in a row before a miner counts as offline, or before a changed pool or payout setting raises an alert."><template #default="{ id, describedBy }"><Input :id="id" v-model="polling.form.offline_after_failures" type="number" :min="1" :max="20" suffix="tries" :described-by="describedBy" :disabled="!admin" /></template></Field>
     </div>
   </SettingsCard>
 
