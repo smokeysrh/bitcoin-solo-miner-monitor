@@ -17,6 +17,7 @@ import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { confirmDialog } from '@/composables/useConfirm'
 import { api, describeError } from '@/lib/api'
 import type { Channel, ChannelField, ChannelType, SendResult, Severity } from '@/lib/types'
+import { useHashling } from '@/stores/hashling'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useToasts } from '@/stores/toasts'
@@ -24,6 +25,7 @@ import { useToasts } from '@/stores/toasts'
 const session = useSession()
 const settings = useSettings()
 const toasts = useToasts()
+const hashling = useHashling()
 const admin = computed(() => session.canAdmin)
 
 const types = ref<ChannelType[]>([])
@@ -124,7 +126,11 @@ async function runTest(): Promise<void> {
   try {
     const testedDraft = JSON.stringify(form)
     const response = editing.value ? await api.testChannel(editing.value.id) : await api.testChannelInline(payload())
-    if (testedDraft === JSON.stringify(form)) result.value = response
+    if (testedDraft === JSON.stringify(form)) {
+      result.value = response
+      // The inline result stays whether or not Hashling shows; a failed test or a superseded draft never reaches here.
+      if (response.ok) hashling.show('M23')
+    }
   } catch (e) {
     result.value = { ok: false, error: describeError(e) }
   } finally {
@@ -138,9 +144,11 @@ async function save(): Promise<void> {
   saving.value = true
   try {
     const p = payload()
+    let created: Channel | null = null
     if (editing.value) await api.updateChannel(editing.value.id, { name: p.name, config: p.config, min_severity: p.min_severity, ...(Object.keys(p.secret).length ? { secret: p.secret } : {}) })
-    else await api.createChannel(p)
-    toasts.success(editing.value ? 'Saved' : 'Channel added', 'Use “Send test” to make sure it arrives.')
+    else created = await api.createChannel(p)
+    // A new channel is created switched on, which is Hashling's moment; everything else (and Hashling off) keeps the toast.
+    if (!(created?.enabled && hashling.show('M22'))) toasts.success(editing.value ? 'Saved' : 'Channel added', 'Use “Send test” to make sure it arrives.')
     open.value = false
     await load()
   } catch (e) {
@@ -154,8 +162,8 @@ async function sendTest(c: Channel): Promise<void> {
   testingId.value = c.id
   try {
     const r = await api.testChannel(c.id)
-    if (r.ok) toasts.success(`Test sent to ${c.name}`, 'Check your phone or inbox.')
-    else toasts.error(`${c.name} did not accept it`, r.error ?? undefined)
+    if (!r.ok) toasts.error(`${c.name} did not accept it`, r.error ?? undefined)
+    else if (!hashling.show('M23')) toasts.success(`Test sent to ${c.name}`, 'Check your phone or inbox.')
   } catch (e) {
     toasts.error('Could not send the test', describeError(e))
   } finally {
@@ -167,6 +175,7 @@ async function toggle(c: Channel, on: boolean): Promise<void> {
   c.enabled = on
   try {
     await api.updateChannel(c.id, { enabled: on })
+    if (on) hashling.show('M22')
   } catch (e) {
     c.enabled = before
     toasts.error('Could not change that', describeError(e))

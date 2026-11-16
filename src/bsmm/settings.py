@@ -108,6 +108,7 @@ class UiSettings(_S):
     view_miners: Literal["grid", "table"] = "grid"
     reduce_motion: bool = False
     sound_on_block: bool = False
+    hashling_popups: bool = True  # Hashling's pop-ups on the dashboard and wall display (the web app draws them)
     simple_mode: bool = False
     dashboard: dict[str, Any] | None = None  # widget layout (opaque to the server)
     bitcoin_page: dict[str, Any] | None = None  # card layout of the Bitcoin page (opaque to the server)

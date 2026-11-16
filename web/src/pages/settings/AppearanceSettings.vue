@@ -7,6 +7,7 @@ import Segmented from '@/components/ui/Segmented.vue'
 import Select from '@/components/ui/Select.vue'
 import ToggleRow from '@/components/ui/ToggleRow.vue'
 import { describeError } from '@/lib/api'
+import { HASHLING_UI } from '@/lib/hashlingText'
 import { useOddsHeadline } from '@/composables/useOddsHeadline'
 import { ODDS_HEADLINES } from '@/lib/oddsHeadline'
 import { ACCENT_PRESETS, THEMES, type ThemePref } from '@/lib/theme'
@@ -111,6 +112,7 @@ const accent = (): string => settings.data?.ui.accent ?? '#F7931A'
     <div class="divide-y divide-line border-t border-line">
       <ToggleRow :model-value="settings.data?.ui.reduce_motion ?? false" title="Reduce motion" description="Turns off animations and the confetti. Your device’s own setting is respected too." @update:model-value="(v) => patch({ ui: { reduce_motion: v } })" />
       <ToggleRow :model-value="settings.data?.ui.sound_on_block ?? false" title="Play a sound when a block is found" description="A short chime in this browser. Your browser may need a click on the page first." @update:model-value="(v) => patch({ ui: { sound_on_block: v } })" />
+      <ToggleRow :model-value="settings.data?.ui.hashling_popups ?? true" :title="HASHLING_UI.U02" :description="HASHLING_UI.U03" @update:model-value="(v) => patch({ ui: { hashling_popups: v } })" />
     </div>
   </SettingsCard>
 

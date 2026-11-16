@@ -9,7 +9,7 @@ type Json = Record<string, unknown>
 export type SettingsPatch = { [K in keyof Settings]?: Partial<Settings[K]> }
 interface PendingSave { change: SettingsPatch }
 const LOCAL_UI_KEY = 'bsmm.localAppearance'
-const LOCAL_FIELDS = ['theme', 'accent', 'density', 'reduce_motion', 'view_miners', 'sound_on_block', 'simple_mode'] as const
+const LOCAL_FIELDS = ['theme', 'accent', 'density', 'reduce_motion', 'view_miners', 'sound_on_block', 'hashling_popups', 'simple_mode'] as const
 
 function localAppearance(): Partial<Settings['ui']> {
   try {
@@ -20,7 +20,7 @@ function localAppearance(): Partial<Settings['ui']> {
     if (typeof value.accent === 'string' && /^#[0-9a-f]{6}$/i.test(value.accent)) out.accent = value.accent
     if (value.density === 'comfortable' || value.density === 'compact') out.density = value.density
     if (value.view_miners === 'grid' || value.view_miners === 'table') out.view_miners = value.view_miners
-    for (const key of ['reduce_motion', 'sound_on_block', 'simple_mode'] as const) if (typeof value[key] === 'boolean') out[key] = value[key]
+    for (const key of ['reduce_motion', 'sound_on_block', 'hashling_popups', 'simple_mode'] as const) if (typeof value[key] === 'boolean') out[key] = value[key]
     return out
   } catch (e) {
     console.warn('Could not read local appearance preferences', e)

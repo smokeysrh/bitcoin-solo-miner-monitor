@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { Cpu, LayoutGrid, Plus, Radar, Rows3, Search } from 'lucide-vue-next'
+import { LayoutGrid, Plus, Radar, Rows3, Search } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useFmt } from '@/composables/useFmt'
 import { useLive } from '@/stores/live'
 import { useSession } from '@/stores/session'
 import { useSettings } from '@/stores/settings'
 import { useUi } from '@/stores/ui'
+import HashlingArt from '@/components/brand/HashlingArt.vue'
 import MinerTable, { type SortKey } from '@/components/miners/MinerTable.vue'
 import MinerTile from '@/components/miners/MinerTile.vue'
 import Button from '@/components/ui/Button.vue'
@@ -15,6 +16,7 @@ import Input from '@/components/ui/Input.vue'
 import Segmented from '@/components/ui/Segmented.vue'
 import Select from '@/components/ui/Select.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
+import { HASHLING_MOMENTS } from '@/lib/hashlingText'
 import type { DeviceView } from '@/lib/types'
 
 type StatusFilter = 'all' | 'online' | 'attention' | 'offline' | 'paused'
@@ -165,7 +167,8 @@ const hashShown = computed(() => fmt.hashrate(filtered.value.reduce((a, d) => a 
       <Skeleton v-for="i in 4" :key="i" class="h-40 rounded-2xl" />
     </div>
 
-    <EmptyState v-else-if="!live.deviceCount" :icon="Cpu" title="No miners yet" description="Scan your network and we will find your Bitaxe, NerdQAxe, Avalon, Antminer and similar miners for you.">
+    <EmptyState v-else-if="!live.deviceCount" title="No miners yet" :description="HASHLING_MOMENTS.M20.line">
+      <template #art><HashlingArt pose="tinkering" :scale="3" /></template>
       <Button v-if="session.canControl" variant="primary" size="lg" @click="ui.addMinerOpen = true">
         <template #icon><Radar class="size-5" /></template>
         Scan my network
