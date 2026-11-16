@@ -161,6 +161,31 @@ describe('the switch for the automatic update check', () => {
     expect(w.text()).toContain('Version 99.0.0 is available.')
   })
 
+  // The server lets only a control or admin session press the button (POST /system/update/check), so a read session
+  // must not be offered it, nor told that it "still works".
+  it.each([
+    ['never checked', NEVER_CHECKED],
+    ['checked earlier', CHECKED_NOW],
+  ])('off: a read session gets a disabled button, no off-state line and no stale up-to-date claim (%s)', async (_state, status) => {
+    statusReply = status
+    const w = await openAbout(READ_TOKEN, false)
+    expect(checkButton(w).attributes('disabled')).toBeDefined()
+    expect(w.text()).not.toContain(updateCheckText.off)
+    expect(w.text()).not.toContain('You are up to date.')
+    await checkButton(w).trigger('click')
+    await flushPromises()
+    expect(writes()).toEqual([])
+  })
+
+  it('off: a control session still sees the off-state line and a working button', async () => {
+    const w = await openAbout(CONTROL_TOKEN, false)
+    expect(w.text()).toContain(updateCheckText.off)
+    expect(checkButton(w).attributes('disabled')).toBeUndefined()
+    await checkButton(w).trigger('click')
+    await flushPromises()
+    expect(writes()).toEqual([{ method: 'POST', path: '/system/update/check', body: null }])
+  })
+
   it('on: opening the page does not show the off-state line and a check result reads as before', async () => {
     statusReply = CHECKED_NOW
     const w = await openAbout(ADMIN, true)
