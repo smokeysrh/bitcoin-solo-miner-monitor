@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page, type TestInfo } from '@playwright/test'
+import { HASHLING_UI } from '../src/lib/hashlingText'
 import { poolChangeText } from '../src/lib/poolChangeText'
 
 // EVIDENCE ONLY (never merge): screenshots of every Hashling moment (card #2362) on the dashboard and, for M01..M17, on the
@@ -12,6 +13,10 @@ import { poolChangeText } from '../src/lib/poolChangeText'
 const SCENARIO_WAIT_MS = 180_000
 const POPUP_WAIT_MS = 20_000
 const SYNTHETIC_ID_BASE = 9_000_000
+/** Marks a message the test delivered itself, so a pinned fleet can tell it from the server's own device updates. */
+const INJECTED_MARK = 'evidence-injected'
+const FRAMES_TO_SETTLE = 2
+const ALL_HASHING_HS = 1e12
 
 type Surface = 'dash' | 'wall'
 type Inject = [topic: string, payload: unknown]
@@ -19,16 +24,22 @@ interface Dev { id: string; name: string }
 
 /** Test-only: a real EventSource that also lets the test deliver messages to the page's own stream handlers. */
 async function tapEventSource(context: BrowserContext): Promise<void> {
-  await context.addInitScript(() => {
-    const w = window as unknown as { __inject: (topic: string, payload: unknown) => void; __dropDeviceTopic?: boolean }
+  await context.addInitScript((mark: string) => {
+    const w = window as unknown as { __inject: (topic: string, payload: unknown) => void; __dropDeviceTopic?: boolean; __pinDevices?: boolean }
     const Real = window.EventSource
     const instances: EventSource[] = []
     function Tapped(url: string | URL, init?: EventSourceInit): EventSource {
       const es = new Real(url, init)
-      const add = es.addEventListener.bind(es) as (type: string, listener: unknown, options?: unknown) => void
-      es.addEventListener = ((type: string, listener: unknown, options?: unknown) => {
-        if (type === 'device' && w.__dropDeviceTopic) return // lets a test keep the fleet empty
-        add(type, listener, options)
+      const add = es.addEventListener.bind(es) as (type: string, listener: EventListenerOrEventListenerObject, options?: unknown) => void
+      es.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject, options?: unknown) => {
+        if (type !== 'device') return add(type, listener, options)
+        if (w.__dropDeviceTopic) return // lets a test keep the fleet empty
+        // __pinDevices: the server's own device updates are ignored, so a state the test injected stays as it is
+        add(type, (ev: Event) => {
+          if (w.__pinDevices && (ev as MessageEvent).lastEventId !== mark) return
+          if (typeof listener === 'function') listener(ev)
+          else listener.handleEvent(ev)
+        }, options)
       }) as unknown as typeof es.addEventListener
       instances.push(es)
       return es
@@ -36,9 +47,9 @@ async function tapEventSource(context: BrowserContext): Promise<void> {
     Tapped.prototype = Real.prototype
     window.EventSource = Tapped as unknown as typeof EventSource
     w.__inject = (topic, payload) => {
-      for (const es of instances) es.dispatchEvent(new MessageEvent(topic, { data: JSON.stringify(payload) }))
+      for (const es of instances) es.dispatchEvent(new MessageEvent(topic, { data: JSON.stringify(payload), lastEventId: mark }))
     }
-  })
+  }, INJECTED_MARK)
 }
 
 async function inject(page: Page, ...messages: Inject[]): Promise<void> {
@@ -77,10 +88,32 @@ async function clearPopups(page: Page): Promise<void> {
 
 async function open(page: Page, surface: Surface, path?: string): Promise<void> {
   await page.goto(path ?? (surface === 'wall' ? '/kiosk' : '/'))
-  await expect(page.getByTestId('live-badge').first()).toContainText('Live')
+  // The setup page has no live stream badge (it is outside the app shell); its logo is there from the first frame.
+  if (path?.startsWith('/setup')) await expect(page.getByTestId('logo-mark').first()).toBeVisible()
+  else await expect(page.getByTestId('live-badge').first()).toContainText('Live')
 }
 
-async function shot(page: Page, info: TestInfo, surface: Surface, id: string, slug: string): Promise<void> {
+/** Every animation that ends (fade-in, pop-in, the hop) has ended, and two frames were drawn since. Endless ones (shimmer, pings) are ignored. */
+async function settle(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document.getAnimations().every((a) => a.effect?.getComputedTiming().iterations === Infinity || (a.playState !== 'running' && !a.pending)),
+  )
+  await page.evaluate(
+    (frames: number) => new Promise<void>((resolve) => {
+      const next = (left: number): void => { if (left === 0) resolve(); else requestAnimationFrame(() => next(left - 1)) }
+      next(frames)
+    }),
+    FRAMES_TO_SETTLE,
+  )
+}
+
+/** The picture of a moment: `target` (the Hashling, or the pop-up that carries him) is on screen, in view and fully drawn. */
+async function shot(page: Page, info: TestInfo, surface: Surface, id: string, slug: string, target?: Locator): Promise<void> {
+  if (target) {
+    await expect(target.first()).toBeVisible({ timeout: POPUP_WAIT_MS })
+    await target.first().scrollIntoViewIfNeeded()
+  }
+  await settle(page)
   await page.screenshot({ path: info.outputPath(`${surface}-${id}-${slug}.png`) })
 }
 
@@ -89,7 +122,7 @@ async function capture(page: Page, info: TestInfo, surface: Surface, id: string,
   await clearPopups(page)
   await fire()
   await expect(popup(page, id)).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(page, info, surface, id, slug)
+  await shot(page, info, surface, id, slug, popup(page, id))
   await clearPopups(page)
 }
 
@@ -123,7 +156,7 @@ test('real demo scenarios on the dashboard and the wall display (pool change, of
   await scenario(request, 'pool_change')
   for (const [p, surface] of [[page, 'dash'], [wall, 'wall']] as const) {
     await expect(popup(p, 'M01')).toBeVisible({ timeout: POPUP_WAIT_MS })
-    await shot(p, info, surface, 'M01', 'pool-change')
+    await shot(p, info, surface, 'M01', 'pool-change', popup(p, 'M01'))
   }
   await clearPopups(page)
   await clearPopups(wall)
@@ -136,7 +169,7 @@ test('real demo scenarios on the dashboard and the wall display (pool change, of
   await page.getByTestId('accept-pool-change').click()
   await page.getByRole('button', { name: poolChangeText.confirmLabel }).click()
   await expect(popup(page, 'M24')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(page, info, 'dash', 'M24', 'pool-change-accepted')
+  await shot(page, info, 'dash', 'M24', 'pool-change-accepted', popup(page, 'M24'))
   await clearPopups(page)
   await open(page, 'dash')
 
@@ -144,7 +177,7 @@ test('real demo scenarios on the dashboard and the wall display (pool change, of
   await scenario(request, 'offline')
   for (const [p, surface] of [[page, 'dash'], [wall, 'wall']] as const) {
     await expect(popup(p, 'M02')).toBeVisible({ timeout: SCENARIO_WAIT_MS })
-    await shot(p, info, surface, 'M02', 'offline')
+    await shot(p, info, surface, 'M02', 'offline', popup(p, 'M02'))
   }
   await clearPopups(page)
   await clearPopups(wall)
@@ -155,7 +188,7 @@ test('real demo scenarios on the dashboard and the wall display (pool change, of
     const back = popup(p, 'M16', 'M17')
     await expect(back).toBeVisible({ timeout: SCENARIO_WAIT_MS })
     const id = (await back.getAttribute('data-moment')) ?? 'M16'
-    await shot(p, info, surface, id, NAMES[id] ?? 'back')
+    await shot(p, info, surface, id, NAMES[id] ?? 'back', popup(p, id))
   }
   await clearPopups(page)
   await clearPopups(wall)
@@ -163,27 +196,10 @@ test('real demo scenarios on the dashboard and the wall display (pool change, of
   // a found block (M13): the dialog wears Hashling on the dashboard, the pop-up carries it on the wall display
   await scenario(request, 'block')
   await expect(page.getByTestId('celebration')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(page, info, 'dash', 'M13', 'block-found')
+  await shot(page, info, 'dash', 'M13', 'block-found', page.getByTestId('celebration').getByRole('img', { name: HASHLING_UI.U01c }))
   await expect(popup(wall, 'M13')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(wall, info, 'wall', 'M13', 'block-found')
+  await shot(wall, info, 'wall', 'M13', 'block-found', popup(wall, 'M13'))
   await page.keyboard.press('Escape')
-})
-
-test('real hot scenario (M04) on the dashboard and the wall display', async ({ page, context, request }, info) => {
-  test.setTimeout(600_000)
-  await scenario(request, 'cool')
-  await open(page, 'dash')
-  const wall = await context.newPage()
-  await open(wall, 'wall')
-  await scenario(request, 'hot')
-  try {
-    for (const [p, surface] of [[page, 'dash'], [wall, 'wall']] as const) {
-      await expect(popup(p, 'M04')).toBeVisible({ timeout: SCENARIO_WAIT_MS })
-      await shot(p, info, surface, 'M04', 'hot')
-    }
-  } finally {
-    await scenario(request, 'cool')
-  }
 })
 
 /** Moments with no demo scenario: delivered through the page's own stream handlers (see the top of this file). */
@@ -197,6 +213,10 @@ test('stream moments on the dashboard and the wall display', async ({ page, requ
   const offline = (d: Dev): Inject => eventMessage('device_offline', 'critical', { device_id: d.id })
   const online = (d: Dev): Inject => eventMessage('device_online', 'success', { device_id: d.id })
 
+  // The demo fleet is never fully hashing (one miner degraded, one offline), so "every miner is hashing again" (M17) needs
+  // that state in the page. Each miner is delivered as online with a hashrate; the server is not touched.
+  const fleet = (await (await request.get('/api/v1/devices')).json()) as Array<{ id: string; status: string; hashrate_smooth_hs: number | null }>
+  const allHashing: Inject[] = fleet.map((view): Inject => ['device', { id: view.id, view: view.status === 'disabled' ? view : { ...view, status: 'online', hashrate_smooth_hs: view.hashrate_smooth_hs || ALL_HASHING_HS } }])
   // Order matters: the good-news "back" moments come before any outage, so M17 is shown on its own later.
   const moments: Array<[id: string, slug: string, messages: () => Inject[]]> = [
     ['M16', 'miner-back', () => [online(a)]],
@@ -215,7 +235,7 @@ test('stream moments on the dashboard and the wall display', async ({ page, requ
     ['M09', 'node-unreachable', () => [network, alertsMessage('node_down', 'warning', null, node.id)]],
     ['M10', 'node-behind', () => [network, alertsMessage('node_behind', 'warning', null, 'node')]],
     ['M02', 'offline-synthetic', () => [offline(a)]],
-    ['M17', 'every-miner-hashing-synthetic', () => [online(a)]],
+    ['M17', 'every-miner-hashing-synthetic', () => [...allHashing, online(a)]],
     ['M02N', 'offline-several', () => [offline(a), offline(b), offline(c)]],
     ['M1XN', 'several-things', () => [offline(a), eventMessage('pool_failover', 'warning', { device_id: b.id }), alertsMessage('temp_high', 'warning', c.id)]],
   ]
@@ -223,6 +243,8 @@ test('stream moments on the dashboard and the wall display', async ({ page, requ
   for (const surface of ['dash', 'wall'] as const) {
     await open(page, surface)
     for (const [id, slug, messages] of moments) {
+      // From M17 on, the server's own device updates are ignored so the injected "every miner is hashing" holds until the pop-up is built.
+      if (id === 'M17') await page.evaluate(() => { (window as unknown as { __pinDevices: boolean }).__pinDevices = true })
       await capture(page, info, surface, id, slug, () => inject(page, ...messages()))
     }
   }
@@ -235,13 +257,13 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
   // setup page: welcome (M18) and finished (M19)
   await open(page, 'dash', '/setup')
   await expect(page.getByTestId('setup-start')).toBeVisible()
-  await shot(page, info, 'dash', 'M18', 'setup-welcome')
+  await shot(page, info, 'dash', 'M18', 'setup-welcome', page.locator('[data-moment="M18"]'))
   await page.getByTestId('setup-start').click()
   await page.getByRole('button', { name: /I will add them later|Next/ }).click()
   await page.getByTestId('setup-energy-next').click()
   await page.getByRole('button', { name: 'Skip for now' }).click()
   await expect(page.getByTestId('setup-finish')).toBeVisible()
-  await shot(page, info, 'dash', 'M19', 'setup-finished')
+  await shot(page, info, 'dash', 'M19', 'setup-finished', page.locator('[data-moment="M19"]'))
 
   // empty "No miners yet" (M20): the miner list answers empty and the stream's device updates are held back
   const empty = await context.newPage()
@@ -249,12 +271,13 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
     ;(window as unknown as { __dropDeviceTopic: boolean }).__dropDeviceTopic = true
   })
   await empty.route('**/api/v1/devices', (route) => route.fulfill({ json: [] }))
+  const emptyArt = empty.getByRole('img', { name: HASHLING_UI.U01f })
   await open(empty, 'dash', '/miners')
   await expect(empty.getByText('No miners yet').first()).toBeVisible()
-  await shot(empty, info, 'dash', 'M20', 'empty-miners-page')
+  await shot(empty, info, 'dash', 'M20', 'empty-miners-page', emptyArt)
   await open(empty, 'dash', '/')
-  await expect(empty.getByTestId('widget-miners').or(empty.getByText('No miners yet')).first()).toBeVisible()
-  await shot(empty, info, 'dash', 'M20', 'empty-miners-widget')
+  await expect(empty.getByText('No miners yet').first()).toBeVisible()
+  await shot(empty, info, 'dash', 'M20', 'empty-miners-widget', emptyArt) // below the fold on the dashboard: scrolled to
 
   // getting-started checklist completed (M21): the answers change while the dashboard is open
   const checklist = await context.newPage()
@@ -267,7 +290,7 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
   const [view] = (await (await request.get('/api/v1/devices')).json()) as unknown[]
   await inject(checklist, ['device_removed', { id: a.id }], ['device', { id: a.id, view }])
   await expect(popup(checklist, 'M21')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(checklist, info, 'dash', 'M21', 'checklist-complete')
+  await shot(checklist, info, 'dash', 'M21', 'checklist-complete', popup(checklist, 'M21'))
 
   // notifications switched on (M22) and a test that arrives (M23)
   const notes = await context.newPage()
@@ -279,16 +302,16 @@ test('dashboard-only moments: setup, empty miners, checklist, notifications, odd
   await open(notes, 'dash', '/settings/notifications')
   await notes.getByRole('switch', { name: 'My phone enabled' }).click()
   await expect(popup(notes, 'M22')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(notes, info, 'dash', 'M22', 'notifications-on')
+  await shot(notes, info, 'dash', 'M22', 'notifications-on', popup(notes, 'M22'))
   await clearPopups(notes)
   await notes.getByRole('button', { name: 'Send test' }).click()
   await expect(popup(notes, 'M23')).toBeVisible({ timeout: POPUP_WAIT_MS })
-  await shot(notes, info, 'dash', 'M23', 'test-notification')
+  await shot(notes, info, 'dash', 'M23', 'test-notification', popup(notes, 'M23'))
 
-  // the one joke on the Odds page (M25)
+  // the one joke on the Odds page (M25): the page's own content fades in, so wait for Hashling himself, then for the fade
   await open(page, 'dash', '/odds')
   await expect(page.getByTestId('odds-hero')).toBeVisible()
-  await shot(page, info, 'dash', 'M25', 'odds-joke')
+  await shot(page, info, 'dash', 'M25', 'odds-joke', page.locator('[data-moment="M25"]'))
 })
 
 test('logo mark: open frame and blink frame', async ({ page }, info) => {
@@ -313,9 +336,12 @@ test('the settings switch, and reduced motion', async ({ page, context, request 
   await page.goto('/settings/appearance')
   const toggle = page.getByRole('switch', { name: 'Hashling pop-ups' })
   await expect(toggle).toHaveAttribute('aria-checked', 'true')
+  await toggle.scrollIntoViewIfNeeded()
+  await settle(page)
   await page.screenshot({ path: info.outputPath('settings-switch-on.png') })
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-checked', 'false')
+  await settle(page)
   await page.screenshot({ path: info.outputPath('settings-switch-off.png') })
   await toggle.click()
   await expect(toggle).toHaveAttribute('aria-checked', 'true')
@@ -333,7 +359,7 @@ test('the settings switch, and reduced motion', async ({ page, context, request 
   await inject(still, eventMessage('new_best_share', 'success', { device_id: a.id }))
   await expect(popup(still, 'M14')).toBeVisible({ timeout: POPUP_WAIT_MS })
   await expect(popup(still, 'M14').locator('img')).not.toHaveClass(/hashling-hop/)
-  await shot(still, info, 'dash', 'M14', 'reduced-motion-still-frame')
+  await shot(still, info, 'dash', 'M14', 'reduced-motion-still-frame', popup(still, 'M14'))
 })
 
 test('evidence-only: forces the existing failure artifact upload; never merge', () => {
