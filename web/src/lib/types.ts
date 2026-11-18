@@ -509,7 +509,7 @@ export interface Channel {
   kind: string
   name: string
   enabled: boolean
-  config: Record<string, unknown>
+  config?: Record<string, unknown> // only sent to admins
   has_secret: boolean
   min_severity: Severity
   created_at: number
