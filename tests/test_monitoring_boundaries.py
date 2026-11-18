@@ -84,6 +84,7 @@ async def test_eng07_cancellation_keeps_marker_and_addressless_complete_advances
     core = BitcoinCoreSource(src, {}, ctx.http)
     core.block_info = AsyncMock(side_effect=asyncio.CancelledError)
     ctx.network._pollers = {"core": _Poller(src, core)}
+    ctx.network.watch_addresses = lambda: ["watched"]  # blocks are only checked once an address is known (#158)
     await ctx.store.kv_set("blocks.last_checked", 100)
     with pytest.raises(asyncio.CancelledError):
         await ctx.network._check_blocks(NetworkState(height=101), 100)
