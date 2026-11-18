@@ -491,6 +491,10 @@ class NetworkService:
         if st.height <= last_checked:
             return
         watch = set(self.watch_addresses())
+        if not watch:
+            # Nothing to compare payouts with yet (miners have not reported since start-up). Keep the marker and spend
+            # no lookups: the held range is checked on the first look once an address is known.
+            return
         by_height = {b.height: b for b in st.recent_blocks}
         checked = await self._checked_hashes()
         for h in range(last_checked + 1, min(st.height, last_checked + BLOCK_CHECK_BATCH) + 1):

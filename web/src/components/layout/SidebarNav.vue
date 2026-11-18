@@ -17,6 +17,19 @@ const ui = useUi()
 const session = useSession()
 const fmt = useFmt()
 
+// The Hashling is 64 px (two screen pixels per pixel of his 32 x 32 grid) so the blink frame stays sharp. The lockup file
+// is 135.65 x 30 units with the Hashling in its first 30 units, so the name is the rest, shown at 1.4 px per unit.
+const BRAND_MARK_SIZE_PX = 64
+const LOCKUP_UNITS = { width: 135.65, height: 30, hashlingWidth: 30 } as const
+const LOCKUP_PX_PER_UNIT = 1.4
+const LOCKUP_H_PX = LOCKUP_UNITS.height * LOCKUP_PX_PER_UNIT
+const WORDMARK_BOX_W_PX = Math.ceil((LOCKUP_UNITS.width - LOCKUP_UNITS.hashlingWidth) * LOCKUP_PX_PER_UNIT)
+const lockupStyle = {
+  height: `${LOCKUP_H_PX}px`,
+  width: `${LOCKUP_UNITS.width * LOCKUP_PX_PER_UNIT}px`,
+  left: `${-LOCKUP_UNITS.hashlingWidth * LOCKUP_PX_PER_UNIT}px`,
+}
+
 const collapsed = computed(() => ui.sidebarCollapsed)
 const groups = [
   { label: 'Monitor', items: NAV.filter((i) => i.group === 'monitor') },
@@ -31,14 +44,18 @@ const version = computed(() => session.meta?.version?.trim() || null)
 
 <template>
   <aside class="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface-1/70 backdrop-blur-xl lg:flex" aria-label="Main navigation">
-    <div class="flex h-16 shrink-0 items-center gap-3 px-[18px]">
-      <LogoMark v-if="collapsed" alt="HashHurdr" />
-      <div v-else class="min-w-0">
-        <!-- The horizontal lockup carries the name. One file per background: the dark theme and black theme use "-dark", the light theme uses "-light". -->
-        <img :src="BRAND_ASSETS.lockupHorizontalDark" alt="HashHurdr" width="145" height="32" class="h-8 w-auto light:hidden" />
-        <img :src="BRAND_ASSETS.lockupHorizontalLight" alt="HashHurdr" width="145" height="32" class="hidden h-8 w-auto light:block" />
-        <p class="truncate text-[11px] text-subtle">{{ session.meta?.instance_name }}</p>
-      </div>
+    <div :class="['flex h-20 shrink-0 items-center', collapsed ? 'pl-1.5' : 'gap-2 px-[18px]']">
+      <LogoMark v-if="collapsed" :size="BRAND_MARK_SIZE_PX" alt="HashHurdr" :refresh-signal="live.lastUpdate" />
+      <template v-else>
+        <LogoMark :size="BRAND_MARK_SIZE_PX" alt="" :refresh-signal="live.lastUpdate" />
+        <!-- The name is the right-hand part of the horizontal lockup. Its Hashling is the blinking LogoMark beside it, so the
+             lockup is shown shifted left inside a clipping box. One file per background: the dark theme and black theme use
+             "-dark", the light theme uses "-light". -->
+        <span class="relative block shrink-0 overflow-hidden" :style="{ width: `${WORDMARK_BOX_W_PX}px`, height: `${LOCKUP_H_PX}px` }" data-testid="sidebar-wordmark">
+          <img :src="BRAND_ASSETS.lockupHorizontalDark" alt="HashHurdr" :height="LOCKUP_H_PX" class="absolute top-0 max-w-none light:hidden" :style="lockupStyle" />
+          <img :src="BRAND_ASSETS.lockupHorizontalLight" alt="HashHurdr" :height="LOCKUP_H_PX" class="absolute top-0 hidden max-w-none light:block" :style="lockupStyle" />
+        </span>
+      </template>
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 pb-3">

@@ -156,6 +156,18 @@ def _p(rule: AlertRule, name: str) -> Any:
 # --- evaluators (one per state rule) ---------------------------------------------------------------------------
 
 
+#: Statuses whose retained telemetry is not a current reading. Disabling a miner keeps its last telemetry for other
+#: views, so a rule must never read it as live (a frozen problem would stay active and keep sending reminders).
+_OFFLINE_OR_UNKNOWN = frozenset({DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN})
+_OFFLINE_ONLY = frozenset({DeviceStatus.OFFLINE})
+_OFFLINE_UNKNOWN_OR_PAUSED = frozenset({DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.PAUSED})
+
+
+def _skipped(d: DeviceView, skip: frozenset[DeviceStatus]) -> bool:
+    """True when a telemetry rule must ignore this miner: its own ``skip`` statuses, plus always a disabled miner."""
+    return d.status == DeviceStatus.DISABLED or d.status in skip
+
+
 def _ago(ctx: EvalContext, ts: float | None) -> str:
     return format_duration(ctx.now - ts) if ts else "an unknown time"
 
@@ -175,7 +187,7 @@ def eval_temp_high(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition]:
     out: dict[str, Condition] = {}
     for d in ctx.devices:
         t = d.telemetry
-        if not t or d.status in (DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN) or not in_scope(rule, d):
+        if not t or _skipped(d, _OFFLINE_OR_UNKNOWN) or not in_scope(rule, d):
             continue
         hot = []
         if t.temp_asic_c is not None and t.temp_asic_c >= asic_lim:
@@ -192,7 +204,7 @@ def eval_fan_failure(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition]:
     out: dict[str, Condition] = {}
     for d in ctx.devices:
         t = d.telemetry
-        if not t or d.status in (DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.PAUSED) or not in_scope(rule, d):
+        if not t or _skipped(d, _OFFLINE_UNKNOWN_OR_PAUSED) or not in_scope(rule, d):
             continue
         if t.fan_rpm is not None and t.fan_rpm < 100 and (t.fan_pct or 0) >= 20 and (t.temp_asic_c or 0) >= 45:
             out[f"{rule.id}:{d.id}"] = Condition(
@@ -207,7 +219,7 @@ def eval_hashrate_drop(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition
     for d in ctx.devices:
         base = ctx.baselines.get(d.id)
         t = d.telemetry
-        if not base or not t or d.status in (DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.PAUSED) or not in_scope(rule, d):
+        if not base or not t or _skipped(d, _OFFLINE_UNKNOWN_OR_PAUSED) or not in_scope(rule, d):
             continue
         if (t.uptime_s or 10**9) < 900:  # a freshly rebooted miner is still ramping up
             continue
@@ -237,7 +249,7 @@ def eval_reject_rate(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition]:
     out: dict[str, Condition] = {}
     for d in ctx.devices:
         t = d.telemetry
-        if not t or d.status == DeviceStatus.OFFLINE or not in_scope(rule, d):
+        if not t or _skipped(d, _OFFLINE_ONLY) or not in_scope(rule, d):
             continue
         total = (t.shares_accepted or 0) + (t.shares_rejected or 0)
         if total >= min_shares and t.reject_rate_pct is not None and t.reject_rate_pct >= lim:
@@ -255,7 +267,7 @@ def eval_pool_fallback(rule: AlertRule, ctx: EvalContext) -> dict[str, Condition
     out: dict[str, Condition] = {}
     for d in ctx.devices:
         t = d.telemetry
-        if t and t.using_fallback and d.status != DeviceStatus.OFFLINE and in_scope(rule, d):
+        if t and t.using_fallback and not _skipped(d, _OFFLINE_ONLY) and in_scope(rule, d):
             ap = t.active_pool()
             out[f"{rule.id}:{d.id}"] = Condition(
                 f"{rule.id}:{d.id}", f"{d.name} is using its fallback pool",
