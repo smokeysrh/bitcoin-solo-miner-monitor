@@ -251,4 +251,5 @@ async def delete_source(source_id: str, ctx: AppContext = Depends(get_ctx), _: P
     if not await ctx.store.delete_source(source_id):
         raise not_found("That source")
     await ctx.network.reload_sources()
+    ctx.network.refresh_soon()  # the merged picture drops the removed source on the next round
     return {"ok": True}
