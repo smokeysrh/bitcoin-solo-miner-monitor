@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlsplit
 
@@ -20,13 +21,34 @@ def get_ctx(request: Request) -> AppContext:
     return request.app.state.ctx  # type: ignore[no-any-return]
 
 
+def _normal_address(value: str) -> str | None:
+    """The canonical text of an IP address, or None when ``value`` is not one."""
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
 def client_ip(request: Request) -> str:
+    """The address login limits are keyed on.
+
+    A trusted proxy appends the address it saw to the right of ``X-Forwarded-For``, so entries further
+    left may have been supplied by the client. Walk from the right past trusted proxies and use the first
+    other address. Anything unexpected (an untrusted peer, no header, every entry trusted, an entry that is
+    not an address) gives the peer: one shared key for that proxy is the safe side of the limit.
+    """
     ctx: AppContext = request.app.state.ctx
     peer = request.client.host if request.client else "unknown"
-    if peer in ctx.config.trusted_proxies:
-        fwd = request.headers.get("x-forwarded-for", "")
-        if fwd:
-            return fwd.split(",")[0].strip()
+    trusted = {_normal_address(p) or p for p in ctx.config.trusted_proxies}
+    if (_normal_address(peer) or peer) not in trusted:
+        return peer
+    entries = ",".join(request.headers.getlist("x-forwarded-for")).split(",")
+    for entry in reversed(entries):
+        address = _normal_address(entry)
+        if address is None:
+            return peer
+        if address not in trusted:
+            return address
     return peer
 
 
