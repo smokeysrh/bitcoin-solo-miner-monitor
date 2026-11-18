@@ -290,6 +290,8 @@ class Fleet:
     def _on_settings_change(self, new: Settings, old: Settings) -> None:
         if new.polling.concurrency != old.polling.concurrency:
             self._sem = asyncio.Semaphore(new.polling.concurrency)
+        if new.polling == old.polling and new.alerts == old.alerts:
+            return  # a poll reads only these two sections (intervals, timeouts, status thresholds); other saves leave miners alone
         for rt in self.runtimes.values():
             rt.wake.set()
 

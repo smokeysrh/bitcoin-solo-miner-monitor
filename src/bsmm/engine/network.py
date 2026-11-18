@@ -21,7 +21,7 @@ from bsmm import mining
 from bsmm.engine.bus import EventBus
 from bsmm.engine.events import EventLog
 from bsmm.models import Severity, Source
-from bsmm.settings import SettingsService
+from bsmm.settings import Settings, SettingsService
 from bsmm.sources.base import (
     BlockInfo,
     ConnectionTest,
@@ -146,7 +146,7 @@ class NetworkService:
     async def start(self) -> None:
         self._running = True
         await self.reload_sources()
-        self.settings.on_change(lambda new, old: asyncio.create_task(self.reload_sources()))
+        self.settings.on_change(self._on_settings_change)
         self._task = asyncio.create_task(self._loop(), name="network-service")
 
     async def stop(self) -> None:
@@ -154,6 +154,22 @@ class NetworkService:
         if self._task:
             self._task.cancel()
             await asyncio.gather(self._task, return_exceptions=True)
+
+    async def _on_settings_change(self, new: Settings, old: Settings) -> None:
+        """Rebuild the sources when ``network`` changed; refresh the figures when it or the currency did.
+
+        Nothing else a save changes (theme, layouts, polling, energy...) is read by the sources or the merge.
+        A failure is logged here: the settings are already saved, so it must not fail the save.
+        """
+        network_changed = new.network != old.network
+        if not network_changed and new.units.currency == old.units.currency:
+            return
+        try:
+            if network_changed:
+                await self.reload_sources()
+            self.refresh_soon()  # the merged price and fee figures follow these settings
+        except Exception:
+            log.exception("Could not apply the changed network settings to the data sources")
 
     async def reload_sources(self) -> None:
         async with self._lock:
@@ -183,9 +199,7 @@ class NetworkService:
                 else:
                     keep[PUBLIC_SOURCE_ID] = _Poller(pub, MempoolSpaceSource(pub, {}, self.http), implicit=True,
                                                      health=SourceHealth(id=pub.id, kind=pub.kind, name=pub.name, implicit=True))
-            self._pollers = keep
-        for p in self._pollers.values():
-            p.next_due = 0.0
+            self._pollers = keep  # a new or changed poller starts due (next_due 0); an unchanged one keeps its schedule
 
     # -- manual use by the API / wizard -----------------------------------------------------------------
 
