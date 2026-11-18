@@ -92,6 +92,14 @@ async def test_sec03_legacy_reopen_excludes_canonical_secrets(config, kind, surf
                     assert response.status_code == 200
                     # Test the entire public response, not merely the config projection.
                     assert all(value.strip() not in response.text for value in private.values()), "legacy credential exposed"
+                    if surface == "read-list":
+                        # Channel details are admin-only (#2480): a reader's rows carry no config at all.
+                        assert response.json()["channels"], "reader list is empty"
+                        assert all("config" not in row for row in response.json()["channels"])
+                        # Check the config projection itself with an admin token.
+                        response = await client.get(path, headers={"Authorization": f"Bearer {admin}"})
+                        assert response.status_code == 200
+                        assert all(value.strip() not in response.text for value in private.values()), "legacy credential exposed"
                     configs = [row["config"] for row in response.json()["channels"]]
                 assert all(not set(private).intersection(cfg) for cfg in configs), "canonical secret field exposed"
                 assert all(cfg == public for cfg in configs), "non-secret configuration changed"

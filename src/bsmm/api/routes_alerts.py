@@ -179,9 +179,10 @@ async def channel_types(_: Principal = Depends(require("read"))) -> dict[str, An
     return {"channel_types": [c.describe() for c in CHANNEL_CLASSES.values()]}
 
 
-@router.get("/notifications/channels", tags=["notifications"], operation_id="listChannels", summary="Your notification channels (secrets are never shown)")
-async def list_channels(ctx: AppContext = Depends(get_ctx), _: Principal = Depends(require("read"))) -> dict[str, Any]:
-    return {"channels": [c.model_dump(mode="json") for c in await ctx.store.list_channels()]}
+@router.get("/notifications/channels", tags=["notifications"], operation_id="listChannels", summary="Your notification channels (secrets are never shown; channel details are for admins)")
+async def list_channels(ctx: AppContext = Depends(get_ctx), principal: Principal = Depends(require("read"))) -> dict[str, Any]:
+    hidden = set() if principal.allows("admin") else {"config"}
+    return {"channels": [c.model_dump(mode="json", exclude=hidden) for c in await ctx.store.list_channels()]}
 
 
 @router.post("/notifications/channels", tags=["notifications"], operation_id="createChannel", summary="Add a notification channel (admin)")
