@@ -687,7 +687,9 @@ class Fleet:
         if prev is None or t.hashrate_hs is None or t.hashrate_hs <= 0:
             return
         dt = now - prev.ts
-        cap = 3 * max(self.settings.current.polling.interval_s, 5.0)
+        # The interval the poll loop uses for this miner (rt.failures is already 0 on a success), so a miner
+        # checked every few minutes is credited for them; an outage gap still stops at 3 intervals.
+        cap = 3 * max(self._interval_for(rt), 5.0)
         dt = min(max(dt, 0.0), cap)
         hashes = t.hashrate_hs * dt
         self._work_hashes += hashes
