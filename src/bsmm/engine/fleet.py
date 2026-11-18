@@ -290,6 +290,8 @@ class Fleet:
     def _on_settings_change(self, new: Settings, old: Settings) -> None:
         if new.polling.concurrency != old.polling.concurrency:
             self._sem = asyncio.Semaphore(new.polling.concurrency)
+        if new.polling == old.polling and new.alerts == old.alerts:
+            return  # a poll reads only these two sections (intervals, timeouts, status thresholds); other saves leave miners alone
         for rt in self.runtimes.values():
             rt.wake.set()
 
@@ -687,7 +689,9 @@ class Fleet:
         if prev is None or t.hashrate_hs is None or t.hashrate_hs <= 0:
             return
         dt = now - prev.ts
-        cap = 3 * max(self.settings.current.polling.interval_s, 5.0)
+        # The interval the poll loop uses for this miner (rt.failures is already 0 on a success), so a miner
+        # checked every few minutes is credited for them; an outage gap still stops at 3 intervals.
+        cap = 3 * max(self._interval_for(rt), 5.0)
         dt = min(max(dt, 0.0), cap)
         hashes = t.hashrate_hs * dt
         self._work_hashes += hashes

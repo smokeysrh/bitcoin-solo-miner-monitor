@@ -1374,3 +1374,69 @@ def test_pool_fallback_ignores_offline_miners():
     assert not fired("pool_fallback", [view(status=DeviceStatus.OFFLINE, **on_fallback)])
     assert not fired("pool_fallback", [view(using_fallback=False)])
     assert not fired("pool_fallback", [view(using_fallback=None)])
+
+
+# --- a disabled miner has no current reading (issue #159) ------------------------------------------------------------------------------------
+
+
+async def _disabled_miner_alert_resolves(rig, m: Miner, kind: str, wait_s: float) -> None:
+    """Raise ``kind`` for ``m``, disable the miner, and check the alert resolves instead of nagging about a frozen reading."""
+    await rig.fire(wait_s)
+    [first] = rig.outbox
+    assert first.type == kind and first.resolved is False
+    assert len(rig.active()) == 1
+
+    await rig.ctx.fleet.update(m.id, {"enabled": False})
+    assert m.status == DeviceStatus.DISABLED
+    assert m.telemetry is not None  # disabling keeps the last reading for other views; the alert rules must ignore it
+
+    await rig.tick()  # the first tick without the condition starts the clear timer
+    await rig.tick(RESOLVE_AFTER_S)
+    assert rig.active() == []
+    assert rig.engine._tracks == {} and await rig.ctx.store.load_alert_state() == {}
+    assert [n.resolved for n in rig.outbox] == [False, True] and rig.outbox[1].type == kind
+
+    cooldown = RULE_SPECS[kind].cooldown_s
+    await rig.tick(cooldown + 1)
+    await rig.tick(cooldown + 1)
+    assert [n.title for n in rig.outbox if n.title.startswith("Still a problem")] == []
+    assert len(rig.outbox) == 2 and rig.active() == []  # no reminder, no new alert, nothing firing again
+
+
+async def test_disabling_a_hot_miner_resolves_temp_high_and_sends_no_reminder(rig):
+    m = await rig.miner(name="Garage")
+    m.heat(2.4)
+    await m.poll()
+    assert m.telemetry.temp_asic_c >= 75
+    await _disabled_miner_alert_resolves(rig, m, "temp_high", 60)
+
+
+async def test_disabling_a_miner_on_its_fallback_pool_resolves_pool_fallback_and_sends_no_reminder(rig):
+    m = await rig.miner(name="Garage")
+    m.overrides["isUsingFallbackStratum"] = 1
+    await m.poll()
+    assert m.telemetry.using_fallback is True
+    await _disabled_miner_alert_resolves(rig, m, "pool_fallback", 120)
+
+
+async def test_disabling_a_miner_with_rejected_shares_resolves_reject_rate_and_sends_no_reminder(rig):
+    m = await rig.miner(name="Garage")
+    m.overrides.update(sharesAccepted=900, sharesRejected=100)
+    await m.poll()
+    assert m.telemetry.reject_rate_pct >= 5
+    await _disabled_miner_alert_resolves(rig, m, "reject_rate_high", 600)
+
+
+@pytest.mark.parametrize(
+    ("kind", "telemetry", "extra"),
+    [
+        ("temp_high", {"temp_asic_c": 99.0}, {}),
+        ("fan_failure", {"fan_rpm": 0, "fan_pct": 50, "temp_asic_c": 60}, {}),
+        ("hashrate_drop", {"hashrate_hs": 0.1e12, "uptime_s": 5000}, {"baselines": {"d1": 1.0e12}}),
+        ("reject_rate_high", {"shares_accepted": 100, "shares_rejected": 900, "reject_rate_pct": 90.0}, {}),
+        ("pool_fallback", {"using_fallback": True}, {}),
+    ],
+)
+def test_telemetry_rules_treat_a_disabled_miner_as_having_no_current_reading(kind, telemetry, extra):
+    assert fired(kind, [view(**telemetry)], **extra)  # the control: the same reading on an online miner fires
+    assert not fired(kind, [view(status=DeviceStatus.DISABLED, **telemetry)], **extra)

@@ -17,6 +17,8 @@ _RAW_INSERT = (
     f"VALUES (:device_id, :ts, {', '.join(':' + n for n in mx.NAMES)})"
 )
 
+MAX_HISTORY_BUCKETS = 5000  # ceiling for one history response; a smaller requested step is raised to fit
+
 
 @dataclass(slots=True)
 class Retention:
@@ -219,6 +221,9 @@ class SampleStore:
         step = max(native, int(step))
         if table != "samples":
             step = max(native, (step // native) * native)
+        # Limit the response size: a small explicit step over a long window is raised to fit.
+        fit = -(-int(span) // MAX_HISTORY_BUCKETS)
+        step = max(step, -(-fit // native) * native)
 
         ts_col = "ts" if table == "samples" else "bucket"
         select: list[str] = []
