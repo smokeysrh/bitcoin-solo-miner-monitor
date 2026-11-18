@@ -30,6 +30,8 @@ def window(range_: str | None, start: float | None, end: float | None, default: 
         e = end if end is not None else now
         if e <= start:
             raise bad_request("'end' must be after 'start'.")
+        if e - start > MAX_RANGE_S:
+            raise bad_request("That time range is out of bounds.", "Pick between a minute and five years.")
         return start, e
     return now - parse_range(range_ or default), now
 
