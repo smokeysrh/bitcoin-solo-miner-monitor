@@ -758,6 +758,55 @@ async def test_a_block_found_while_the_app_was_not_running_is_noticed_after_the_
     assert len(await ctx.store.list_blocks_found()) == 1 and len(await world.events("block_found")) == 1
 
 
+async def test_the_saved_marker_waits_for_a_payout_address_before_a_held_range_is_checked(world):
+    ctx = world.ctx
+    node = await world.core()
+    await world.cycle()  # the app runs and sets its marker; then it is stopped ...
+    start = node.height
+    for i in range(1, 9):  # ... the miners carry on and find a block among eight (older than the snapshot's recent list) ...
+        node.mine_block(address=ADDR if i == 3 else OTHER_POOL_ADDR, sats=315_000_000 if i == 3 else 312_500_000)
+    assert await ctx.store.kv_get("blocks.last_checked") == start
+
+    world.hosts["g.test"] = AxeOSSim("gamma", seed=1, mac="AA:BB:CC:00:00:11").app()  # its stratum user is ADDR.sim1
+    res = await ctx.fleet.add_by_host("g.test", drivers=["axeos"])
+    assert ctx.settings.current.mining.addresses == [] and ctx.fleet.all_addresses() == []  # saved, not yet read
+
+    fresh = restarted_service(ctx)
+    lookups: list[int] = []
+    original = fresh._lookup_block
+
+    async def spy(height: int) -> BlockInfo | None:
+        lookups.append(height)
+        return await original(height)
+
+    fresh._lookup_block = spy  # type: ignore[method-assign]
+    await look(fresh)  # first look after start-up: nothing to compare the blocks with yet
+    assert await ctx.store.kv_get("blocks.last_checked") == start  # the held range is kept, not skipped
+    assert lookups == [] and await ctx.store.list_blocks_found() == [] and await world.events("block_found") == []
+
+    await ctx.fleet._poll_once(ctx.fleet.runtimes[res.device.id])  # the miner reports its pool address
+    assert ctx.fleet.all_addresses() == [ADDR]
+    await look(fresh)  # the next look checks the whole held range
+    [found] = await ctx.store.list_blocks_found()
+    assert found["height"] == start + 3 and found["address"] == ADDR and found["reward_sats"] == 315_000_000
+    assert [e.title for e in await world.events("block_found")] == ["YOU FOUND A BLOCK!"]
+    assert lookups and await ctx.store.kv_get("blocks.last_checked") == node.height
+
+
+async def test_a_known_address_at_the_first_look_still_checks_and_advances_the_held_range(world):
+    ctx = world.ctx
+    await ctx.settings.update({"mining": {"addresses": [ADDR]}})
+    node = await world.core()
+    await world.cycle()
+    start = node.height
+    node.mine_block(address=ADDR, sats=315_000_000)
+    node.mine_block()
+    await look(restarted_service(ctx))
+    [found] = await ctx.store.list_blocks_found()
+    assert found["height"] == start + 1 and len(await world.events("block_found")) == 1
+    assert await ctx.store.kv_get("blocks.last_checked") == node.height
+
+
 async def test_a_fresh_install_starts_from_the_current_tip_and_does_not_claim_old_blocks(world):
     ctx = world.ctx
     await ctx.settings.update({"mining": {"addresses": [ADDR]}})
