@@ -131,20 +131,27 @@ async def test_other_cgminer_families_are_not_compared():
 
 
 async def avalon_runtime(ctx, sim):
+    """Add the Avalon and take one successful poll. Returns (device id, runtime, status after that poll).
+
+    The baseline is a successful poll, not a fixed status: whether the simulated telemetry reads as ONLINE or
+    DEGRADED is ``derive_status``'s call and is not what these tests are about. Failed polls must leave
+    whatever status it gave unchanged until the offline threshold.
+    """
     result = await ctx.fleet.add_from_probe(ProbeResult(info=avalon_info(sim, SAVED_DNA)))
     rt = await poll(ctx, result.device.id)
-    assert rt.status == DeviceStatus.ONLINE and rt.failures == 0
-    return result.device.id, rt
+    assert rt.failures == 0 and rt.last_error is None and rt.telemetry is not None and rt.telemetry.online
+    assert rt.status not in (DeviceStatus.OFFLINE, DeviceStatus.UNKNOWN, DeviceStatus.DISABLED)
+    return result.device.id, rt, rt.status
 
 
 async def test_swapped_avalon_goes_offline_only_after_the_threshold(lan, sim):
     ctx, _ = lan
-    did, rt = await avalon_runtime(ctx, sim)
+    did, rt, baseline = await avalon_runtime(ctx, sim)
     threshold = ctx.settings.current.polling.offline_after_failures
     sim.dna = OTHER_DNA  # another unit now answers at this address
     for expected_failures in range(1, threshold):
         await poll(ctx, did)
-        assert rt.status == DeviceStatus.ONLINE and rt.failures == expected_failures
+        assert rt.status == baseline and rt.failures == expected_failures
         assert "identity" in (rt.last_error or "")
     await poll(ctx, did)
     assert rt.status == DeviceStatus.OFFLINE and "identity" in (rt.last_error or "")
@@ -154,12 +161,12 @@ async def test_swapped_avalon_goes_offline_only_after_the_threshold(lan, sim):
 
 async def test_one_odd_avalon_reading_is_not_an_outage(lan, sim):
     ctx, _ = lan
-    did, rt = await avalon_runtime(ctx, sim)
+    did, rt, baseline = await avalon_runtime(ctx, sim)
     sim.dna = OTHER_DNA
     await poll(ctx, did)
-    assert rt.status == DeviceStatus.ONLINE and rt.failures == 1
+    assert rt.status == baseline and rt.failures == 1
     sim.dna = SAVED_DNA
     await poll(ctx, did)
-    assert rt.status == DeviceStatus.ONLINE and rt.failures == 0 and rt.last_error is None
+    assert rt.status == baseline and rt.failures == 0 and rt.last_error is None
     kinds = await events(ctx)
     assert "device_offline" not in kinds and "device_online" not in kinds
