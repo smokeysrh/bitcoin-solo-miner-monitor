@@ -22,7 +22,7 @@ from typing import Any, ClassVar
 import httpx
 
 from bsmm.bitcoin_address import split_stratum_user
-from bsmm.drivers.base import BadResponse, Driver, DriverError, Unreachable
+from bsmm.drivers.base import BadResponse, Driver, DriverError, Unreachable, check_identity
 from bsmm.drivers.catalog import avalon_model_name
 from bsmm.models import (
     DeviceInfo,
@@ -436,6 +436,16 @@ class CgminerDriver(Driver):
         """One API call. Overridden by the in-process demo driver."""
         return await cgminer_call(self.host, self.port, command, timeout=self.timeout)
 
+    def _check_avalon_identity(self, stats: list[dict[str, Any]]) -> None:
+        """Compare this poll's estats DNA with the serial saved at discovery (same value, same parser).
+
+        Nothing to compare (no saved serial, no DNA in this reply, a failed ``estats``) is compatible.
+        """
+        if not self.info or self._family != "avalon" or not self.info.serial:
+            return
+        if dna := parse_avalon_estats(stats).get("dna"):
+            check_identity(self.info, self.info.model_copy(update={"mac": None, "serial": dna}))
+
     async def poll(self) -> Telemetry:
         summary_reply = await self._call("summary")
         summary = section(summary_reply, "SUMMARY")
@@ -452,4 +462,5 @@ class CgminerDriver(Driver):
         if self.info and isinstance(self.info.extra.get("power_override_w"), int | float):
             power_override = float(self.info.extra["power_override_w"])
         self.last_raw = {"summary": summary[0], "pools": pools, "stats": stats}
+        self._check_avalon_identity(stats)
         return build_telemetry(summary[0], pools, stats, family=self._family, power_override_w=power_override)
